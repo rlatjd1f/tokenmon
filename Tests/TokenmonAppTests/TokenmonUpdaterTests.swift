@@ -160,7 +160,7 @@ struct TokenmonUpdaterTests {
 
     @Test
     @MainActor
-    func updateNotificationBridgeOnlyAlertsForAutomaticChecksAndDeduplicatesVersions() {
+    func updateNotificationBridgeAlertsWhenUpdatesAreFoundAndDeduplicatesVersions() {
         let coordinator = UpdateNotificationCoordinatorSpy()
         let bridge = TokenmonAppUpdateNotificationBridge(
             settingsProvider: { AppSettings(updateNotificationsEnabled: true) },
@@ -169,7 +169,6 @@ struct TokenmonUpdaterTests {
 
         bridge.beginUpdateCheck(.updates)
         bridge.handleUpdateAvailable(version: "0.1.12")
-        #expect(coordinator.updateNotificationVersions.isEmpty)
 
         bridge.beginUpdateCheck(.updatesInBackground)
         bridge.handleUpdateAvailable(version: "0.1.12")
@@ -178,7 +177,7 @@ struct TokenmonUpdaterTests {
 
         bridge.finishUpdateCheck()
         bridge.handleUpdateAvailable(version: "0.1.13")
-        #expect(coordinator.updateNotificationVersions == ["0.1.12"])
+        #expect(coordinator.updateNotificationVersions == ["0.1.12", "0.1.13"])
     }
 
     @Test

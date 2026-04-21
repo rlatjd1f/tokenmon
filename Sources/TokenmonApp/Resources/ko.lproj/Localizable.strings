@@ -368,7 +368,7 @@
 "settings.updates.public_key_source" = "서명 키 소스: %1$@";
 "settings.updates.override_file" = "로컬 override 파일: %1$@";
 "settings.updates.override_active" = "이 앱에는 기본값이 아닌 Sparkle 업데이트 구성이 활성화되어 있습니다.";
-"settings.updates.note" = "Tokenmon은 Sparkle을 사용해 서명된 릴리스 피드를 확인하고, 노타리제이션된 앱 업데이트를 제안합니다. 기본 자동 확인 간격은 약 1시간이며, 업데이트 준비 알림은 그 자동 확인에서 새 버전을 발견했을 때만 뜹니다. Homebrew 설치본도 인앱 업데이트를 허용하도록 cask를 구성합니다. 업데이트 준비 알림을 켜면 포획 알림과 같은 macOS 알림 권한을 사용하며, 알림을 클릭하면 네이티브 업데이트 프롬프트를 엽니다.";
+"settings.updates.note" = "Tokenmon은 Sparkle을 사용해 서명된 릴리스 피드를 확인하고, 노타리제이션된 앱 업데이트를 제안합니다. 기본 자동 확인 간격은 약 1시간입니다. 업데이트 준비 알림을 켜면 Sparkle이 새 버전을 발견할 때마다 포획 알림과 같은 macOS 권한으로 알림을 보낼 수 있고, 알림을 클릭하면 네이티브 업데이트 프롬프트를 엽니다.";
 "settings.updates.source.bundle_metadata" = "번들 릴리스 메타데이터";
 "settings.updates.source.local_override_file" = "로컬 override 파일";
 "settings.updates.source.process_environment" = "프로세스 환경변수";

@@ -577,7 +577,6 @@ final class TokenmonAppUpdaterAnalyticsBridge {
 final class TokenmonAppUpdateNotificationBridge {
     private let settingsProvider: () -> AppSettings
     private let notificationCoordinator: TokenmonCaptureNotificationCoordinating
-    private var automaticUpdateCheckInProgress = false
     private var lastNotifiedVersion: String?
 
     init(
@@ -589,14 +588,10 @@ final class TokenmonAppUpdateNotificationBridge {
     }
 
     func beginUpdateCheck(_ updateCheck: SPUUpdateCheck) {
-        automaticUpdateCheckInProgress = updateCheck != .updates
+        _ = updateCheck
     }
 
     func handleUpdateAvailable(version: String?) {
-        guard automaticUpdateCheckInProgress else {
-            return
-        }
-
         let settings = settingsProvider()
         guard settings.updateNotificationsEnabled else {
             return
@@ -620,7 +615,6 @@ final class TokenmonAppUpdateNotificationBridge {
     }
 
     func finishUpdateCheck() {
-        automaticUpdateCheckInProgress = false
     }
 }
 

@@ -36,7 +36,7 @@
 "settings.updates.public_key_source" = "Signing key source: %1$@";
 "settings.updates.override_file" = "Local override file: %1$@";
 "settings.updates.override_active" = "A non-default Sparkle update configuration is active for this app.";
-"settings.updates.note" = "Tokenmon uses Sparkle to check a signed release feed and propose notarized app updates. By default it checks roughly once per hour, and update-ready alerts only appear when that automatic check discovers a newer version. The Homebrew cask is marked to allow in-app updates too. If you enable update-ready alerts, Tokenmon uses the same macOS notification permission as capture alerts and opens the native update prompt when you click the alert.";
+"settings.updates.note" = "Tokenmon uses Sparkle to check a signed release feed and propose notarized app updates. By default it checks roughly once per hour. If you enable update-ready alerts, Tokenmon can show a macOS notification whenever Sparkle discovers a newer version, using the same permission as capture alerts. Opening the alert brings up the native update prompt.";
 "settings.updates.source.bundle_metadata" = "Bundled release metadata";
 "settings.updates.source.local_override_file" = "Local override file";
 "settings.updates.source.process_environment" = "Process environment";
