@@ -100,8 +100,8 @@ public final class TokenmonDatabaseManager {
 
     private static let bootstrapState = BootstrapState()
     private static let encounterThresholdPolicySettingKey = "encounter_threshold_policy_version"
-    private static let encounterThresholdPolicyVersion = "encounter_threshold_v2_collection_scaled"
-    private static let encounterThresholdRebaseGraceTokens: Int64 = 20_000
+    private static let encounterThresholdPolicyVersion = "encounter_threshold_v3_midpoint_rebase"
+    private static let encounterThresholdRebaseProgressFraction = 0.50
 
     public let path: String
 
@@ -1189,23 +1189,26 @@ public final class TokenmonDatabaseManager {
             return
         }
 
-        var nextThreshold = config.tokensRequiredForEncounter(
+        let nextThreshold = config.tokensRequiredForEncounter(
             state.totalEncounters + 1,
             capturedSpeciesCount: capturedSpeciesCount
         )
-        if nextThreshold <= state.tokensSinceLastEncounter {
-            nextThreshold = state.tokensSinceLastEncounter + Self.encounterThresholdRebaseGraceTokens
-        }
+        let nextTokensSinceLastEncounter = Self.rebasedTokensSinceLastEncounter(
+            currentTokensSinceLastEncounter: state.tokensSinceLastEncounter,
+            nextEncounterThresholdTokens: nextThreshold
+        )
 
         let now = ISO8601DateFormatter().string(from: Date())
         try database.execute(
             """
             UPDATE exploration_state
-            SET next_encounter_threshold_tokens = ?,
+            SET tokens_since_last_encounter = ?,
+                next_encounter_threshold_tokens = ?,
                 updated_at = ?
             WHERE exploration_state_id = 1;
             """,
             bindings: [
+                .integer(nextTokensSinceLastEncounter),
                 .integer(nextThreshold),
                 .text(now),
             ]
@@ -1216,6 +1219,21 @@ public final class TokenmonDatabaseManager {
             updatedAt: now,
             database: database
         )
+    }
+
+    private static func rebasedTokensSinceLastEncounter(
+        currentTokensSinceLastEncounter: Int64,
+        nextEncounterThresholdTokens: Int64
+    ) -> Int64 {
+        guard currentTokensSinceLastEncounter >= nextEncounterThresholdTokens else {
+            return currentTokensSinceLastEncounter
+        }
+
+        let midpoint = Int64(
+            (Double(nextEncounterThresholdTokens) * encounterThresholdRebaseProgressFraction)
+                .rounded(.down)
+        )
+        return max(0, min(midpoint, nextEncounterThresholdTokens - 1))
     }
 
     private func dexCapturedSpeciesCount(database: SQLiteDatabase) throws -> Int {

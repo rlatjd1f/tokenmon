@@ -22,20 +22,21 @@ private struct GameplayTokenBalanceBucketState {
 }
 
 enum GameplayTokenBalancer {
-    private static let targetRateTokensPerMinute = 3_000.0
-    private static let correctionAlpha = 0.60
+    private static let targetRateTokensPerMinute = 1_200.0
+    private static let correctionAlpha = 0.85
     private static let smoothingPreviousWeight = 0.85
     private static let smoothingNewWeight = 0.15
-    private static let minimumCorrectionWeight = 0.35
+    private static let minimumCorrectionWeight = 0.01
     private static let maximumCorrectionWeight = 2.50
-    private static let coldStartMinimumSamples: Int64 = 8
-    private static let coldStartMinimumActiveMinutes = 10.0
+    private static let coldStartMinimumSamples: Int64 = 3
+    private static let coldStartMinimumActiveMinutes = 0.25
     private static let minimumIntervalMinutes = 5.0 / 60.0
     private static let maximumIntervalMinutes = 10.0
-    private static let softCapThresholdTokens = 120_000.0
-    private static let softCapOverflowMultiplier = 0.25
-    private static let policyVersion = "gameplay_balance_v1"
+    private static let softCapThresholdTokens = 60_000.0
+    private static let softCapOverflowMultiplier = 0.10
+    private static let policyVersion = "gameplay_balance_v2"
     private static let seedSettingKey = "gameplay_balance_seed"
+    private static let policySettingKey = "gameplay_balance_policy_version"
 
     static func balance(
         database: SQLiteDatabase,
@@ -54,6 +55,7 @@ enum GameplayTokenBalancer {
 
         let bucketKey = bucketKey(provider: event.provider, modelSlug: event.modelSlug)
         let modelBucket = modelBucket(from: event.modelSlug)
+        try ensurePolicyVersion(database: database)
         let bucketState = try loadBucketState(database: database, bucketKey: bucketKey)
         let fallbackWeight = providerFallbackWeight(event.provider)
         let previousWeight = bucketState?.effectiveWeight ?? fallbackWeight
@@ -79,7 +81,7 @@ enum GameplayTokenBalancer {
             )
             correctionWeight = (previousWeight * smoothingPreviousWeight)
                 + (clampedCorrection * smoothingNewWeight)
-            policyMode = "dynamic_alpha_0_60"
+            policyMode = "dynamic_alpha_0_85"
         } else {
             correctionWeight = fallbackWeight
             policyMode = "cold_start_provider_fallback"
@@ -158,6 +160,47 @@ enum GameplayTokenBalancer {
         }
     }
 
+    private static func ensurePolicyVersion(database: SQLiteDatabase) throws {
+        let currentPolicy = try database.fetchOne(
+            """
+            SELECT setting_value_json
+            FROM settings
+            WHERE setting_key = ?
+            LIMIT 1;
+            """,
+            bindings: [.text(policySettingKey)]
+        ) { statement in
+            SQLiteDatabase.columnText(statement, index: 0)
+        }
+        let decoder = JSONDecoder()
+        let decodedPolicy = currentPolicy.flatMap {
+            try? decoder.decode(String.self, from: Data($0.utf8))
+        }
+        guard decodedPolicy != policyVersion else {
+            return
+        }
+
+        try database.execute("DELETE FROM gameplay_balance_buckets;")
+        let now = ISO8601DateFormatter().string(from: Date())
+        try database.execute(
+            """
+            INSERT INTO settings (
+                setting_key,
+                setting_value_json,
+                updated_at
+            ) VALUES (?, ?, ?)
+            ON CONFLICT(setting_key) DO UPDATE SET
+                setting_value_json = excluded.setting_value_json,
+                updated_at = excluded.updated_at;
+            """,
+            bindings: [
+                .text(policySettingKey),
+                .text("\"\(policyVersion)\""),
+                .text(now),
+            ]
+        )
+    }
+
     private static func upsertBucketState(
         database: SQLiteDatabase,
         bucketKey: String,
@@ -228,11 +271,11 @@ enum GameplayTokenBalancer {
         case .claude:
             return 1.00
         case .codex:
-            return 0.65
+            return 0.15
         case .gemini:
-            return 0.60
+            return 0.35
         case .cursor:
-            return 0.70
+            return 0.50
         }
     }
 
