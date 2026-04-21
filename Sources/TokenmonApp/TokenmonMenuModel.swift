@@ -1062,6 +1062,8 @@ final class TokenmonMenuModel: ObservableObject {
 
     var tokenTotals: TokenUsageTotals? { insightsSnapshot.tokenTotals }
 
+    var tokenUsageSourceSummary: TokenUsageSourceSummary { insightsSnapshot.tokenUsageSourceSummary }
+
     var tokenByProviderToday: [ProviderCode: Int64] { insightsSnapshot.tokenByProviderToday }
 
     var tokenHourlyRolling: [HourTokenBucket] { insightsSnapshot.tokenHourlyRolling }
@@ -1336,6 +1338,7 @@ final class TokenmonMenuModel: ObservableObject {
                 fieldDistribution: try databaseManager.encounterFieldDistribution(),
                 dailyTrend: try databaseManager.encounterDailyTrend(days: 7),
                 tokenTotals: try databaseManager.tokenUsageTotals(),
+                tokenUsageSourceSummary: try databaseManager.tokenUsageSourceSummary(),
                 tokenByProviderToday: try databaseManager.tokenByProviderToday(),
                 tokenHourlyRolling: try databaseManager.tokenHourlyRolling24(),
                 recentSessions: try databaseManager.recentProviderSessions(limit: 30),
@@ -1702,11 +1705,13 @@ private extension TokenmonMenuModel {
 
     nonisolated static func cursorSyncMessage(from output: String) -> String {
         let accepted = syncOutputValue(for: "accepted", in: output) ?? "0"
-        let usageSamples = syncOutputValue(for: "usage_samples", in: output) ?? "0"
+        let usageSamples = syncOutputValue(for: "account_usage_samples", in: output)
+            ?? syncOutputValue(for: "usage_samples", in: output)
+            ?? "0"
         if let gameplayNote = syncOutputValue(for: "gameplay_note", in: output) {
-            return "Cursor sync complete: \(accepted) accepted, \(usageSamples) samples. \(gameplayNote)"
+            return "Cursor sync complete: \(accepted) accepted, \(usageSamples) account samples. \(gameplayNote)"
         }
-        return "Cursor sync complete: \(accepted) accepted, \(usageSamples) samples."
+        return "Cursor sync complete: \(accepted) accepted, \(usageSamples) account samples."
     }
 
     nonisolated static func syncOutputValue(for key: String, in output: String) -> String? {

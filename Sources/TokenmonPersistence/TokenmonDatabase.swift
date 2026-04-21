@@ -21,6 +21,7 @@ public struct TokenmonDatabaseSummary: Equatable, Sendable {
     public let ingestSources: Int
     public let providerIngestEvents: Int
     public let usageSamples: Int
+    public let accountUsageSamples: Int
     public let species: Int
     public let domainEvents: Int
     public let totalNormalizedTokens: Int64
@@ -133,6 +134,21 @@ public final class TokenmonDatabaseManager {
             .path
     }
 
+    public static func accountUsageDirectory(forDatabasePath path: String? = nil) -> String {
+        URL(fileURLWithPath: supportDirectory(forDatabasePath: path), isDirectory: true)
+            .appendingPathComponent("AccountUsage", isDirectory: true)
+            .path
+    }
+
+    public static func accountUsagePath(
+        provider: ProviderCode,
+        databasePath: String? = nil
+    ) -> String {
+        URL(fileURLWithPath: accountUsageDirectory(forDatabasePath: databasePath), isDirectory: true)
+            .appendingPathComponent("\(provider.rawValue).ndjson")
+            .path
+    }
+
     public func open() throws -> SQLiteDatabase {
         let url = URL(fileURLWithPath: path)
         try FileManager.default.createDirectory(
@@ -188,6 +204,7 @@ public final class TokenmonDatabaseManager {
             ingestSources: try countRows(in: "ingest_sources", database: database),
             providerIngestEvents: try countRows(in: "provider_ingest_events", database: database),
             usageSamples: try countRows(in: "usage_samples", database: database),
+            accountUsageSamples: try countRows(in: "account_usage_samples", database: database),
             species: try countRows(in: "species", database: database),
             domainEvents: try countRows(in: "domain_events", database: database),
             totalNormalizedTokens: explorationState.totalNormalizedTokens,
@@ -247,6 +264,7 @@ public final class TokenmonDatabaseManager {
             try database.execute("DELETE FROM encounters;")
             try database.execute("DELETE FROM domain_events;")
             try database.execute("DELETE FROM usage_samples;")
+            try database.execute("DELETE FROM account_usage_samples;")
             try database.execute("DELETE FROM provider_ingest_events;")
             try database.execute("DELETE FROM ingest_sources;")
             try database.execute("DELETE FROM provider_health;")
@@ -1414,6 +1432,26 @@ public final class TokenmonDatabaseManager {
                 );
                 """,
                 """
+                CREATE TABLE IF NOT EXISTS account_usage_samples (
+                    account_usage_sample_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    provider_code TEXT NOT NULL REFERENCES providers(provider_code),
+                    source_mode TEXT NOT NULL,
+                    observed_at TEXT NOT NULL,
+                    model_slug TEXT,
+                    usage_kind TEXT NOT NULL,
+                    input_tokens INTEGER NOT NULL CHECK(input_tokens >= 0),
+                    output_tokens INTEGER NOT NULL CHECK(output_tokens >= 0),
+                    cached_input_tokens INTEGER NOT NULL CHECK(cached_input_tokens >= 0),
+                    normalized_delta_tokens INTEGER NOT NULL CHECK(normalized_delta_tokens >= 0),
+                    provider_event_fingerprint TEXT NOT NULL UNIQUE,
+                    raw_reference_kind TEXT NOT NULL,
+                    raw_reference_event_name TEXT,
+                    raw_reference_offset TEXT,
+                    payload_json TEXT NOT NULL,
+                    created_at TEXT NOT NULL
+                );
+                """,
+                """
                 CREATE TABLE IF NOT EXISTS exploration_state (
                     exploration_state_id INTEGER PRIMARY KEY NOT NULL,
                     total_normalized_tokens INTEGER NOT NULL,
@@ -1509,6 +1547,8 @@ public final class TokenmonDatabaseManager {
                 "CREATE INDEX IF NOT EXISTS idx_usage_samples_session_observed ON usage_samples(provider_session_row_id, observed_at);",
                 "CREATE INDEX IF NOT EXISTS idx_usage_samples_observed ON usage_samples(observed_at DESC);",
                 "CREATE INDEX IF NOT EXISTS idx_encounters_occurred ON encounters(occurred_at DESC);",
+                "CREATE INDEX IF NOT EXISTS idx_account_usage_samples_provider_observed ON account_usage_samples(provider_code, observed_at DESC);",
+                "CREATE INDEX IF NOT EXISTS idx_account_usage_samples_observed ON account_usage_samples(observed_at DESC);",
                 "CREATE INDEX IF NOT EXISTS idx_domain_events_event_type_occurred ON domain_events(event_type, occurred_at DESC);",
             ]),
             SQLiteMigration(version: 2, statements: [
@@ -1766,6 +1806,167 @@ public final class TokenmonDatabaseManager {
                 );
                 """,
                 "CREATE UNIQUE INDEX IF NOT EXISTS idx_party_members_slot ON party_members(slot_order);",
+            ]),
+            SQLiteMigration(version: 10, statements: [
+                """
+                WITH codex_ordered AS (
+                    SELECT
+                        us.usage_sample_id,
+                        us.total_input_tokens + us.total_output_tokens AS repaired_total,
+                        LAG(us.total_input_tokens + us.total_output_tokens, 1, 0) OVER (
+                            PARTITION BY us.provider_session_row_id
+                            ORDER BY us.observed_at, us.usage_sample_id
+                        ) AS previous_repaired_total
+                    FROM usage_samples us
+                    INNER JOIN provider_ingest_events pie
+                        ON pie.provider_ingest_event_id = us.provider_ingest_event_id
+                    WHERE us.provider_code = 'codex'
+                      AND pie.source_mode IN (
+                          'codex_exec_json',
+                          'codex_session_store_live',
+                          'codex_session_store_recovery',
+                          'codex_transcript_backfill'
+                      )
+                ),
+                repaired AS (
+                    SELECT
+                        usage_sample_id,
+                        repaired_total,
+                        CASE
+                            WHEN repaired_total > previous_repaired_total
+                            THEN repaired_total - previous_repaired_total
+                            ELSE 0
+                        END AS repaired_delta
+                    FROM codex_ordered
+                )
+                UPDATE usage_samples
+                SET normalized_total_tokens = (
+                        SELECT repaired_total
+                        FROM repaired
+                        WHERE repaired.usage_sample_id = usage_samples.usage_sample_id
+                    ),
+                    normalized_delta_tokens = (
+                        SELECT repaired_delta
+                        FROM repaired
+                        WHERE repaired.usage_sample_id = usage_samples.usage_sample_id
+                    ),
+                    gameplay_delta_tokens = CASE
+                        WHEN gameplay_eligibility = 'eligible_live'
+                        THEN (
+                            SELECT repaired_delta
+                            FROM repaired
+                            WHERE repaired.usage_sample_id = usage_samples.usage_sample_id
+                        )
+                        ELSE 0
+                    END
+                WHERE usage_sample_id IN (
+                    SELECT usage_sample_id
+                    FROM repaired
+                );
+                """,
+                """
+                WITH repaired AS (
+                    SELECT
+                        us.provider_ingest_event_id,
+                        us.normalized_total_tokens
+                    FROM usage_samples us
+                    INNER JOIN provider_ingest_events pie
+                        ON pie.provider_ingest_event_id = us.provider_ingest_event_id
+                    WHERE us.provider_code = 'codex'
+                      AND pie.source_mode IN (
+                          'codex_exec_json',
+                          'codex_session_store_live',
+                          'codex_session_store_recovery',
+                          'codex_transcript_backfill'
+                      )
+                )
+                UPDATE provider_ingest_events
+                SET payload_json = json_set(
+                    payload_json,
+                    '$.normalized_total_tokens',
+                    (
+                        SELECT normalized_total_tokens
+                        FROM repaired
+                        WHERE repaired.provider_ingest_event_id = provider_ingest_events.provider_ingest_event_id
+                    )
+                )
+                WHERE provider_ingest_event_id IN (
+                    SELECT provider_ingest_event_id
+                    FROM repaired
+                )
+                  AND json_valid(payload_json);
+                """,
+                """
+                WITH repaired AS (
+                    SELECT
+                        us.usage_sample_id,
+                        us.normalized_total_tokens,
+                        us.normalized_delta_tokens,
+                        us.gameplay_delta_tokens
+                    FROM usage_samples us
+                    INNER JOIN provider_ingest_events pie
+                        ON pie.provider_ingest_event_id = us.provider_ingest_event_id
+                    WHERE us.provider_code = 'codex'
+                      AND pie.source_mode IN (
+                          'codex_exec_json',
+                          'codex_session_store_live',
+                          'codex_session_store_recovery',
+                          'codex_transcript_backfill'
+                      )
+                )
+                UPDATE domain_events
+                SET payload_json = json_set(
+                    payload_json,
+                    '$.normalized_total_tokens',
+                    (
+                        SELECT normalized_total_tokens
+                        FROM repaired
+                        WHERE repaired.usage_sample_id = json_extract(domain_events.payload_json, '$.usage_sample_id')
+                    ),
+                    '$.normalized_delta_tokens',
+                    (
+                        SELECT normalized_delta_tokens
+                        FROM repaired
+                        WHERE repaired.usage_sample_id = json_extract(domain_events.payload_json, '$.usage_sample_id')
+                    ),
+                    '$.gameplay_delta_tokens',
+                    (
+                        SELECT gameplay_delta_tokens
+                        FROM repaired
+                        WHERE repaired.usage_sample_id = json_extract(domain_events.payload_json, '$.usage_sample_id')
+                    )
+                )
+                WHERE event_type = 'usage_sample_recorded'
+                  AND json_valid(payload_json)
+                  AND json_extract(payload_json, '$.usage_sample_id') IN (
+                      SELECT usage_sample_id
+                      FROM repaired
+                  );
+                """,
+            ]),
+            SQLiteMigration(version: 11, statements: [
+                """
+                CREATE TABLE IF NOT EXISTS account_usage_samples (
+                    account_usage_sample_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    provider_code TEXT NOT NULL REFERENCES providers(provider_code),
+                    source_mode TEXT NOT NULL,
+                    observed_at TEXT NOT NULL,
+                    model_slug TEXT,
+                    usage_kind TEXT NOT NULL,
+                    input_tokens INTEGER NOT NULL CHECK(input_tokens >= 0),
+                    output_tokens INTEGER NOT NULL CHECK(output_tokens >= 0),
+                    cached_input_tokens INTEGER NOT NULL CHECK(cached_input_tokens >= 0),
+                    normalized_delta_tokens INTEGER NOT NULL CHECK(normalized_delta_tokens >= 0),
+                    provider_event_fingerprint TEXT NOT NULL UNIQUE,
+                    raw_reference_kind TEXT NOT NULL,
+                    raw_reference_event_name TEXT,
+                    raw_reference_offset TEXT,
+                    payload_json TEXT NOT NULL,
+                    created_at TEXT NOT NULL
+                );
+                """,
+                "CREATE INDEX IF NOT EXISTS idx_account_usage_samples_provider_observed ON account_usage_samples(provider_code, observed_at DESC);",
+                "CREATE INDEX IF NOT EXISTS idx_account_usage_samples_observed ON account_usage_samples(observed_at DESC);",
             ]),
         ]
     }

@@ -152,6 +152,13 @@ public enum ClaudeTranscriptBackfillAdapter {
             cumulativeInputTokens += step.inputTokens
             cumulativeOutputTokens += step.outputTokens
             cumulativeCachedInputTokens += step.cachedInputTokens
+            let accounting = ProviderTokenAccounting.claudeTranscript(
+                totalInputTokens: cumulativeInputTokens,
+                totalOutputTokens: cumulativeOutputTokens,
+                totalCachedInputTokens: cumulativeCachedInputTokens,
+                currentInputTokens: step.inputTokens,
+                currentOutputTokens: step.outputTokens
+            )
 
             return ProviderUsageSampleEvent(
                 eventType: "provider_usage_sample",
@@ -162,18 +169,18 @@ public enum ClaudeTranscriptBackfillAdapter {
                 workspaceDir: step.workspaceDir,
                 modelSlug: step.modelSlug,
                 transcriptPath: transcriptPath,
-                totalInputTokens: cumulativeInputTokens,
-                totalOutputTokens: cumulativeOutputTokens,
-                totalCachedInputTokens: cumulativeCachedInputTokens,
-                normalizedTotalTokens: cumulativeInputTokens + cumulativeOutputTokens + cumulativeCachedInputTokens,
+                totalInputTokens: accounting.totalInputTokens,
+                totalOutputTokens: accounting.totalOutputTokens,
+                totalCachedInputTokens: accounting.totalCachedInputTokens,
+                normalizedTotalTokens: accounting.normalizedTotalTokens,
                 providerEventFingerprint: "claude:\(sessionID):\(cumulativeInputTokens):\(cumulativeOutputTokens)",
                 rawReference: ProviderRawReference(
                     kind: "transcript_backfill",
                     offset: String(step.firstLineNumber),
                     eventName: "assistant"
                 ),
-                currentInputTokens: step.inputTokens,
-                currentOutputTokens: step.outputTokens
+                currentInputTokens: accounting.currentInputTokens,
+                currentOutputTokens: accounting.currentOutputTokens
             )
         }
 

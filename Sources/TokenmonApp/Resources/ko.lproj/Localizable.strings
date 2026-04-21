@@ -137,6 +137,10 @@
 "progress.until_next_encounter" = "다음 조우까지";
 
 "tokens.recovery_note" = "대시보드 합계에는 앱이 꺼져 있던 동안 복구된 오프라인 사용량이 포함될 수 있습니다.";
+"tokens.source_note.empty" = "프로바이더가 보고한 토큰 사용량은 활동이 관측되거나 동기화된 뒤 여기에 표시됩니다.";
+"tokens.source_note.local_observed" = "이 Mac에서 관측한 프로바이더 보고 사용량을 표시합니다. 지원되는 복구 사용량도 포함됩니다.";
+"tokens.source_note.account_available" = "사용 가능한 계정/export 사용량을 우선 표시하고, 없으면 로컬 관측 사용량을 사용합니다.";
+"tokens.source_note.account_today" = "오늘 %@는 계정/export 사용량을 표시하고, 다른 프로바이더는 로컬 관측 사용량을 사용합니다.";
 "tokens.counter.today" = "오늘";
 "tokens.counter.all_time" = "누적";
 "tokens.counter.label" = "%1$@ · 토큰";
@@ -546,9 +550,9 @@
 "developer.section.resets" = "리셋";
 "developer.resets.note" = "이 동작은 내부 전용 파괴적 작업이며 항상 확인이 필요합니다.";
 "developer.reset.gameplay.title" = "게임플레이 진행 초기화";
-"developer.reset.gameplay.subtitle" = "조우, Dex, 사용량 샘플, 프로바이더 ingest 이력을 모두 비웁니다.";
+"developer.reset.gameplay.subtitle" = "조우, Dex, 사용량 샘플, 계정 사용량 샘플, 프로바이더 ingest 이력을 모두 비웁니다.";
 "developer.reset.gameplay.confirm_title" = "게임플레이 진행을 초기화할까요?";
-"developer.reset.gameplay.confirm_message" = "Tokenmon이 조우, Dex 진행도, 사용량 샘플, 프로바이더 ingest 이력을 지운 뒤 지금 시점부터 다시 집계합니다.";
+"developer.reset.gameplay.confirm_message" = "Tokenmon이 조우, Dex 진행도, 사용량 샘플, 계정 사용량 샘플, 프로바이더 ingest 이력을 지운 뒤 지금 시점부터 다시 집계합니다.";
 "developer.reset.gameplay.confirm_button" = "게임플레이 초기화";
 "developer.reset.dex.title" = "Dex 진행만 초기화";
 "developer.reset.dex.subtitle" = "토큰 합계는 유지한 채 Seen/Captured Dex를 초기화합니다.";
@@ -653,7 +657,7 @@
 "provider.cursor.sync.action" = "Cursor 사용량 동기화";
 "provider.cursor.sync_again.action" = "Cursor 다시 동기화";
 "provider.cursor.connected.title" = "Cursor 동기화됨";
-"provider.cursor.connected.detail" = "최근 Cursor 사용량이 Tokenmon으로 가져와졌습니다. 현재 게임플레이 경계에 따라 imported row는 라이브 게임플레이가 활성화될 때까지 accounting-only로 남을 수 있습니다.";
+"provider.cursor.connected.detail" = "최근 Cursor 사용량이 Tokenmon 통계로 가져와졌습니다. Cursor export row는 accounting-only이며 게임플레이를 진행하지 않습니다.";
 "settings.providers.support.managed_only" = "managed-only";
 "settings.providers.source_mode.cursor_usage_export_api" = "Usage export 동기화";
 "settings.providers.next_step.cursor_missing_configuration" = "Tokenmon에서 Cursor usage sync를 실행해 최신 managed-only accounting 데이터를 가져오세요.";

@@ -23,6 +23,7 @@ private struct CursorUsageCSVRow {
     let outputTokens: Int64
     let totalTokens: Int64
     let costUSD: Double
+    let usedExplicitTotal: Bool
 
     var sessionKey: String {
         if let cloudAgentID, cloudAgentID.isEmpty == false {
@@ -56,7 +57,7 @@ public enum CursorUsageCSVAdapter {
         outputPath: String? = nil
     ) throws -> CursorUsageCSVImportResult {
         let rows = try parseRows(from: sourcePath)
-        let events = providerEvents(from: rows)
+        let events = accountUsageEvents(from: rows)
         try write(events: events, to: outputPath)
 
         return CursorUsageCSVImportResult(
@@ -67,8 +68,12 @@ public enum CursorUsageCSVAdapter {
         )
     }
 
-    public static func providerEvents(from sourcePath: String) throws -> [ProviderUsageSampleEvent] {
-        providerEvents(from: try parseRows(from: sourcePath))
+    public static func accountUsageEvents(from sourcePath: String) throws -> [AccountUsageSampleEvent] {
+        accountUsageEvents(from: try parseRows(from: sourcePath))
+    }
+
+    public static func providerEvents(from sourcePath: String) throws -> [AccountUsageSampleEvent] {
+        try accountUsageEvents(from: sourcePath)
     }
 
     private static func parseRows(from sourcePath: String) throws -> [CursorUsageCSVRow] {
@@ -102,7 +107,8 @@ public enum CursorUsageCSVAdapter {
             let outputTokens = intField("Output Tokens", fields, headerLookup)
             let totalTokensField = intField("Total Tokens", fields, headerLookup)
             let cacheWriteTokens = max(0, inputWithCacheWrite - inputWithoutCacheWrite)
-            let totalTokens = totalTokensField > 0
+            let usedExplicitTotal = totalTokensField > 0
+            let totalTokens = usedExplicitTotal
                 ? totalTokensField
                 : inputWithoutCacheWrite + cacheWriteTokens + cacheReadTokens + outputTokens
 
@@ -120,7 +126,8 @@ public enum CursorUsageCSVAdapter {
                     cacheReadTokens: cacheReadTokens,
                     outputTokens: outputTokens,
                     totalTokens: totalTokens,
-                    costUSD: costField("Cost", fields, headerLookup)
+                    costUSD: costField("Cost", fields, headerLookup),
+                    usedExplicitTotal: usedExplicitTotal
                 )
             )
         }
@@ -133,35 +140,25 @@ public enum CursorUsageCSVAdapter {
         }
     }
 
-    private static func providerEvents(from rows: [CursorUsageCSVRow]) -> [ProviderUsageSampleEvent] {
-        var cumulativeTotalsBySessionKey: [String: Int64] = [:]
-
+    private static func accountUsageEvents(from rows: [CursorUsageCSVRow]) -> [AccountUsageSampleEvent] {
         return rows.map { row in
-            let cumulativeTotal = cumulativeTotalsBySessionKey[row.sessionKey, default: 0] + row.totalTokens
-            cumulativeTotalsBySessionKey[row.sessionKey] = cumulativeTotal
-
-            return ProviderUsageSampleEvent(
-                eventType: "provider_usage_sample",
+            AccountUsageSampleEvent(
+                eventType: "account_usage_sample",
                 provider: .cursor,
                 sourceMode: "cursor_usage_export_api",
-                providerSessionID: row.sessionKey,
                 observedAt: row.observedAt,
-                workspaceDir: nil,
                 modelSlug: row.modelSlug,
-                transcriptPath: nil,
-                totalInputTokens: row.inputTokens,
-                totalOutputTokens: row.outputTokens,
-                totalCachedInputTokens: row.totalCachedTokens,
-                normalizedTotalTokens: cumulativeTotal,
+                usageKind: row.kind,
+                inputTokens: row.inputTokens,
+                outputTokens: row.outputTokens,
+                cachedInputTokens: row.totalCachedTokens,
+                normalizedDeltaTokens: row.totalTokens,
                 providerEventFingerprint: providerFingerprint(for: row),
                 rawReference: ProviderRawReference(
                     kind: "cursor_usage_csv",
                     offset: "\(row.index)",
                     eventName: row.kind
-                ),
-                currentInputTokens: row.inputTokens,
-                currentOutputTokens: row.outputTokens,
-                sessionOriginHint: .startedDuringLiveRuntime
+                )
             )
         }
     }
@@ -187,7 +184,7 @@ public enum CursorUsageCSVAdapter {
         return "cursor:\(row.sessionKey):\(digestText)"
     }
 
-    private static func write(events: [ProviderUsageSampleEvent], to outputPath: String?) throws {
+    private static func write(events: [AccountUsageSampleEvent], to outputPath: String?) throws {
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.sortedKeys]
 

@@ -90,14 +90,14 @@ struct TokenmonDataContractTests {
         let earlyRange = config.scaledThresholdRange(capturedSpeciesCount: 0)
         let lateRange = config.scaledThresholdRange(capturedSpeciesCount: SpeciesCatalog.expectedCount)
 
-        #expect(config.minimumEncounterThresholdTokens == 5_000_000)
-        #expect(config.startingEncounterThresholdMaxTokens == 7_000_000)
-        #expect(config.completionEncounterThresholdMinTokens == 25_000_000)
-        #expect(config.maximumEncounterThresholdTokens == 30_000_000)
-        #expect(earlyRange.min == 5_000_000)
-        #expect(earlyRange.max == 7_000_000)
-        #expect(lateRange.min == 25_000_000)
-        #expect(lateRange.max == 30_000_000)
+        #expect(config.minimumEncounterThresholdTokens == 180_000)
+        #expect(config.startingEncounterThresholdMaxTokens == 260_000)
+        #expect(config.completionEncounterThresholdMinTokens == 700_000)
+        #expect(config.maximumEncounterThresholdTokens == 900_000)
+        #expect(earlyRange.min == 180_000)
+        #expect(earlyRange.max == 260_000)
+        #expect(lateRange.min == 700_000)
+        #expect(lateRange.max == 900_000)
     }
 
     @Test
@@ -1200,6 +1200,228 @@ struct TokenmonDataContractTests {
     }
 
     @Test
+    func migrationVersionTenRepairsLegacyCodexCachedInputDoubleCounting() throws {
+        let manager = try makeManager(prefix: "tokenmon-mig-v10-codex-accounting")
+        let database = try manager.open()
+
+        try database.inTransaction {
+            try database.execute(
+                """
+                INSERT INTO provider_sessions (
+                    provider_session_row_id,
+                    provider_code,
+                    provider_session_id,
+                    session_identity_kind,
+                    source_mode,
+                    model_slug,
+                    workspace_dir,
+                    transcript_path,
+                    started_at,
+                    ended_at,
+                    last_seen_at,
+                    session_state,
+                    created_at,
+                    updated_at
+                ) VALUES (
+                    100,
+                    'codex',
+                    'legacy-codex-session',
+                    'authoritative',
+                    'codex_session_store_live',
+                    'gpt-5.4',
+                    NULL,
+                    '/tmp/legacy-codex.jsonl',
+                    '2026-04-10T10:00:00Z',
+                    NULL,
+                    '2026-04-10T10:02:00Z',
+                    'active',
+                    '2026-04-10T10:00:00Z',
+                    '2026-04-10T10:02:00Z'
+                );
+                """
+            )
+            try database.execute(
+                """
+                INSERT INTO provider_ingest_events (
+                    provider_ingest_event_id,
+                    provider_code,
+                    source_mode,
+                    provider_session_row_id,
+                    ingest_source_id,
+                    provider_event_fingerprint,
+                    raw_reference_kind,
+                    raw_reference_event_name,
+                    raw_reference_offset,
+                    observed_at,
+                    payload_json,
+                    acceptance_state,
+                    rejection_reason,
+                    created_at
+                ) VALUES
+                    (
+                        1000,
+                        'codex',
+                        'codex_session_store_live',
+                        100,
+                        NULL,
+                        'legacy-codex-1',
+                        'session_store_live',
+                        'token_count',
+                        '1',
+                        '2026-04-10T10:01:00Z',
+                        '{"event_type":"provider_usage_sample","provider":"codex","source_mode":"codex_session_store_live","provider_session_id":"legacy-codex-session","observed_at":"2026-04-10T10:01:00Z","total_input_tokens":1000,"total_output_tokens":400,"total_cached_input_tokens":100,"normalized_total_tokens":1500,"provider_event_fingerprint":"legacy-codex-1","raw_reference":{"kind":"session_store_live","event_name":"token_count"}}',
+                        'accepted',
+                        NULL,
+                        '2026-04-10T10:01:00Z'
+                    ),
+                    (
+                        1001,
+                        'codex',
+                        'codex_session_store_live',
+                        100,
+                        NULL,
+                        'legacy-codex-2',
+                        'session_store_live',
+                        'token_count',
+                        '2',
+                        '2026-04-10T10:02:00Z',
+                        '{"event_type":"provider_usage_sample","provider":"codex","source_mode":"codex_session_store_live","provider_session_id":"legacy-codex-session","observed_at":"2026-04-10T10:02:00Z","total_input_tokens":2000,"total_output_tokens":800,"total_cached_input_tokens":200,"normalized_total_tokens":3000,"provider_event_fingerprint":"legacy-codex-2","raw_reference":{"kind":"session_store_live","event_name":"token_count"}}',
+                        'accepted',
+                        NULL,
+                        '2026-04-10T10:02:00Z'
+                    );
+                """
+            )
+            try database.execute(
+                """
+                INSERT INTO usage_samples (
+                    usage_sample_id,
+                    provider_ingest_event_id,
+                    provider_code,
+                    provider_session_row_id,
+                    observed_at,
+                    total_input_tokens,
+                    total_output_tokens,
+                    total_cached_input_tokens,
+                    normalized_total_tokens,
+                    normalized_delta_tokens,
+                    current_input_tokens,
+                    current_output_tokens,
+                    gameplay_eligibility,
+                    gameplay_delta_tokens,
+                    burst_intensity_band,
+                    created_at
+                ) VALUES
+                    (10000, 1000, 'codex', 100, '2026-04-10T10:01:00Z', 1000, 400, 100, 1500, 1500, 1000, 400, 'recovery_only', 0, 1, '2026-04-10T10:01:00Z'),
+                    (10001, 1001, 'codex', 100, '2026-04-10T10:02:00Z', 2000, 800, 200, 3000, 1500, 1000, 400, 'eligible_live', 1500, 1, '2026-04-10T10:02:00Z');
+                """
+            )
+            try database.execute(
+                """
+                INSERT INTO domain_events (
+                    event_id,
+                    event_type,
+                    occurred_at,
+                    producer,
+                    correlation_id,
+                    causation_id,
+                    aggregate_type,
+                    aggregate_id,
+                    payload_json,
+                    created_at
+                ) VALUES
+                    (
+                        'usage_sample_recorded:10000',
+                        'usage_sample_recorded',
+                        '2026-04-10T10:01:00Z',
+                        'tests',
+                        'legacy-codex-1',
+                        NULL,
+                        'provider_session',
+                        'codex:legacy-codex-session',
+                        '{"usage_sample_id":10000,"provider":"codex","provider_session_id":"legacy-codex-session","normalized_total_tokens":1500,"normalized_delta_tokens":1500,"gameplay_delta_tokens":0}',
+                        '2026-04-10T10:01:00Z'
+                    ),
+                    (
+                        'usage_sample_recorded:10001',
+                        'usage_sample_recorded',
+                        '2026-04-10T10:02:00Z',
+                        'tests',
+                        'legacy-codex-2',
+                        NULL,
+                        'provider_session',
+                        'codex:legacy-codex-session',
+                        '{"usage_sample_id":10001,"provider":"codex","provider_session_id":"legacy-codex-session","normalized_total_tokens":3000,"normalized_delta_tokens":1500,"gameplay_delta_tokens":1500}',
+                        '2026-04-10T10:02:00Z'
+                    );
+                """
+            )
+            try database.execute("PRAGMA user_version = 9;")
+        }
+
+        let repairedDatabase = try manager.open()
+
+        let repairedRows: [(Int64, Int64, Int64, Int64)] = try repairedDatabase.fetchAll(
+            """
+            SELECT usage_sample_id,
+                   normalized_total_tokens,
+                   normalized_delta_tokens,
+                   gameplay_delta_tokens
+            FROM usage_samples
+            WHERE usage_sample_id IN (10000, 10001)
+            ORDER BY usage_sample_id;
+            """
+        ) { statement in
+            (
+                SQLiteDatabase.columnInt64(statement, index: 0),
+                SQLiteDatabase.columnInt64(statement, index: 1),
+                SQLiteDatabase.columnInt64(statement, index: 2),
+                SQLiteDatabase.columnInt64(statement, index: 3)
+            )
+        }
+        #expect(repairedRows.map { $0.1 } == [1_400, 2_800])
+        #expect(repairedRows.map { $0.2 } == [1_400, 1_400])
+        #expect(repairedRows.map { $0.3 } == [0, 1_400])
+
+        let repairedIngestTotals: [Int64] = try repairedDatabase.fetchAll(
+            """
+            SELECT json_extract(payload_json, '$.normalized_total_tokens')
+            FROM provider_ingest_events
+            WHERE provider_ingest_event_id IN (1000, 1001)
+            ORDER BY provider_ingest_event_id;
+            """
+        ) { statement in
+            SQLiteDatabase.columnInt64(statement, index: 0)
+        }
+        #expect(repairedIngestTotals == [1_400, 2_800])
+
+        let repairedEventPayloads: [(Int64, Int64, Int64)] = try repairedDatabase.fetchAll(
+            """
+            SELECT json_extract(payload_json, '$.normalized_total_tokens'),
+                   json_extract(payload_json, '$.normalized_delta_tokens'),
+                   json_extract(payload_json, '$.gameplay_delta_tokens')
+            FROM domain_events
+            WHERE event_id IN ('usage_sample_recorded:10000', 'usage_sample_recorded:10001')
+            ORDER BY event_id;
+            """
+        ) { statement in
+            (
+                SQLiteDatabase.columnInt64(statement, index: 0),
+                SQLiteDatabase.columnInt64(statement, index: 1),
+                SQLiteDatabase.columnInt64(statement, index: 2)
+            )
+        }
+        #expect(repairedEventPayloads.map { $0.0 } == [1_400, 2_800])
+        #expect(repairedEventPayloads.map { $0.1 } == [1_400, 1_400])
+        #expect(repairedEventPayloads.map { $0.2 } == [0, 1_400])
+
+        let version = try repairedDatabase.fetchOne("PRAGMA user_version;") { statement in
+            SQLiteDatabase.columnInt64(statement, index: 0)
+        } ?? 0
+        #expect(version >= 10)
+    }
+
+    @Test
     func dexEntrySummaryIncludesStatsAndTraits() throws {
         let tempDirectory = FileManager.default.temporaryDirectory
             .appendingPathComponent("tokenmon-dex-stats-\(UUID().uuidString)", isDirectory: true)
@@ -1419,6 +1641,108 @@ struct TokenmonDataContractTests {
     }
 
     @Test
+    func codexTranscriptBackfillUsesProviderTotalWithoutDoubleCountingCachedInput() throws {
+        let result = try CodexTranscriptBackfillAdapter.importTranscript(
+            from: "Fixtures/CodexTranscript/token-counts.jsonl"
+        )
+
+        #expect(result.events.count == 2)
+        #expect(result.events.map(\.totalInputTokens) == [1_200, 2_400])
+        #expect(result.events.map(\.totalOutputTokens) == [600, 1_200])
+        #expect(result.events.map(\.totalCachedInputTokens) == [200, 300])
+        #expect(result.events.map(\.normalizedTotalTokens) == [1_800, 3_600])
+    }
+
+    @Test
+    func codexExecJSONUsesProviderTotalWithoutDoubleCountingCachedInput() throws {
+        let adapter = CodexExecJSONAdapter()
+        _ = try adapter.consumeLine(
+            #"{"type":"thread.started","thread_id":"thread_exec_accounting"}"#,
+            lineNumber: 1
+        )
+
+        let firstResult = try adapter.consumeLine(
+            #"{"type":"turn.completed","thread_id":"thread_exec_accounting","turn_id":"turn_001","timestamp":"2026-04-04T00:12:00Z","usage":{"input_tokens":1200,"cached_input_tokens":200,"output_tokens":600,"total_tokens":1800}}"#,
+            lineNumber: 2
+        )
+        let secondResult = try adapter.consumeLine(
+            #"{"type":"turn.completed","thread_id":"thread_exec_accounting","turn_id":"turn_002","timestamp":"2026-04-04T00:13:00Z","usage":{"input_tokens":1000,"cached_input_tokens":100,"output_tokens":500}}"#,
+            lineNumber: 3
+        )
+
+        guard case .usageSample(let first) = firstResult else {
+            Issue.record("Expected first Codex turn to produce a usage sample")
+            return
+        }
+        guard case .usageSample(let second) = secondResult else {
+            Issue.record("Expected second Codex turn to produce a usage sample")
+            return
+        }
+
+        #expect(first.totalInputTokens == 1_200)
+        #expect(first.totalOutputTokens == 600)
+        #expect(first.totalCachedInputTokens == 200)
+        #expect(first.normalizedTotalTokens == 1_800)
+        #expect(second.totalInputTokens == 2_200)
+        #expect(second.totalOutputTokens == 1_100)
+        #expect(second.totalCachedInputTokens == 300)
+        #expect(second.normalizedTotalTokens == 3_300)
+    }
+
+    @Test
+    func claudeStatusLineUsesCumulativeTotalsWithoutAddingCurrentCacheAgain() throws {
+        let payload = """
+        {
+          "cwd": "/tmp/tokenmon-fixture",
+          "session_id": "claude_statusline_cache_fixture",
+          "transcript_path": "/tmp/claude-statusline-cache-fixture.jsonl",
+          "model": { "id": "claude-opus-4-1", "display_name": "Opus" },
+          "context_window": {
+            "total_input_tokens": 1200,
+            "total_output_tokens": 600,
+            "current_usage": {
+              "input_tokens": 100,
+              "output_tokens": 50,
+              "cache_creation_input_tokens": 700,
+              "cache_read_input_tokens": 900
+            }
+          }
+        }
+        """
+
+        let result = try ClaudeStatusLineAdapter.importPayload(json: payload)
+
+        #expect(result.normalizedTotalTokens == 1_800)
+    }
+
+    @Test
+    func claudeTranscriptBackfillCountsCacheFieldsWhenTranscriptUsageExposesThemSeparately() throws {
+        let tempDirectory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("tokenmon-claude-transcript-cache-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: tempDirectory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: tempDirectory) }
+
+        let transcriptPath = tempDirectory.appendingPathComponent("claude.jsonl")
+        try (
+            """
+            {"session_id":"claude-cache-fixture","timestamp":"2026-04-18T01:00:00Z","message":{"id":"msg-1","role":"assistant","model":"claude-opus-4-1","usage":{"input_tokens":100,"output_tokens":50,"cache_creation_input_tokens":7,"cache_read_input_tokens":3}}}
+            """
+            + "\n"
+        ).write(to: transcriptPath, atomically: true, encoding: .utf8)
+
+        let result = try ClaudeTranscriptBackfillAdapter.importTranscript(
+            from: transcriptPath.path,
+            config: ClaudeTranscriptBackfillAdapterConfig(sessionIDFallback: "claude-cache-fixture")
+        )
+
+        #expect(result.events.count == 1)
+        #expect(result.events[0].totalInputTokens == 100)
+        #expect(result.events[0].totalOutputTokens == 50)
+        #expect(result.events[0].totalCachedInputTokens == 10)
+        #expect(result.events[0].normalizedTotalTokens == 160)
+    }
+
+    @Test
     func latestGeminiSessionTotalsReturnsMonotonicMaxesForRecentSessions() throws {
         let tempDirectory = FileManager.default.temporaryDirectory
             .appendingPathComponent("tokenmon-gemini-totals-\(UUID().uuidString)", isDirectory: true)
@@ -1584,10 +1908,10 @@ struct TokenmonDataContractTests {
             Self.makeStringAttr(key: "model", value: "gemini-2.5-pro"),
             Self.makeIntAttr(key: "input_token_count", value: 1234),
             Self.makeIntAttr(key: "output_token_count", value: 567),
-            Self.makeIntAttr(key: "cached_content_token_count", value: 0),
-            Self.makeIntAttr(key: "thoughts_token_count", value: 0),
-            Self.makeIntAttr(key: "tool_token_count", value: 0),
-            Self.makeIntAttr(key: "total_token_count", value: 1801),
+            Self.makeIntAttr(key: "cached_content_token_count", value: 400),
+            Self.makeIntAttr(key: "thoughts_token_count", value: 111),
+            Self.makeIntAttr(key: "tool_token_count", value: 222),
+            Self.makeIntAttr(key: "total_token_count", value: 2100),
             Self.makeIntAttr(key: "duration_ms", value: 842),
         ]
 
@@ -1609,12 +1933,13 @@ struct TokenmonDataContractTests {
         #expect(decoded.providerSessionID == "session-fixture")
         #expect(decoded.totalInputTokens == 1234)
         #expect(decoded.totalOutputTokens == 567)
-        #expect(decoded.normalizedTotalTokens == 1801)
+        #expect(decoded.totalCachedInputTokens == 400)
+        #expect(decoded.normalizedTotalTokens == 2100)
         #expect(decoded.modelSlug == "gemini-2.5-pro")
     }
 
     @Test
-    func cursorUsageCSVAdapterBuildsCumulativeProviderEvents() throws {
+    func cursorUsageCSVAdapterUsesExplicitTotalTokensAndFallsBackToComponentSum() throws {
         let tempDirectory = FileManager.default.temporaryDirectory
             .appendingPathComponent("tokenmon-cursor-csv-\(UUID().uuidString)", isDirectory: true)
         try FileManager.default.createDirectory(at: tempDirectory, withIntermediateDirectories: true)
@@ -1623,21 +1948,142 @@ struct TokenmonDataContractTests {
         let csvPath = tempDirectory.appendingPathComponent("cursor.csv")
         try """
         Date,Cloud Agent ID,Automation ID,Kind,Model,Max Mode,Input (w/ Cache Write),Input (w/o Cache Write),Cache Read,Output Tokens,Total Tokens,Cost
-        2026-04-18T01:00:00Z,agent-alpha,,agent,gpt-5.4,auto,1400,1000,250,400,2050,$0.12
-        2026-04-18T01:05:00Z,agent-alpha,,agent,gpt-5.4,auto,1600,1200,300,500,2800,$0.16
+        2026-04-18T01:00:00Z,agent-alpha,,agent,gpt-5.4,auto,1400,1000,250,400,1900,$0.12
+        2026-04-18T01:05:00Z,agent-alpha,,agent,gpt-5.4,auto,1600,1200,300,500,,$0.16
         """.write(to: csvPath, atomically: true, encoding: .utf8)
 
-        let events = try CursorUsageCSVAdapter.providerEvents(from: csvPath.path)
+        let events = try CursorUsageCSVAdapter.accountUsageEvents(from: csvPath.path)
 
         #expect(events.count == 2)
         #expect(events[0].provider == .cursor)
         #expect(events[0].sourceMode == "cursor_usage_export_api")
-        #expect(events[0].providerSessionID == "cloud-agent:agent-alpha")
-        #expect(events[0].normalizedTotalTokens == 2050)
-        #expect(events[1].providerSessionID == "cloud-agent:agent-alpha")
-        #expect(events[1].normalizedTotalTokens == 4850)
+        #expect(events[0].usageKind == "agent")
+        #expect(events[0].inputTokens == 1_000)
+        #expect(events[0].outputTokens == 400)
+        #expect(events[0].cachedInputTokens == 650)
+        #expect(events[0].normalizedDeltaTokens == 1_900)
+        #expect(events[1].usageKind == "agent")
+        #expect(events[1].inputTokens == 1_200)
+        #expect(events[1].outputTokens == 500)
+        #expect(events[1].cachedInputTokens == 700)
+        #expect(events[1].normalizedDeltaTokens == 2_400)
         #expect(events[1].rawReference.kind == "cursor_usage_csv")
-        #expect(events[1].sessionOriginHint == .startedDuringLiveRuntime)
+    }
+
+    @Test
+    func accountUsageIngestionIsStatsOnlyAndDeduplicated() throws {
+        let manager = try makeManager(prefix: "tokenmon-account-usage-stats-only")
+        let database = try manager.open()
+        let observedAt = ISO8601DateFormatter().string(from: Date())
+        let event = AccountUsageSampleEvent(
+            eventType: "account_usage_sample",
+            provider: .cursor,
+            sourceMode: "cursor_usage_export_api",
+            observedAt: observedAt,
+            modelSlug: "gpt-5.4",
+            usageKind: "agent",
+            inputTokens: 5_000_000,
+            outputTokens: 3_000_000,
+            cachedInputTokens: 0,
+            normalizedDeltaTokens: 8_000_000,
+            providerEventFingerprint: "cursor:stats-only:1",
+            rawReference: ProviderRawReference(kind: "cursor_usage_csv", offset: "1", eventName: "agent")
+        )
+
+        let service = AccountUsageIngestionService(databasePath: manager.path)
+        let firstResult = try service.ingestAccountUsageEvents([event], sourceKey: "account-fixture")
+        let secondResult = try service.ingestAccountUsageEvents([event], sourceKey: "account-fixture")
+
+        #expect(firstResult.acceptedEvents == 1)
+        #expect(firstResult.accountUsageSamplesCreated == 1)
+        #expect(secondResult.duplicateEvents == 1)
+        #expect(try rowCount(in: "account_usage_samples", database: database) == 1)
+        #expect(try rowCount(in: "usage_samples", database: database) == 0)
+        #expect(try rowCount(in: "encounters", database: database) == 0)
+        #expect(try rowCount(in: "dex_seen", database: database) == 0)
+        #expect(try manager.currentRunSummary().totalNormalizedTokens == 0)
+        #expect(try manager.tokenUsageTotals().allTimeTokens == 8_000_000)
+    }
+
+    @Test
+    func tokenStatsPreferAccountUsageByProviderDayAndFallbackToLocalObservedUsage() throws {
+        let manager = try makeManager(prefix: "tokenmon-account-usage-precedence")
+        let observedAt = ISO8601DateFormatter().string(from: Date())
+
+        let localEvents = [
+            ProviderUsageSampleEvent(
+                eventType: "provider_usage_sample",
+                provider: .codex,
+                sourceMode: "codex_session_store_recovery",
+                providerSessionID: "local-codex",
+                observedAt: observedAt,
+                workspaceDir: nil,
+                modelSlug: "gpt-5.4",
+                transcriptPath: nil,
+                totalInputTokens: 100,
+                totalOutputTokens: 0,
+                totalCachedInputTokens: 0,
+                normalizedTotalTokens: 100,
+                providerEventFingerprint: "codex:local:1",
+                rawReference: ProviderRawReference(kind: "session_store_recovery", offset: "1", eventName: "token_count"),
+                currentInputTokens: 100,
+                currentOutputTokens: 0
+            ),
+            ProviderUsageSampleEvent(
+                eventType: "provider_usage_sample",
+                provider: .claude,
+                sourceMode: "claude_statusline_live",
+                providerSessionID: "local-claude",
+                observedAt: observedAt,
+                workspaceDir: nil,
+                modelSlug: "claude-opus",
+                transcriptPath: nil,
+                totalInputTokens: 200,
+                totalOutputTokens: 0,
+                totalCachedInputTokens: 0,
+                normalizedTotalTokens: 200,
+                providerEventFingerprint: "claude:local:1",
+                rawReference: ProviderRawReference(kind: "statusline", offset: nil, eventName: nil),
+                currentInputTokens: 200,
+                currentOutputTokens: 0
+            ),
+        ]
+        _ = try UsageSampleIngestionService(databasePath: manager.path).ingestProviderEvents(
+            localEvents,
+            sourceKey: "local-fixture"
+        )
+
+        let accountEvent = AccountUsageSampleEvent(
+            eventType: "account_usage_sample",
+            provider: .codex,
+            sourceMode: "codex_account_usage_fixture",
+            observedAt: observedAt,
+            modelSlug: "gpt-5.4",
+            usageKind: "usage",
+            inputTokens: 500,
+            outputTokens: 0,
+            cachedInputTokens: 0,
+            normalizedDeltaTokens: 500,
+            providerEventFingerprint: "codex:account:1",
+            rawReference: ProviderRawReference(kind: "fixture", offset: "1", eventName: "usage")
+        )
+        _ = try AccountUsageIngestionService(databasePath: manager.path).ingestAccountUsageEvents(
+            [accountEvent],
+            sourceKey: "account-fixture"
+        )
+
+        let totals = try manager.tokenUsageTotals()
+        let providerToday = try manager.tokenByProviderToday()
+        let sourceSummary = try manager.tokenUsageSourceSummary()
+
+        #expect(totals.todayTokens == 700)
+        #expect(totals.allTimeTokens == 700)
+        #expect(providerToday[.codex] == 500)
+        #expect(providerToday[.claude] == 200)
+        #expect(sourceSummary.hasAccountUsage)
+        #expect(sourceSummary.hasLocalUsage)
+        #expect(sourceSummary.accountBackedProvidersToday == [.codex])
+        #expect(sourceSummary.localOnlyProvidersToday == [.claude])
     }
 
     private static func makeStringAttr(

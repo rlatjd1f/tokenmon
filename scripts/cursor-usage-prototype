@@ -62,7 +62,7 @@ def parse_args() -> argparse.Namespace:
         "--db",
         help=(
             "Optional Tokenmon database path. When set, the script also ingests the "
-            "generated Cursor provider events into Tokenmon."
+            "generated Cursor account usage rows into Tokenmon."
         ),
     )
     parser.add_argument(
@@ -419,7 +419,7 @@ def main() -> None:
     csv_out_path = artifact_dir / "cursor-usage-export.csv"
     summary_out_path = artifact_dir / "cursor-usage-summary.json"
     events_out_path = artifact_dir / "cursor-usage-events.jsonl"
-    tokenmon_events_out_path = artifact_dir / "cursor-tokenmon-provider-events.ndjson"
+    tokenmon_events_out_path = artifact_dir / "cursor-tokenmon-account-usage.ndjson"
 
     if csv_input_path is not None:
         shutil.copyfile(csv_input_path, csv_out_path)
@@ -458,7 +458,7 @@ def main() -> None:
         tokenmon_ingest_output = run_tokenmon_command(
             args.tokenmon_app_bin,
             [
-                "--tokenmon-ingest-inbox",
+                "--tokenmon-ingest-account-usage",
                 str(tokenmon_events_out_path),
                 "--db",
                 args.db,
@@ -496,9 +496,7 @@ def main() -> None:
             "accepted",
             "duplicates",
             "rejected",
-            "usage_samples",
-            "checkpoint_offset",
-            "checkpoint_line",
+            "account_usage_samples",
         ):
             value = tokenmon_value(tokenmon_ingest_output, key)
             if value is not None:
@@ -511,7 +509,7 @@ def main() -> None:
         gameplay_total = tokenmon_value(tokenmon_summary_output, "total_normalized_tokens")
         accepted = tokenmon_value(tokenmon_ingest_output or "", "accepted")
         if gameplay_total == "0" and accepted not in (None, "0"):
-            print("gameplay_note: imported rows were accounting-only under the current gameplay boundary")
+            print("gameplay_note: imported rows were account stats only and did not advance gameplay")
 
 
 if __name__ == "__main__":

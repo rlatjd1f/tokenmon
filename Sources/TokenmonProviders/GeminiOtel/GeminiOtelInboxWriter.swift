@@ -29,6 +29,14 @@ public final class GeminiOtelInboxWriter {
     ) throws {
         let observedAtString = timestampFormatter.string(from: event.observedAt)
         let fingerprint = "gemini-otel:\(event.sessionID):\(observedAtString):\(event.totalTokens)"
+        let accounting = ProviderTokenAccounting.gemini(
+            totalInputTokens: cumulativeInputTokens,
+            totalOutputTokens: cumulativeOutputTokens,
+            totalCachedInputTokens: cumulativeCachedInputTokens,
+            normalizedTotalTokens: cumulativeNormalizedTotalTokens,
+            currentInputTokens: event.inputTokens,
+            currentOutputTokens: event.outputTokens
+        )
 
         let payload = ProviderUsageSampleEvent(
             eventType: "provider_usage_sample",
@@ -39,18 +47,18 @@ public final class GeminiOtelInboxWriter {
             workspaceDir: nil,
             modelSlug: event.model,
             transcriptPath: nil,
-            totalInputTokens: cumulativeInputTokens,
-            totalOutputTokens: cumulativeOutputTokens,
-            totalCachedInputTokens: cumulativeCachedInputTokens,
-            normalizedTotalTokens: cumulativeNormalizedTotalTokens,
+            totalInputTokens: accounting.totalInputTokens,
+            totalOutputTokens: accounting.totalOutputTokens,
+            totalCachedInputTokens: accounting.totalCachedInputTokens,
+            normalizedTotalTokens: accounting.normalizedTotalTokens,
             providerEventFingerprint: fingerprint,
             rawReference: ProviderRawReference(
                 kind: "gemini-otel",
                 offset: nil,
                 eventName: "gemini_cli.api_response"
             ),
-            currentInputTokens: event.inputTokens,
-            currentOutputTokens: event.outputTokens
+            currentInputTokens: accounting.currentInputTokens,
+            currentOutputTokens: accounting.currentOutputTokens
         )
 
         let jsonData = try encoder.encode(payload)

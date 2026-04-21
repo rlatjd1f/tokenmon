@@ -14,7 +14,7 @@ struct TokenmonTokensTab: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             countersBlock
-            Text(TokenmonL10n.string("tokens.recovery_note"))
+            Text(tokenSourceNote)
                 .font(.caption2)
                 .foregroundStyle(.secondary)
             providerSplitSection
@@ -26,6 +26,23 @@ struct TokenmonTokensTab: View {
         .padding(.top, 12)
         .padding(.bottom, 10)
         .frame(width: 300, alignment: .topLeading)
+    }
+
+    private var tokenSourceNote: String {
+        let summary = model.tokenUsageSourceSummary
+        if summary.hasAccountUsage {
+            let providers = summary.accountBackedProvidersToday
+                .map(providerShortName)
+                .joined(separator: ", ")
+            if providers.isEmpty {
+                return TokenmonL10n.string("tokens.source_note.account_available")
+            }
+            return TokenmonL10n.format("tokens.source_note.account_today", providers)
+        }
+        if summary.hasLocalUsage {
+            return TokenmonL10n.string("tokens.source_note.local_observed")
+        }
+        return TokenmonL10n.string("tokens.source_note.empty")
     }
 
     // MARK: - ① Counters

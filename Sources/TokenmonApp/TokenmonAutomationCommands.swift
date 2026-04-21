@@ -20,6 +20,9 @@ enum TokenmonAutomationCommand {
         if let inboxPath = optionValue("--tokenmon-ingest-inbox", in: arguments) {
             return try runIngestCommand(inboxPath: inboxPath, arguments: arguments)
         }
+        if let accountUsagePath = optionValue("--tokenmon-ingest-account-usage", in: arguments) {
+            return try runAccountUsageIngestCommand(accountUsagePath: accountUsagePath, arguments: arguments)
+        }
         if arguments.contains("--tokenmon-summary") {
             return try runSummaryCommand(arguments: arguments)
         }
@@ -136,6 +139,23 @@ enum TokenmonAutomationCommand {
         ].joined(separator: "\n")
     }
 
+    private static func runAccountUsageIngestCommand(accountUsagePath: String, arguments: [String]) throws -> String {
+        let dbPath = optionValue("--db", in: arguments) ?? TokenmonDatabaseManager.defaultPath()
+        let sourceKey = optionValue("--source-key", in: arguments)
+        let service = AccountUsageIngestionService(databasePath: dbPath)
+        let result = try service.ingestAccountUsageFile(at: accountUsagePath, sourceKey: sourceKey)
+
+        return [
+            "account usage ingest complete",
+            "source_key: \(result.sourceKey)",
+            "accepted: \(result.acceptedEvents)",
+            "duplicates: \(result.duplicateEvents)",
+            "rejected: \(result.rejectedEvents)",
+            "partial_trailing: \(result.partialTrailingLines)",
+            "account_usage_samples: \(result.accountUsageSamplesCreated)",
+        ].joined(separator: "\n")
+    }
+
     private static func runSummaryCommand(arguments: [String]) throws -> String {
         let dbPath = optionValue("--db", in: arguments) ?? TokenmonDatabaseManager.defaultPath()
         let summary = try TokenmonDatabaseManager(path: dbPath).summary()
@@ -147,6 +167,7 @@ enum TokenmonAutomationCommand {
             "ingest_sources: \(summary.ingestSources)",
             "provider_ingest_events: \(summary.providerIngestEvents)",
             "usage_samples: \(summary.usageSamples)",
+            "account_usage_samples: \(summary.accountUsageSamples)",
             "species: \(summary.species)",
             "domain_events: \(summary.domainEvents)",
             "total_normalized_tokens: \(summary.totalNormalizedTokens)",
@@ -763,7 +784,7 @@ enum TokenmonAutomationCommand {
 
     private static func runCursorUsageCSVImport(sourcePath: String, arguments: [String]) throws -> String {
         let outputPath = optionValue("--out", in: arguments)
-            ?? TokenmonDatabaseManager.inboxPath(provider: .cursor, databasePath: optionValue("--db", in: arguments))
+            ?? TokenmonDatabaseManager.accountUsagePath(provider: .cursor, databasePath: optionValue("--db", in: arguments))
         let result = try CursorUsageCSVAdapter.importCSV(
             from: sourcePath,
             outputPath: outputPath

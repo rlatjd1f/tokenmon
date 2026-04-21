@@ -216,7 +216,8 @@ public enum CodexTranscriptBackfillAdapter {
                       let outputTokens = int64Value(totalUsage["output_tokens"]),
                       inputTokens >= 0,
                       cachedInputTokens >= 0,
-                      outputTokens >= 0 else {
+                      outputTokens >= 0,
+                      (int64Value(totalUsage["total_tokens"]) ?? 0) >= 0 else {
                     throw CodexTranscriptBackfillAdapterError.invalidTokenUsage(lineNumber: lineNumber)
                 }
 
@@ -228,6 +229,14 @@ public enum CodexTranscriptBackfillAdapter {
                 let currentInputTokens = lastUsage.flatMap { int64Value($0["input_tokens"]) }
                 let currentOutputTokens = lastUsage.flatMap { int64Value($0["output_tokens"]) }
                 let observedAt = stringValue(jsonObject["timestamp"]) ?? config.nowProvider()
+                let accounting = ProviderTokenAccounting.codex(
+                    totalInputTokens: inputTokens,
+                    totalOutputTokens: outputTokens,
+                    totalCachedInputTokens: cachedInputTokens,
+                    providerTotalTokens: int64Value(totalUsage["total_tokens"]),
+                    currentInputTokens: currentInputTokens,
+                    currentOutputTokens: currentOutputTokens
+                )
 
                 let event = ProviderUsageSampleEvent(
                     eventType: "provider_usage_sample",
@@ -238,18 +247,18 @@ public enum CodexTranscriptBackfillAdapter {
                     workspaceDir: workspaceDir,
                     modelSlug: modelSlug,
                     transcriptPath: transcriptPath,
-                    totalInputTokens: inputTokens,
-                    totalOutputTokens: outputTokens,
-                    totalCachedInputTokens: cachedInputTokens,
-                    normalizedTotalTokens: inputTokens + cachedInputTokens + outputTokens,
+                    totalInputTokens: accounting.totalInputTokens,
+                    totalOutputTokens: accounting.totalOutputTokens,
+                    totalCachedInputTokens: accounting.totalCachedInputTokens,
+                    normalizedTotalTokens: accounting.normalizedTotalTokens,
                     providerEventFingerprint: "codex:\(resolvedSessionID):\(inputTokens):\(cachedInputTokens):\(outputTokens)",
                     rawReference: ProviderRawReference(
                         kind: config.rawReferenceKind,
                         offset: String(lineNumber),
                         eventName: "token_count"
                     ),
-                    currentInputTokens: currentInputTokens,
-                    currentOutputTokens: currentOutputTokens,
+                    currentInputTokens: accounting.currentInputTokens,
+                    currentOutputTokens: accounting.currentOutputTokens,
                     sessionOriginHint: config.sessionOriginHint
                 )
                 events.append(event)

@@ -114,6 +114,10 @@
 "progress.until_next_encounter" = "Until next encounter";
 
 "tokens.recovery_note" = "Dashboard totals can include offline usage recovered while the app was closed.";
+"tokens.source_note.empty" = "Provider-reported token usage will appear here after activity is observed or synced.";
+"tokens.source_note.local_observed" = "Showing provider-reported usage observed on this Mac, including supported recovery.";
+"tokens.source_note.account_available" = "Showing account/export usage where available, with local observed usage as fallback.";
+"tokens.source_note.account_today" = "Showing account/export usage for %@ today; other providers use local observed fallback.";
 "tokens.counter.today" = "Today";
 "tokens.counter.all_time" = "All time";
 "tokens.counter.label" = "%1$@ · tokens";
@@ -297,7 +301,7 @@
 "provider.cursor.sync.action" = "Sync Cursor Usage";
 "provider.cursor.sync_again.action" = "Sync Cursor Again";
 "provider.cursor.connected.title" = "Cursor synced";
-"provider.cursor.connected.detail" = "Recent Cursor usage has been imported into Tokenmon. Depending on the gameplay boundary, imported rows may remain accounting-only until live gameplay is armed.";
+"provider.cursor.connected.detail" = "Recent Cursor usage has been imported into Tokenmon stats. Cursor export rows are accounting-only and do not drive gameplay.";
 "provider.codex.ready.title" = "Codex ready";
 "provider.codex.ready.detail" = "Tokenmon automatically watches local Codex sessions. Downtime recovery updates dashboard totals only; gameplay only reflects live observation.";
 "settings.banner.error" = "Settings Error";

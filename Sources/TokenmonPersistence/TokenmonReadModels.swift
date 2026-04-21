@@ -104,6 +104,25 @@ public struct TokenUsageTotals: Equatable, Sendable {
     }
 }
 
+public struct TokenUsageSourceSummary: Equatable, Sendable {
+    public let hasAccountUsage: Bool
+    public let hasLocalUsage: Bool
+    public let accountBackedProvidersToday: [ProviderCode]
+    public let localOnlyProvidersToday: [ProviderCode]
+
+    public init(
+        hasAccountUsage: Bool,
+        hasLocalUsage: Bool,
+        accountBackedProvidersToday: [ProviderCode],
+        localOnlyProvidersToday: [ProviderCode]
+    ) {
+        self.hasAccountUsage = hasAccountUsage
+        self.hasLocalUsage = hasLocalUsage
+        self.accountBackedProvidersToday = accountBackedProvidersToday
+        self.localOnlyProvidersToday = localOnlyProvidersToday
+    }
+}
+
 public struct HourTokenBucket: Equatable, Sendable {
     public let date: Date
     public let tokens: Int64
@@ -533,11 +552,35 @@ public extension TokenmonDatabaseManager {
     func tokenUsageTotals() throws -> TokenUsageTotals {
         let database = try open()
         let sql = """
+        WITH account_days AS (
+            SELECT provider_code,
+                   date(observed_at, 'localtime') AS day,
+                   SUM(normalized_delta_tokens) AS tokens
+            FROM account_usage_samples
+            GROUP BY provider_code, day
+        ),
+        local_days AS (
+            SELECT provider_code,
+                   date(observed_at, 'localtime') AS day,
+                   SUM(normalized_delta_tokens) AS tokens
+            FROM usage_samples
+            WHERE NOT EXISTS (
+                SELECT 1
+                FROM account_days
+                WHERE account_days.provider_code = usage_samples.provider_code
+                  AND account_days.day = date(usage_samples.observed_at, 'localtime')
+            )
+            GROUP BY provider_code, day
+        ),
+        combined_days AS (
+            SELECT provider_code, day, tokens FROM account_days
+            UNION ALL
+            SELECT provider_code, day, tokens FROM local_days
+        )
         SELECT
-            COALESCE(SUM(CASE WHEN date(observed_at, 'localtime') = date('now', 'localtime')
-                              THEN normalized_delta_tokens ELSE 0 END), 0) AS today_tokens,
-            COALESCE(SUM(normalized_delta_tokens), 0) AS all_time_tokens
-        FROM usage_samples;
+            COALESCE(SUM(CASE WHEN day = date('now', 'localtime') THEN tokens ELSE 0 END), 0) AS today_tokens,
+            COALESCE(SUM(tokens), 0) AS all_time_tokens
+        FROM combined_days;
         """
 
         guard let totals = try database.fetchOne(sql, map: { statement in
@@ -554,10 +597,22 @@ public extension TokenmonDatabaseManager {
     func tokenByProviderToday() throws -> [ProviderCode: Int64] {
         let database = try open()
         let sql = """
-        SELECT provider_code, SUM(normalized_delta_tokens)
-        FROM usage_samples
-        WHERE date(observed_at, 'localtime') = date('now', 'localtime')
-        GROUP BY provider_code;
+        WITH account_today AS (
+            SELECT provider_code, SUM(normalized_delta_tokens) AS tokens
+            FROM account_usage_samples
+            WHERE date(observed_at, 'localtime') = date('now', 'localtime')
+            GROUP BY provider_code
+        ),
+        local_today AS (
+            SELECT provider_code, SUM(normalized_delta_tokens) AS tokens
+            FROM usage_samples
+            WHERE date(observed_at, 'localtime') = date('now', 'localtime')
+              AND provider_code NOT IN (SELECT provider_code FROM account_today)
+            GROUP BY provider_code
+        )
+        SELECT provider_code, tokens FROM account_today
+        UNION ALL
+        SELECT provider_code, tokens FROM local_today;
         """
 
         let rows: [(String, Int64)] = try database.fetchAll(sql) { statement in
@@ -580,10 +635,38 @@ public extension TokenmonDatabaseManager {
     func tokenHourlyRolling24() throws -> [HourTokenBucket] {
         let database = try open()
         let sql = """
-        SELECT strftime('%Y-%m-%d %H', observed_at, 'localtime') AS hour,
-               SUM(normalized_delta_tokens)
-        FROM usage_samples
-        WHERE observed_at >= datetime('now', '-24 hours')
+        WITH account_days AS (
+            SELECT DISTINCT provider_code,
+                   date(observed_at, 'localtime') AS day
+            FROM account_usage_samples
+        ),
+        account_hours AS (
+            SELECT strftime('%Y-%m-%d %H', observed_at, 'localtime') AS hour,
+                   SUM(normalized_delta_tokens) AS tokens
+            FROM account_usage_samples
+            WHERE observed_at >= datetime('now', '-24 hours')
+            GROUP BY hour
+        ),
+        local_hours AS (
+            SELECT strftime('%Y-%m-%d %H', observed_at, 'localtime') AS hour,
+                   SUM(normalized_delta_tokens) AS tokens
+            FROM usage_samples
+            WHERE observed_at >= datetime('now', '-24 hours')
+              AND NOT EXISTS (
+                  SELECT 1
+                  FROM account_days
+                  WHERE account_days.provider_code = usage_samples.provider_code
+                    AND account_days.day = date(usage_samples.observed_at, 'localtime')
+              )
+            GROUP BY hour
+        ),
+        combined_hours AS (
+            SELECT hour, tokens FROM account_hours
+            UNION ALL
+            SELECT hour, tokens FROM local_hours
+        )
+        SELECT hour, SUM(tokens)
+        FROM combined_hours
         GROUP BY hour;
         """
 
@@ -630,6 +713,47 @@ public extension TokenmonDatabaseManager {
         return buckets
     }
 
+    func tokenUsageSourceSummary() throws -> TokenUsageSourceSummary {
+        let database = try open()
+        let hasAccountUsage = try database.fetchOne(
+            "SELECT 1 FROM account_usage_samples LIMIT 1;"
+        ) { _ in true } ?? false
+        let hasLocalUsage = try database.fetchOne(
+            "SELECT 1 FROM usage_samples LIMIT 1;"
+        ) { _ in true } ?? false
+
+        let accountProviders = try providersForSQL(
+            """
+            SELECT DISTINCT provider_code
+            FROM account_usage_samples
+            WHERE date(observed_at, 'localtime') = date('now', 'localtime')
+            ORDER BY provider_code;
+            """,
+            database: database
+        )
+        let localOnlyProviders = try providersForSQL(
+            """
+            SELECT DISTINCT provider_code
+            FROM usage_samples
+            WHERE date(observed_at, 'localtime') = date('now', 'localtime')
+              AND provider_code NOT IN (
+                  SELECT DISTINCT provider_code
+                  FROM account_usage_samples
+                  WHERE date(observed_at, 'localtime') = date('now', 'localtime')
+              )
+            ORDER BY provider_code;
+            """,
+            database: database
+        )
+
+        return TokenUsageSourceSummary(
+            hasAccountUsage: hasAccountUsage,
+            hasLocalUsage: hasLocalUsage,
+            accountBackedProvidersToday: accountProviders,
+            localOnlyProvidersToday: localOnlyProviders
+        )
+    }
+
     func recentProviderSessions(limit: Int = 10) throws -> [ProviderSessionTokens] {
         guard limit > 0 else {
             return []
@@ -665,6 +789,13 @@ public extension TokenmonDatabaseManager {
                 totalTokens: SQLiteDatabase.columnInt64(statement, index: 6)
             )
         }
+    }
+
+    private func providersForSQL(_ sql: String, database: SQLiteDatabase) throws -> [ProviderCode] {
+        let rows = try database.fetchAll(sql) { statement in
+            SQLiteDatabase.columnText(statement, index: 0)
+        }
+        return rows.compactMap(ProviderCode.init(rawValue:))
     }
 
     func ambientCompanionRoster(limit: Int = 24) throws -> AmbientCompanionRoster {

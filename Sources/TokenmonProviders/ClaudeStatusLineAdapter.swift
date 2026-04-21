@@ -163,9 +163,14 @@ public enum ClaudeStatusLineAdapter {
 
         let workspaceDir = payload.workspace?.currentDir ?? payload.cwd
         let modelSlug = payload.model?.id ?? payload.model?.displayName
-        let normalizedTotalTokens = payload.contextWindow.totalInputTokens + payload.contextWindow.totalOutputTokens
+        let accounting = ProviderTokenAccounting.claudeStatusLine(
+            totalInputTokens: payload.contextWindow.totalInputTokens,
+            totalOutputTokens: payload.contextWindow.totalOutputTokens,
+            currentInputTokens: currentInputTokens,
+            currentOutputTokens: currentOutputTokens
+        )
         let providerEventFingerprint = "claude:\(payload.sessionID):\(payload.contextWindow.totalInputTokens):\(payload.contextWindow.totalOutputTokens)"
-        let renderedStatusLine = renderStatusLine(payload: payload, normalizedTotalTokens: normalizedTotalTokens)
+        let renderedStatusLine = renderStatusLine(payload: payload, normalizedTotalTokens: accounting.normalizedTotalTokens)
 
         let providerEvent = ProviderUsageSampleEvent(
             eventType: "provider_usage_sample",
@@ -176,14 +181,14 @@ public enum ClaudeStatusLineAdapter {
             workspaceDir: workspaceDir,
             modelSlug: modelSlug,
             transcriptPath: payload.transcriptPath,
-            totalInputTokens: payload.contextWindow.totalInputTokens,
-            totalOutputTokens: payload.contextWindow.totalOutputTokens,
-            totalCachedInputTokens: 0,
-            normalizedTotalTokens: normalizedTotalTokens,
+            totalInputTokens: accounting.totalInputTokens,
+            totalOutputTokens: accounting.totalOutputTokens,
+            totalCachedInputTokens: accounting.totalCachedInputTokens,
+            normalizedTotalTokens: accounting.normalizedTotalTokens,
             providerEventFingerprint: providerEventFingerprint,
             rawReference: ProviderRawReference(kind: "statusline", offset: nil, eventName: nil),
-            currentInputTokens: currentInputTokens,
-            currentOutputTokens: currentOutputTokens
+            currentInputTokens: accounting.currentInputTokens,
+            currentOutputTokens: accounting.currentOutputTokens
         )
 
         try append(event: providerEvent, to: outputPath)
@@ -192,7 +197,7 @@ public enum ClaudeStatusLineAdapter {
             outputPath: outputPath,
             sessionID: payload.sessionID,
             transcriptPath: payload.transcriptPath,
-            normalizedTotalTokens: normalizedTotalTokens,
+            normalizedTotalTokens: accounting.normalizedTotalTokens,
             providerEventFingerprint: providerEventFingerprint,
             renderedStatusLine: renderedStatusLine
         )

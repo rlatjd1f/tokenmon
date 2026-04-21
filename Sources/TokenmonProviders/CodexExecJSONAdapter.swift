@@ -6,11 +6,13 @@ public struct CodexExecJSONUsage: Decodable, Sendable {
     public let inputTokens: Int64
     public let cachedInputTokens: Int64
     public let outputTokens: Int64
+    public let totalTokens: Int64?
 
     enum CodingKeys: String, CodingKey {
         case inputTokens = "input_tokens"
         case cachedInputTokens = "cached_input_tokens"
         case outputTokens = "output_tokens"
+        case totalTokens = "total_tokens"
     }
 }
 
@@ -152,6 +154,7 @@ public final class CodexExecJSONAdapter: @unchecked Sendable {
     private var runningInputTokens: Int64 = 0
     private var runningCachedInputTokens: Int64 = 0
     private var runningOutputTokens: Int64 = 0
+    private var runningNormalizedTokens: Int64 = 0
     private var seenFingerprints: Set<String> = []
     private var observedThreadStarted = false
 
@@ -332,7 +335,10 @@ public final class CodexExecJSONAdapter: @unchecked Sendable {
         guard let usage = event.usage else {
             throw CodexExecJSONAdapterError.missingUsage(lineNumber: lineNumber)
         }
-        guard usage.inputTokens >= 0, usage.cachedInputTokens >= 0, usage.outputTokens >= 0 else {
+        guard usage.inputTokens >= 0,
+              usage.cachedInputTokens >= 0,
+              usage.outputTokens >= 0,
+              (usage.totalTokens ?? 0) >= 0 else {
             throw CodexExecJSONAdapterError.invalidUsageTokens(lineNumber: lineNumber)
         }
 
@@ -342,9 +348,26 @@ public final class CodexExecJSONAdapter: @unchecked Sendable {
             return .duplicateTurn
         }
 
-        runningInputTokens += usage.inputTokens
-        runningCachedInputTokens += usage.cachedInputTokens
-        runningOutputTokens += usage.outputTokens
+        let turnAccounting = ProviderTokenAccounting.codex(
+            totalInputTokens: usage.inputTokens,
+            totalOutputTokens: usage.outputTokens,
+            totalCachedInputTokens: usage.cachedInputTokens,
+            providerTotalTokens: usage.totalTokens,
+            currentInputTokens: usage.inputTokens,
+            currentOutputTokens: usage.outputTokens
+        )
+        runningInputTokens += turnAccounting.totalInputTokens
+        runningCachedInputTokens += turnAccounting.totalCachedInputTokens
+        runningOutputTokens += turnAccounting.totalOutputTokens
+        runningNormalizedTokens += turnAccounting.normalizedTotalTokens
+        let accounting = ProviderTokenAccounting.codex(
+            totalInputTokens: runningInputTokens,
+            totalOutputTokens: runningOutputTokens,
+            totalCachedInputTokens: runningCachedInputTokens,
+            providerTotalTokens: runningNormalizedTokens,
+            currentInputTokens: usage.inputTokens,
+            currentOutputTokens: usage.outputTokens
+        )
 
         let observedAt = event.timestamp ?? event.createdAt ?? config.nowProvider()
 
@@ -357,18 +380,18 @@ public final class CodexExecJSONAdapter: @unchecked Sendable {
             workspaceDir: config.workspaceDirOverride ?? event.cwd,
             modelSlug: event.model,
             transcriptPath: nil,
-            totalInputTokens: runningInputTokens,
-            totalOutputTokens: runningOutputTokens,
-            totalCachedInputTokens: runningCachedInputTokens,
-            normalizedTotalTokens: runningInputTokens + runningCachedInputTokens + runningOutputTokens,
+            totalInputTokens: accounting.totalInputTokens,
+            totalOutputTokens: accounting.totalOutputTokens,
+            totalCachedInputTokens: accounting.totalCachedInputTokens,
+            normalizedTotalTokens: accounting.normalizedTotalTokens,
             providerEventFingerprint: fingerprint,
             rawReference: ProviderRawReference(
                 kind: "jsonl",
                 offset: String(lineNumber),
                 eventName: "turn.completed"
             ),
-            currentInputTokens: usage.inputTokens,
-            currentOutputTokens: usage.outputTokens,
+            currentInputTokens: accounting.currentInputTokens,
+            currentOutputTokens: accounting.currentOutputTokens,
             sessionOriginHint: observedThreadStarted ? .startedDuringLiveRuntime : .unknown
         )
 

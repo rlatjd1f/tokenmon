@@ -792,7 +792,7 @@ struct TokenmonDeveloperPanel: View {
 
             TokenmonSettingsSectionCard(title: "Cursor Usage Sync", systemImage: "arrow.triangle.branch") {
                 VStack(alignment: .leading, spacing: 12) {
-                    Text("Experimental managed-only path. Syncs Cursor usage export into Tokenmon accounting, and only advances gameplay when the current gameplay boundary allows it.")
+                    Text("Experimental managed-only path. Syncs Cursor usage export into Tokenmon stats only; export rows never advance gameplay.")
                         .font(.caption)
                         .foregroundStyle(.secondary)
 
@@ -812,7 +812,7 @@ struct TokenmonDeveloperPanel: View {
                     TokenmonDeveloperActionGrid(columns: actionColumns) {
                         TokenmonDeveloperActionButton(
                             title: "Sync Cursor Usage",
-                            subtitle: "Fetch Cursor usage export, convert it to Tokenmon provider events, and ingest it into the current database.",
+                            subtitle: "Fetch Cursor usage export, convert it to stats-only account usage rows, and ingest it into the current database.",
                             prominent: true,
                             disabled: model.cursorSyncAvailable == false,
                             action: { model.syncCursorUsage() }

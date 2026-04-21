@@ -88,6 +88,12 @@ struct TokenmonInsightsSnapshot: Equatable, Sendable {
     var fieldDistribution: [FieldType: Int] = [:]
     var dailyTrend: [DailyEncounterBucket] = []
     var tokenTotals: TokenUsageTotals?
+    var tokenUsageSourceSummary = TokenUsageSourceSummary(
+        hasAccountUsage: false,
+        hasLocalUsage: false,
+        accountBackedProvidersToday: [],
+        localOnlyProvidersToday: []
+    )
     var tokenByProviderToday: [ProviderCode: Int64] = [:]
     var tokenHourlyRolling: [HourTokenBucket] = []
     var recentSessions: [ProviderSessionTokens] = []
@@ -257,6 +263,7 @@ enum TokenmonMenuSnapshotLoader {
                 fieldDistribution: try manager.encounterFieldDistribution(),
                 dailyTrend: try manager.encounterDailyTrend(days: 7),
                 tokenTotals: try manager.tokenUsageTotals(),
+                tokenUsageSourceSummary: try manager.tokenUsageSourceSummary(),
                 tokenByProviderToday: try manager.tokenByProviderToday(),
                 tokenHourlyRolling: try manager.tokenHourlyRolling24(),
                 recentSessions: try manager.recentProviderSessions(limit: 30),

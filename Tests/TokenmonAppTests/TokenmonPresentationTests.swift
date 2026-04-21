@@ -599,10 +599,10 @@ struct TokenmonPresentationTests {
         let earlyRange = config.scaledThresholdRange(capturedSpeciesCount: 0)
         let lateRange = config.scaledThresholdRange(capturedSpeciesCount: SpeciesCatalog.expectedCount)
 
-        #expect(earlyRange.min == 5_000_000)
-        #expect(earlyRange.max == 7_000_000)
-        #expect(lateRange.min == 25_000_000)
-        #expect(lateRange.max == 30_000_000)
+        #expect(earlyRange.min == 180_000)
+        #expect(earlyRange.max == 260_000)
+        #expect(lateRange.min == 700_000)
+        #expect(lateRange.max == 900_000)
         #expect(first >= earlyRange.min)
         #expect(first <= earlyRange.max)
         #expect(second >= earlyRange.min)
@@ -1780,7 +1780,7 @@ struct TokenmonPresentationTests {
         #expect(summary.totalNormalizedTokens == 0)
         #expect(summary.tokensSinceLastEncounter == 0)
         #expect(currentRun.usageSamples == 0)
-        #expect(try manager.tokenUsageTotals().allTimeTokens == 1_500)
+        #expect(try manager.tokenUsageTotals().allTimeTokens == 1_400)
         #expect(checkpointOffset != nil)
         #expect(FileManager.default.fileExists(atPath: TokenmonDatabaseManager.inboxPath(provider: .codex, databasePath: databasePath)) == false)
     }
@@ -1898,7 +1898,7 @@ struct TokenmonPresentationTests {
         #expect(second.samplesCreated == 1)
         #expect(summary.usageSamples == 2)
         #expect(summary.totalNormalizedTokens == 0)
-        #expect(try manager.tokenUsageTotals().allTimeTokens == 3_000)
+        #expect(try manager.tokenUsageTotals().allTimeTokens == 2_800)
     }
 
     @Test
@@ -1971,7 +1971,7 @@ struct TokenmonPresentationTests {
 
         #expect(ingestedAppend)
         #expect(try manager.summary().totalNormalizedTokens == 0)
-        #expect(try manager.tokenUsageTotals().allTimeTokens == 1_500)
+        #expect(try manager.tokenUsageTotals().allTimeTokens == 1_400)
     }
 
     @Test
@@ -2040,9 +2040,9 @@ struct TokenmonPresentationTests {
         }
 
         #expect(ingestedEvent)
-        #expect(try manager.summary().totalNormalizedTokens == 1_500)
-        #expect(try manager.summary().tokensSinceLastEncounter == 1_500)
-        #expect(try manager.tokenUsageTotals().allTimeTokens == 1_500)
+        #expect(try manager.summary().totalNormalizedTokens == 1_400)
+        #expect(try manager.summary().tokensSinceLastEncounter == 1_400)
+        #expect(try manager.tokenUsageTotals().allTimeTokens == 1_400)
     }
 
     @Test
@@ -3918,7 +3918,7 @@ struct TokenmonPresentationTests {
         lastOutputTokens: Int64
     ) -> String {
         """
-        {"type":"event_msg","timestamp":"\(timestamp)","payload":{"type":"token_count","info":{"total_token_usage":{"input_tokens":\(inputTokens),"cached_input_tokens":\(cachedInputTokens),"output_tokens":\(outputTokens)},"last_token_usage":{"input_tokens":\(lastInputTokens),"output_tokens":\(lastOutputTokens)}}}}
+        {"type":"event_msg","timestamp":"\(timestamp)","payload":{"type":"token_count","info":{"total_token_usage":{"input_tokens":\(inputTokens),"cached_input_tokens":\(cachedInputTokens),"output_tokens":\(outputTokens),"total_tokens":\(inputTokens + outputTokens)},"last_token_usage":{"input_tokens":\(lastInputTokens),"output_tokens":\(lastOutputTokens)}}}}
         """
     }
 

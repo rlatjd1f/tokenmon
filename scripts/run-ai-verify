@@ -1152,7 +1152,7 @@ require_contains "$codex_single_output" "events_written: 1"
 require_contains "$codex_single_output" "duplicate_turns_skipped: 0"
 codex_single_event="$(cat "$codex_single_out")"
 require_contains "$codex_single_event" "\"provider_session_id\":\"thread_exec_single\""
-require_contains "$codex_single_event" "\"normalized_total_tokens\":2000"
+require_contains "$codex_single_event" "\"normalized_total_tokens\":1800"
 require_contains "$codex_single_event" "\"provider_event_fingerprint\":\"codex:thread_exec_single:turn_001\""
 printf 'VERIFY PASS: codex exec json single-turn import\n'
 
@@ -1171,8 +1171,8 @@ require_contains "$codex_two_turns_output" "thread_id: thread_exec_two_turns"
 require_contains "$codex_two_turns_output" "events_written: 2"
 require_contains "$codex_two_turns_output" "duplicate_turns_skipped: 0"
 codex_two_turns_events="$(cat "$codex_two_turns_out")"
-require_contains "$codex_two_turns_events" "\"normalized_total_tokens\":2000"
-require_contains "$codex_two_turns_events" "\"normalized_total_tokens\":3600"
+require_contains "$codex_two_turns_events" "\"normalized_total_tokens\":1800"
+require_contains "$codex_two_turns_events" "\"normalized_total_tokens\":3300"
 printf 'VERIFY PASS: codex exec json cumulative turn mapping\n'
 
 codex_managed_db="$tmpdir/codex-managed.sqlite"
@@ -1184,8 +1184,8 @@ codex_managed_ingest_output="$(tokenmon_app_cmd --tokenmon-ingest-inbox "$codex_
 require_contains "$codex_managed_ingest_output" "accepted: 2"
 codex_managed_summary="$(tokenmon_app_cmd --tokenmon-summary --db "$codex_managed_db" 2>&1)"
 require_contains "$codex_managed_summary" "usage_samples: 2"
-require_contains "$codex_managed_summary" "total_normalized_tokens: 3600"
-require_contains "$codex_managed_summary" "tokens_since_last_encounter: 3600"
+require_contains "$codex_managed_summary" "total_normalized_tokens: 3300"
+require_contains "$codex_managed_summary" "tokens_since_last_encounter: 3300"
 require_contains "$codex_managed_summary" "total_encounters: 0"
 printf 'VERIFY PASS: codex exec json drives gameplay path\n'
 
@@ -1470,11 +1470,11 @@ require_contains "$cursor_usage_proto_output" "cloud_agents: 1"
 require_contains "$cursor_usage_proto_output" "automations: 1"
 require_contains "$cursor_usage_proto_output" "tokenmon_ingest: ok"
 require_contains "$cursor_usage_proto_output" "accepted: 3"
-require_contains "$cursor_usage_proto_output" "usage_samples: 3"
+require_contains "$cursor_usage_proto_output" "account_usage_samples: 3"
 [[ -f "$cursor_usage_proto_dir/cursor-usage-export.csv" ]] || { printf 'VERIFY FAIL: missing cursor usage csv export artifact\n' >&2; exit 1; }
 [[ -f "$cursor_usage_proto_dir/cursor-usage-summary.json" ]] || { printf 'VERIFY FAIL: missing cursor usage summary artifact\n' >&2; exit 1; }
 [[ -f "$cursor_usage_proto_dir/cursor-usage-events.jsonl" ]] || { printf 'VERIFY FAIL: missing cursor usage events artifact\n' >&2; exit 1; }
-[[ -f "$cursor_usage_proto_dir/cursor-tokenmon-provider-events.ndjson" ]] || { printf 'VERIFY FAIL: missing cursor tokenmon provider events artifact\n' >&2; exit 1; }
+[[ -f "$cursor_usage_proto_dir/cursor-tokenmon-account-usage.ndjson" ]] || { printf 'VERIFY FAIL: missing cursor tokenmon account usage artifact\n' >&2; exit 1; }
 cursor_usage_summary_json="$(cat "$cursor_usage_proto_dir/cursor-usage-summary.json")"
 require_contains "$cursor_usage_summary_json" "\"billing_cycle_start\": \"2026-04-01T00:00:00Z\""
 require_contains "$cursor_usage_summary_json" "\"membership_type\": \"pro\""
@@ -1482,12 +1482,14 @@ require_contains "$cursor_usage_summary_json" "\"total_tokens\": 4300"
 cursor_usage_events_jsonl="$(cat "$cursor_usage_proto_dir/cursor-usage-events.jsonl")"
 require_contains "$cursor_usage_events_jsonl" "\"model_slug\": \"gpt-5.4\""
 require_contains "$cursor_usage_events_jsonl" "\"kind\": \"automation\""
-cursor_tokenmon_events_jsonl="$(cat "$cursor_usage_proto_dir/cursor-tokenmon-provider-events.ndjson")"
+cursor_tokenmon_events_jsonl="$(cat "$cursor_usage_proto_dir/cursor-tokenmon-account-usage.ndjson")"
 require_contains "$cursor_tokenmon_events_jsonl" "\"provider\":\"cursor\""
 require_contains "$cursor_tokenmon_events_jsonl" "\"source_mode\":\"cursor_usage_export_api\""
+require_contains "$cursor_tokenmon_events_jsonl" "\"event_type\":\"account_usage_sample\""
 cursor_usage_proto_summary="$(tokenmon_app_cmd --tokenmon-summary --db "$cursor_usage_proto_db" 2>&1)"
-require_contains "$cursor_usage_proto_summary" "provider_ingest_events: 3"
-require_contains "$cursor_usage_proto_summary" "usage_samples: 3"
+require_contains "$cursor_usage_proto_summary" "provider_ingest_events: 0"
+require_contains "$cursor_usage_proto_summary" "usage_samples: 0"
+require_contains "$cursor_usage_proto_summary" "account_usage_samples: 3"
 printf 'VERIFY PASS: cursor usage prototype fixture sync\n'
 record_timing "provider_fixtures" "provider_onboarding_and_backfill" "$provider_fixtures_started_at"
 
@@ -1813,7 +1815,7 @@ printf 'VERIFY PASS: accepted fixture ingest\n'
 accepted_summary="$(tokenmon_app_cmd --tokenmon-summary --db "$db" 2>&1)"
 require_contains "$accepted_summary" "usage_samples: 1"
 require_contains "$accepted_summary" "domain_events: 2"
-require_contains "$accepted_summary" "tokens_since_last_encounter: 2000"
+require_contains "$accepted_summary" "tokens_since_last_encounter: 1800"
 require_contains "$accepted_summary" "total_encounters: 0"
 printf 'VERIFY PASS: accepted fixture exploration/domain-event summary\n'
 
@@ -1843,7 +1845,7 @@ restart_summary="$(tokenmon_app_cmd --tokenmon-summary --db "$restart_db" 2>&1)"
 restart_probe="$(probe_cli_lane "$restart_db")"
 restart_encounter_count="$(probe_value "$restart_probe" total_encounters)"
 require_contains "$restart_summary" "usage_samples: 2"
-require_contains "$restart_summary" "total_normalized_tokens: 21409200"
+require_contains "$restart_summary" "total_normalized_tokens: 21001800"
 require_contains "$restart_summary" "tokens_since_last_encounter: $(probe_value "$restart_probe" tokens_since_last_encounter)"
 require_contains "$restart_summary" "total_encounters: $restart_encounter_count"
 printf 'VERIFY PASS: restart resume and append-only ingest\n'
@@ -2068,8 +2070,8 @@ require_contains "$regression_output" "rejected: 1"
 regression_summary="$(tokenmon_app_cmd --tokenmon-summary --db "$regression_db" 2>&1)"
 require_contains "$regression_summary" "provider_ingest_events: 2"
 require_contains "$regression_summary" "usage_samples: 1"
-require_contains "$regression_summary" "total_normalized_tokens: 3600"
-require_contains "$regression_summary" "tokens_since_last_encounter: 3600"
+require_contains "$regression_summary" "total_normalized_tokens: 3400"
+require_contains "$regression_summary" "tokens_since_last_encounter: 3400"
 require_contains "$regression_summary" "total_encounters: 0"
 printf 'VERIFY PASS: negative total regression does not corrupt exploration state\n'
 
