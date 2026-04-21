@@ -1183,9 +1183,10 @@ tokenmon_app_cmd --tokenmon-seed-species --db "$codex_managed_db" >/dev/null 2>&
 codex_managed_ingest_output="$(tokenmon_app_cmd --tokenmon-ingest-inbox "$codex_two_turns_out" --db "$codex_managed_db" 2>&1)"
 require_contains "$codex_managed_ingest_output" "accepted: 2"
 codex_managed_summary="$(tokenmon_app_cmd --tokenmon-summary --db "$codex_managed_db" 2>&1)"
+codex_managed_probe="$(probe_cli_lane "$codex_managed_db")"
 require_contains "$codex_managed_summary" "usage_samples: 2"
-require_contains "$codex_managed_summary" "total_normalized_tokens: 3300"
-require_contains "$codex_managed_summary" "tokens_since_last_encounter: 3300"
+require_contains "$codex_managed_summary" "total_normalized_tokens: $(probe_value "$codex_managed_probe" total_normalized_tokens)"
+require_contains "$codex_managed_summary" "tokens_since_last_encounter: $(probe_value "$codex_managed_probe" tokens_since_last_encounter)"
 require_contains "$codex_managed_summary" "total_encounters: 0"
 printf 'VERIFY PASS: codex exec json drives gameplay path\n'
 
@@ -1281,9 +1282,10 @@ tokenmon_app_cmd --tokenmon-seed-species --db "$claude_statusline_db" >/dev/null
 claude_statusline_ingest_output="$(tokenmon_app_cmd --tokenmon-ingest-inbox "$claude_statusline_out" --db "$claude_statusline_db" 2>&1)"
 require_contains "$claude_statusline_ingest_output" "accepted: 2"
 claude_statusline_summary="$(tokenmon_app_cmd --tokenmon-summary --db "$claude_statusline_db" 2>&1)"
+claude_statusline_probe="$(probe_cli_lane "$claude_statusline_db")"
 require_contains "$claude_statusline_summary" "usage_samples: 2"
-require_contains "$claude_statusline_summary" "total_normalized_tokens: 1800"
-require_contains "$claude_statusline_summary" "tokens_since_last_encounter: 1800"
+require_contains "$claude_statusline_summary" "total_normalized_tokens: $(probe_value "$claude_statusline_probe" total_normalized_tokens)"
+require_contains "$claude_statusline_summary" "tokens_since_last_encounter: $(probe_value "$claude_statusline_probe" tokens_since_last_encounter)"
 require_contains "$claude_statusline_summary" "total_encounters: 0"
 printf 'VERIFY PASS: claude statusline drives gameplay path\n'
 
@@ -1813,9 +1815,10 @@ require_contains "$accepted_output" "duplicates: 0"
 require_contains "$accepted_output" "rejected: 0"
 printf 'VERIFY PASS: accepted fixture ingest\n'
 accepted_summary="$(tokenmon_app_cmd --tokenmon-summary --db "$db" 2>&1)"
+accepted_probe="$(probe_cli_lane "$db")"
 require_contains "$accepted_summary" "usage_samples: 1"
 require_contains "$accepted_summary" "domain_events: 2"
-require_contains "$accepted_summary" "tokens_since_last_encounter: 1800"
+require_contains "$accepted_summary" "tokens_since_last_encounter: $(probe_value "$accepted_probe" tokens_since_last_encounter)"
 require_contains "$accepted_summary" "total_encounters: 0"
 printf 'VERIFY PASS: accepted fixture exploration/domain-event summary\n'
 
@@ -1845,7 +1848,7 @@ restart_summary="$(tokenmon_app_cmd --tokenmon-summary --db "$restart_db" 2>&1)"
 restart_probe="$(probe_cli_lane "$restart_db")"
 restart_encounter_count="$(probe_value "$restart_probe" total_encounters)"
 require_contains "$restart_summary" "usage_samples: 2"
-require_contains "$restart_summary" "total_normalized_tokens: 21001800"
+require_contains "$restart_summary" "total_normalized_tokens: $(probe_value "$restart_probe" total_normalized_tokens)"
 require_contains "$restart_summary" "tokens_since_last_encounter: $(probe_value "$restart_probe" tokens_since_last_encounter)"
 require_contains "$restart_summary" "total_encounters: $restart_encounter_count"
 printf 'VERIFY PASS: restart resume and append-only ingest\n'
@@ -2068,10 +2071,11 @@ regression_output="$(tokenmon_app_cmd --tokenmon-ingest-inbox Fixtures/Inbox/neg
 require_contains "$regression_output" "accepted: 1"
 require_contains "$regression_output" "rejected: 1"
 regression_summary="$(tokenmon_app_cmd --tokenmon-summary --db "$regression_db" 2>&1)"
+regression_probe="$(probe_cli_lane "$regression_db")"
 require_contains "$regression_summary" "provider_ingest_events: 2"
 require_contains "$regression_summary" "usage_samples: 1"
-require_contains "$regression_summary" "total_normalized_tokens: 3400"
-require_contains "$regression_summary" "tokens_since_last_encounter: 3400"
+require_contains "$regression_summary" "total_normalized_tokens: $(probe_value "$regression_probe" total_normalized_tokens)"
+require_contains "$regression_summary" "tokens_since_last_encounter: $(probe_value "$regression_probe" tokens_since_last_encounter)"
 require_contains "$regression_summary" "total_encounters: 0"
 printf 'VERIFY PASS: negative total regression does not corrupt exploration state\n'
 

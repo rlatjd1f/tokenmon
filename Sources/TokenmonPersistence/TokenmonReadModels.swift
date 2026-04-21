@@ -219,6 +219,9 @@ public struct ProviderIngestEventSummary: Equatable, Sendable {
     public let createdAt: String
     public let gameplayEligibility: String?
     public let gameplayDeltaTokens: Int64?
+    public let gameplayBalanceBucket: String?
+    public let gameplayBalanceWeight: Double?
+    public let gameplayBalancePolicy: String?
 }
 
 
@@ -914,7 +917,10 @@ public extension TokenmonDatabaseManager {
                provider_ingest_events.observed_at,
                provider_ingest_events.created_at,
                usage_samples.gameplay_eligibility,
-               usage_samples.gameplay_delta_tokens
+               usage_samples.gameplay_delta_tokens,
+               usage_samples.gameplay_balance_bucket,
+               usage_samples.gameplay_balance_weight,
+               usage_samples.gameplay_balance_policy
         FROM provider_ingest_events
         LEFT JOIN provider_sessions
           ON provider_sessions.provider_session_row_id = provider_ingest_events.provider_session_row_id
@@ -941,7 +947,10 @@ public extension TokenmonDatabaseManager {
                 observedAt: SQLiteDatabase.columnText(statement, index: 10),
                 createdAt: SQLiteDatabase.columnText(statement, index: 11),
                 gameplayEligibility: SQLiteDatabase.columnOptionalText(statement, index: 12),
-                gameplayDeltaTokens: SQLiteDatabase.columnOptionalInt64(statement, index: 13)
+                gameplayDeltaTokens: SQLiteDatabase.columnOptionalInt64(statement, index: 13),
+                gameplayBalanceBucket: SQLiteDatabase.columnOptionalText(statement, index: 14),
+                gameplayBalanceWeight: SQLiteDatabase.columnOptionalDouble(statement, index: 15),
+                gameplayBalancePolicy: SQLiteDatabase.columnOptionalText(statement, index: 16)
             )
         }
     }

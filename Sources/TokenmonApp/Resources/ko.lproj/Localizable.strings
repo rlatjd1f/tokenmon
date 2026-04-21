@@ -133,7 +133,7 @@
 "now.stats.cap_short" = "포획";
 "now.stats.seen" = "발견";
 
-"progress.tokens.current" = "%1$@ / %2$@ 토큰";
+"progress.steps.remaining" = "%1$d스텝 남음";
 "progress.until_next_encounter" = "다음 조우까지";
 
 "tokens.recovery_note" = "대시보드 합계에는 앱이 꺼져 있던 동안 복구된 오프라인 사용량이 포함될 수 있습니다.";

@@ -265,6 +265,58 @@ struct TokenmonDataContractTests {
     }
 
     @Test
+    func thresholdPolicyRefreshRebasesLegacyHighPendingThreshold() throws {
+        let manager = try makeManager(prefix: "tokenmon-threshold-policy-rebase")
+        let database = try manager.open()
+
+        try manager.applyExplorationOverride(
+            totalNormalizedTokens: 2_000_000,
+            tokensSinceLastEncounter: 2_000_000,
+            nextEncounterThresholdTokens: 6_000_000
+        )
+        try upsertStringSetting(
+            database: database,
+            key: "encounter_threshold_policy_version",
+            value: "legacy-high-threshold"
+        )
+
+        try manager.refreshPendingEncounterThresholdPolicy()
+        let summary = try manager.summary()
+
+        #expect(summary.totalNormalizedTokens == 2_000_000)
+        #expect(summary.tokensSinceLastEncounter == 2_000_000)
+        #expect(summary.nextEncounterThresholdTokens == 2_020_000)
+        #expect(summary.tokensUntilNextEncounter == 20_000)
+        #expect(summary.totalEncounters == 0)
+    }
+
+    @Test
+    func thresholdPolicyRefreshUsesCurrentRangeWhenProgressIsBelowNewThreshold() throws {
+        let manager = try makeManager(prefix: "tokenmon-threshold-policy-current-range")
+        let database = try manager.open()
+
+        try manager.applyExplorationOverride(
+            totalNormalizedTokens: 50_000,
+            tokensSinceLastEncounter: 50_000,
+            nextEncounterThresholdTokens: 6_000_000
+        )
+        try upsertStringSetting(
+            database: database,
+            key: "encounter_threshold_policy_version",
+            value: "legacy-high-threshold"
+        )
+
+        try manager.refreshPendingEncounterThresholdPolicy()
+        let summary = try manager.summary()
+        let range = ExplorationAccumulatorConfig().scaledThresholdRange(capturedSpeciesCount: 0)
+
+        #expect(summary.tokensSinceLastEncounter == 50_000)
+        #expect(summary.nextEncounterThresholdTokens >= range.min)
+        #expect(summary.nextEncounterThresholdTokens <= range.max)
+        #expect(summary.tokensUntilNextEncounter == summary.nextEncounterThresholdTokens - 50_000)
+    }
+
+    @Test
     func applyExplorationOverridePersistsExplicitProgress() throws {
         let manager = try makeManager(prefix: "tokenmon-exploration-override")
 
@@ -856,6 +908,219 @@ struct TokenmonDataContractTests {
         #expect(totalCaptures == 3)
     }
 
+    @Test
+    func gameplayBalanceKeepsRawTokensSeparateFromProgressTokens() throws {
+        let manager = try makeManager(prefix: "tokenmon-gameplay-balance-raw")
+        let database = try manager.open()
+        try upsertStringSetting(
+            database: database,
+            key: "live_gameplay_started_at",
+            value: "2026-04-21T00:00:00Z"
+        )
+        try upsertStringSetting(
+            database: database,
+            key: "gameplay_balance_seed",
+            value: "balance-test-seed"
+        )
+
+        let event = codexUsageEvent(
+            sessionID: "balanced-codex-session",
+            observedAt: "2026-04-21T00:01:00Z",
+            totalInputTokens: 100_000,
+            totalOutputTokens: 20_000,
+            fingerprint: "codex:balanced-codex-session:001"
+        )
+        let result = try UsageSampleIngestionService(databasePath: manager.path).ingestProviderEvents(
+            [event],
+            sourceKey: "balanced-codex",
+            sourceKind: "ndjson_file"
+        )
+        #expect(result.acceptedEvents == 1)
+
+        let row = try database.fetchOne(
+            """
+            SELECT normalized_delta_tokens,
+                   gameplay_delta_tokens,
+                   gameplay_balance_bucket,
+                   gameplay_balance_weight,
+                   gameplay_balance_policy
+            FROM usage_samples
+            WHERE provider_code = 'codex'
+            LIMIT 1;
+            """
+        ) { statement in
+            (
+                rawDelta: SQLiteDatabase.columnInt64(statement, index: 0),
+                gameplayDelta: SQLiteDatabase.columnInt64(statement, index: 1),
+                bucket: SQLiteDatabase.columnOptionalText(statement, index: 2),
+                weight: SQLiteDatabase.columnOptionalDouble(statement, index: 3),
+                policy: SQLiteDatabase.columnOptionalText(statement, index: 4)
+            )
+        }
+
+        #expect(row?.rawDelta == 120_000)
+        #expect((row?.gameplayDelta ?? 0) > 0)
+        #expect((row?.gameplayDelta ?? 0) < 120_000)
+        #expect(row?.bucket == "codex:gpt-5-4")
+        #expect((row?.weight ?? 0) > 0)
+        #expect(row?.policy?.contains("cold_start_provider_fallback") == true)
+
+        let ingestPayloadTotal = try database.fetchOne(
+            """
+            SELECT json_extract(payload_json, '$.normalized_total_tokens')
+            FROM provider_ingest_events
+            WHERE provider_code = 'codex'
+            LIMIT 1;
+            """
+        ) { statement in
+            SQLiteDatabase.columnInt64(statement, index: 0)
+        }
+        #expect(ingestPayloadTotal == 120_000)
+
+        let explorationTokens = try database.fetchOne(
+            "SELECT total_normalized_tokens FROM exploration_state WHERE exploration_state_id = 1;"
+        ) { statement in
+            SQLiteDatabase.columnInt64(statement, index: 0)
+        }
+        #expect(explorationTokens == row?.gameplayDelta)
+    }
+
+    @Test
+    func gameplayBalanceLearnsHighRateBucketsWithoutRewritingAccounting() throws {
+        let manager = try makeManager(prefix: "tokenmon-gameplay-balance-dynamic")
+        let database = try manager.open()
+        try upsertStringSetting(
+            database: database,
+            key: "live_gameplay_started_at",
+            value: "2026-04-21T00:00:00Z"
+        )
+        try upsertStringSetting(
+            database: database,
+            key: "gameplay_balance_seed",
+            value: "balance-test-seed"
+        )
+
+        let events = (1...9).map { index in
+            let index64 = Int64(index)
+            return codexUsageEvent(
+                sessionID: "dynamic-codex-session",
+                observedAt: String(format: "2026-04-21T00:%02d:00Z", index * 2),
+                totalInputTokens: index64 * 80_000,
+                totalOutputTokens: index64 * 20_000,
+                fingerprint: "codex:dynamic-codex-session:\(index)"
+            )
+        }
+        let result = try UsageSampleIngestionService(databasePath: manager.path).ingestProviderEvents(
+            events,
+            sourceKey: "dynamic-codex",
+            sourceKind: "ndjson_file"
+        )
+        #expect(result.acceptedEvents == 9)
+
+        let balanceRows = try database.fetchAll(
+            """
+            SELECT normalized_delta_tokens,
+                   gameplay_delta_tokens,
+                   gameplay_balance_weight,
+                   gameplay_balance_policy
+            FROM usage_samples
+            WHERE provider_code = 'codex'
+            ORDER BY usage_sample_id;
+            """
+        ) { statement in
+            (
+                rawDelta: SQLiteDatabase.columnInt64(statement, index: 0),
+                gameplayDelta: SQLiteDatabase.columnInt64(statement, index: 1),
+                weight: SQLiteDatabase.columnDouble(statement, index: 2),
+                policy: SQLiteDatabase.columnText(statement, index: 3)
+            )
+        }
+
+        #expect(balanceRows.count == 9)
+        #expect(balanceRows.allSatisfy { $0.rawDelta == 100_000 })
+        #expect(balanceRows.first?.policy.contains("cold_start_provider_fallback") == true)
+        #expect(balanceRows.last?.policy.contains("dynamic_alpha_0_60") == true)
+        #expect((balanceRows.last?.weight ?? 1) < (balanceRows.first?.weight ?? 0))
+        #expect(balanceRows.allSatisfy { $0.gameplayDelta > 0 && $0.gameplayDelta < $0.rawDelta })
+
+        let rawSum = balanceRows.reduce(Int64(0)) { $0 + $1.rawDelta }
+        let gameplaySum = balanceRows.reduce(Int64(0)) { $0 + $1.gameplayDelta }
+        #expect(rawSum == 900_000)
+        #expect(gameplaySum < rawSum)
+
+        let bucket = try database.fetchOne(
+            """
+            SELECT bucket_key,
+                   sample_count,
+                   active_minutes,
+                   observed_rate_tokens_per_minute
+            FROM gameplay_balance_buckets
+            WHERE bucket_key = 'codex:gpt-5-4'
+            LIMIT 1;
+            """
+        ) { statement in
+            (
+                bucketKey: SQLiteDatabase.columnText(statement, index: 0),
+                sampleCount: SQLiteDatabase.columnInt64(statement, index: 1),
+                activeMinutes: SQLiteDatabase.columnDouble(statement, index: 2),
+                observedRate: SQLiteDatabase.columnDouble(statement, index: 3)
+            )
+        }
+        #expect(bucket?.bucketKey == "codex:gpt-5-4")
+        #expect(bucket?.sampleCount == 9)
+        #expect((bucket?.activeMinutes ?? 0) >= 10)
+        #expect((bucket?.observedRate ?? 0) > 0)
+    }
+
+    @Test
+    func recoveryUsageDoesNotTrainGameplayBalance() throws {
+        let manager = try makeManager(prefix: "tokenmon-gameplay-balance-recovery")
+        let database = try manager.open()
+        try upsertStringSetting(
+            database: database,
+            key: "gameplay_balance_seed",
+            value: "balance-test-seed"
+        )
+
+        let event = codexUsageEvent(
+            sessionID: "recovery-codex-session",
+            observedAt: "2026-04-21T00:01:00Z",
+            totalInputTokens: 100_000,
+            totalOutputTokens: 20_000,
+            fingerprint: "codex:recovery-codex-session:001"
+        )
+        let result = try UsageSampleIngestionService(databasePath: manager.path).ingestProviderEvents(
+            [event],
+            sourceKey: "recovery-codex",
+            sourceKind: "recovery_scan"
+        )
+        #expect(result.acceptedEvents == 1)
+
+        let row = try database.fetchOne(
+            """
+            SELECT gameplay_delta_tokens,
+                   gameplay_balance_bucket,
+                   gameplay_balance_weight,
+                   gameplay_balance_policy
+            FROM usage_samples
+            WHERE provider_code = 'codex'
+            LIMIT 1;
+            """
+        ) { statement in
+            (
+                gameplayDelta: SQLiteDatabase.columnInt64(statement, index: 0),
+                bucket: SQLiteDatabase.columnOptionalText(statement, index: 1),
+                weight: SQLiteDatabase.columnOptionalDouble(statement, index: 2),
+                policy: SQLiteDatabase.columnOptionalText(statement, index: 3)
+            )
+        }
+        #expect(row?.gameplayDelta == 0)
+        #expect(row?.bucket == nil)
+        #expect(row?.weight == nil)
+        #expect(row?.policy == nil)
+        #expect(try rowCount(in: "gameplay_balance_buckets", database: database) == 0)
+    }
+
     private func makeManager(prefix: String) throws -> TokenmonDatabaseManager {
         let tempDirectory = FileManager.default.temporaryDirectory
             .appendingPathComponent("\(prefix)-\(UUID().uuidString)", isDirectory: true)
@@ -865,6 +1130,61 @@ struct TokenmonDataContractTests {
         let manager = TokenmonDatabaseManager(path: dbPath)
         try manager.bootstrap()
         return manager
+    }
+
+    private func upsertStringSetting(
+        database: SQLiteDatabase,
+        key: String,
+        value: String
+    ) throws {
+        try database.execute(
+            """
+            INSERT INTO settings (
+                setting_key,
+                setting_value_json,
+                updated_at
+            ) VALUES (?, ?, '2026-04-21T00:00:00Z')
+            ON CONFLICT(setting_key) DO UPDATE SET
+                setting_value_json = excluded.setting_value_json,
+                updated_at = excluded.updated_at;
+            """,
+            bindings: [
+                .text(key),
+                .text("\"\(value)\""),
+            ]
+        )
+    }
+
+    private func codexUsageEvent(
+        sessionID: String,
+        observedAt: String,
+        totalInputTokens: Int64,
+        totalOutputTokens: Int64,
+        fingerprint: String
+    ) -> ProviderUsageSampleEvent {
+        ProviderUsageSampleEvent(
+            eventType: "provider_usage_sample",
+            provider: .codex,
+            sourceMode: "codex_exec_json",
+            providerSessionID: sessionID,
+            observedAt: observedAt,
+            workspaceDir: "/tmp/tokenmon-fixture",
+            modelSlug: "gpt-5.4",
+            transcriptPath: nil,
+            totalInputTokens: totalInputTokens,
+            totalOutputTokens: totalOutputTokens,
+            totalCachedInputTokens: 1_000,
+            normalizedTotalTokens: totalInputTokens + totalOutputTokens,
+            providerEventFingerprint: fingerprint,
+            rawReference: ProviderRawReference(
+                kind: "jsonl",
+                offset: nil,
+                eventName: "turn.completed"
+            ),
+            currentInputTokens: totalInputTokens,
+            currentOutputTokens: totalOutputTokens,
+            sessionOriginHint: .startedDuringLiveRuntime
+        )
     }
 
     private func rowCount(in table: String, database: SQLiteDatabase) throws -> Int64 {

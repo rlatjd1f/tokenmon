@@ -110,7 +110,7 @@
 "now.stats.cap_short" = "Cap.";
 "now.stats.seen" = "Seen";
 
-"progress.tokens.current" = "%1$@ / %2$@ tokens";
+"progress.steps.remaining" = "%1$d steps left";
 "progress.until_next_encounter" = "Until next encounter";
 
 "tokens.recovery_note" = "Dashboard totals can include offline usage recovered while the app was closed.";

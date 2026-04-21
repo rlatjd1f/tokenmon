@@ -63,6 +63,9 @@ public struct UsageSampleRecordedEventPayload: Codable, Equatable, Sendable {
     public let totalCachedInputTokens: Int64
     public let gameplayEligibility: String
     public let gameplayDeltaTokens: Int64
+    public let gameplayBalanceBucket: String?
+    public let gameplayBalanceWeight: Double?
+    public let gameplayBalancePolicy: String?
 
     enum CodingKeys: String, CodingKey {
         case usageSampleID = "usage_sample_id"
@@ -75,6 +78,9 @@ public struct UsageSampleRecordedEventPayload: Codable, Equatable, Sendable {
         case totalCachedInputTokens = "total_cached_input_tokens"
         case gameplayEligibility = "gameplay_eligibility"
         case gameplayDeltaTokens = "gameplay_delta_tokens"
+        case gameplayBalanceBucket = "gameplay_balance_bucket"
+        case gameplayBalanceWeight = "gameplay_balance_weight"
+        case gameplayBalancePolicy = "gameplay_balance_policy"
     }
 }
 
@@ -236,7 +242,10 @@ enum TokenmonDomainEventRegistry {
         event: ProviderUsageSampleEvent,
         normalizedDeltaTokens: Int64,
         gameplayEligibility: UsageSampleGameplayEligibility,
-        gameplayDeltaTokens: Int64
+        gameplayDeltaTokens: Int64,
+        gameplayBalanceBucket: String? = nil,
+        gameplayBalanceWeight: Double? = nil,
+        gameplayBalancePolicy: String? = nil
     ) -> DomainEventEnvelope<UsageSampleRecordedEventPayload> {
         DomainEventEnvelope(
             eventID: usageSampleEventID(usageSampleID),
@@ -256,7 +265,10 @@ enum TokenmonDomainEventRegistry {
                 totalOutputTokens: event.totalOutputTokens,
                 totalCachedInputTokens: event.totalCachedInputTokens,
                 gameplayEligibility: gameplayEligibility.rawValue,
-                gameplayDeltaTokens: gameplayDeltaTokens
+                gameplayDeltaTokens: gameplayDeltaTokens,
+                gameplayBalanceBucket: gameplayBalanceBucket,
+                gameplayBalanceWeight: gameplayBalanceWeight,
+                gameplayBalancePolicy: gameplayBalancePolicy
             )
         )
     }

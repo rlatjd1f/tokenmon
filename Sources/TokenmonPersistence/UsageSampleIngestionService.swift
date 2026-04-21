@@ -27,7 +27,7 @@ private struct PreviousUsageSampleState {
 
 private struct GameplayEligibilityDecision {
     let eligibility: UsageSampleGameplayEligibility
-    let gameplayDeltaTokens: Int64
+    let rawEligibleDeltaTokens: Int64
 }
 
 public final class UsageSampleIngestionService {
@@ -389,7 +389,6 @@ public final class UsageSampleIngestionService {
         )
         let baselineTotal = previousTotal ?? sessionResetBaseline ?? 0
         let delta = max(0, event.normalizedTotalTokens - baselineTotal)
-        let burstIntensityBand = Self.burstIntensityBand(forNormalizedDelta: delta)
         let gameplayDecision = try gameplayEligibilityDecision(
             database: database,
             event: event,
@@ -409,6 +408,15 @@ public final class UsageSampleIngestionService {
                 rejectionReason: nil
             )
 
+            let balanceDecision = try GameplayTokenBalancer.balance(
+                database: database,
+                event: event,
+                rawEligibleDeltaTokens: gameplayDecision.rawEligibleDeltaTokens
+            )
+            let burstIntensityBand = Self.burstIntensityBand(
+                forNormalizedDelta: balanceDecision.gameplayDeltaTokens
+            )
+
             let usageSampleID = try insertUsageSample(
                 database: database,
                 event: event,
@@ -417,7 +425,7 @@ public final class UsageSampleIngestionService {
                 normalizedDeltaTokens: delta,
                 burstIntensityBand: burstIntensityBand,
                 gameplayEligibility: gameplayDecision.eligibility,
-                gameplayDeltaTokens: gameplayDecision.gameplayDeltaTokens
+                balanceDecision: balanceDecision
             )
 
             try DomainEventStore.persist(
@@ -427,15 +435,18 @@ public final class UsageSampleIngestionService {
                     event: event,
                     normalizedDeltaTokens: delta,
                     gameplayEligibility: gameplayDecision.eligibility,
-                    gameplayDeltaTokens: gameplayDecision.gameplayDeltaTokens
+                    gameplayDeltaTokens: balanceDecision.gameplayDeltaTokens,
+                    gameplayBalanceBucket: balanceDecision.bucketKey,
+                    gameplayBalanceWeight: balanceDecision.appliedWeight,
+                    gameplayBalancePolicy: balanceDecision.policy
                 )
             )
 
-            if gameplayDecision.gameplayDeltaTokens > 0 {
+            if balanceDecision.gameplayDeltaTokens > 0 {
                 let explorationUpdate = try accumulateExplorationProgress(
                     database: database,
                     usageSampleID: usageSampleID,
-                    normalizedDeltaTokens: gameplayDecision.gameplayDeltaTokens,
+                    normalizedDeltaTokens: balanceDecision.gameplayDeltaTokens,
                     observedAt: event.observedAt,
                     correlationID: event.providerEventFingerprint
                 )
@@ -687,21 +698,21 @@ public final class UsageSampleIngestionService {
         if sourceKind != "ndjson_file" {
             return GameplayEligibilityDecision(
                 eligibility: .recoveryOnly,
-                gameplayDeltaTokens: 0
+                rawEligibleDeltaTokens: 0
             )
         }
 
         guard let liveGameplayStartedAt = try liveGameplayStartedAt(database: database) else {
             return GameplayEligibilityDecision(
                 eligibility: .outsideLiveRuntime,
-                gameplayDeltaTokens: 0
+                rawEligibleDeltaTokens: 0
             )
         }
 
         if Self.predatesGameplayStart(eventObservedAt: event.observedAt, gameplayStartedAt: liveGameplayStartedAt) {
             return GameplayEligibilityDecision(
                 eligibility: .outsideLiveRuntime,
-                gameplayDeltaTokens: 0
+                rawEligibleDeltaTokens: 0
             )
         }
 
@@ -712,34 +723,34 @@ public final class UsageSampleIngestionService {
            ) == false {
             return GameplayEligibilityDecision(
                 eligibility: .eligibleLive,
-                gameplayDeltaTokens: max(0, event.normalizedTotalTokens - previousSample.normalizedTotalTokens)
+                rawEligibleDeltaTokens: max(0, event.normalizedTotalTokens - previousSample.normalizedTotalTokens)
             )
         }
 
         if let previousSample {
             return GameplayEligibilityDecision(
                 eligibility: .eligibleLive,
-                gameplayDeltaTokens: max(0, event.normalizedTotalTokens - previousSample.normalizedTotalTokens)
+                rawEligibleDeltaTokens: max(0, event.normalizedTotalTokens - previousSample.normalizedTotalTokens)
             )
         }
 
         if event.sessionOriginHint == .startedDuringLiveRuntime {
             return GameplayEligibilityDecision(
                 eligibility: .eligibleLive,
-                gameplayDeltaTokens: max(0, event.normalizedTotalTokens - (sessionResetBaseline ?? 0))
+                rawEligibleDeltaTokens: max(0, event.normalizedTotalTokens - (sessionResetBaseline ?? 0))
             )
         }
 
         if let sessionResetBaseline {
             return GameplayEligibilityDecision(
                 eligibility: .eligibleLive,
-                gameplayDeltaTokens: max(0, event.normalizedTotalTokens - sessionResetBaseline)
+                rawEligibleDeltaTokens: max(0, event.normalizedTotalTokens - sessionResetBaseline)
             )
         }
 
         return GameplayEligibilityDecision(
             eligibility: .runtimeBaseline,
-            gameplayDeltaTokens: 0
+            rawEligibleDeltaTokens: 0
         )
     }
 
@@ -777,7 +788,7 @@ public final class UsageSampleIngestionService {
         normalizedDeltaTokens: Int64,
         burstIntensityBand: Int,
         gameplayEligibility: UsageSampleGameplayEligibility,
-        gameplayDeltaTokens: Int64
+        balanceDecision: GameplayTokenBalanceDecision
     ) throws -> Int64 {
         try database.execute(
             """
@@ -795,9 +806,12 @@ public final class UsageSampleIngestionService {
                 current_output_tokens,
                 gameplay_eligibility,
                 gameplay_delta_tokens,
+                gameplay_balance_bucket,
+                gameplay_balance_weight,
+                gameplay_balance_policy,
                 burst_intensity_band,
                 created_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
             """,
             bindings: [
                 .integer(providerIngestEventID),
@@ -812,7 +826,10 @@ public final class UsageSampleIngestionService {
                 event.currentInputTokens.map(SQLiteValue.integer) ?? .null,
                 event.currentOutputTokens.map(SQLiteValue.integer) ?? .null,
                 .text(gameplayEligibility.rawValue),
-                .integer(gameplayDeltaTokens),
+                .integer(balanceDecision.gameplayDeltaTokens),
+                balanceDecision.bucketKey.map(SQLiteValue.text) ?? .null,
+                balanceDecision.appliedWeight.map(SQLiteValue.double) ?? .null,
+                balanceDecision.policy.map(SQLiteValue.text) ?? .null,
                 .integer(Int64(burstIntensityBand)),
                 .text(ISO8601DateFormatter().string(from: Date())),
             ]

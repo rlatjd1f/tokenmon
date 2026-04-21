@@ -1,24 +1,33 @@
 import SwiftUI
 
-/// Horizontal progress bar showing token progress toward the next encounter.
-/// Bar fill is token-level (smooth). A small fixed segment count keeps the bar readable
-/// even when encounter thresholds grow into the millions of tokens.
+/// Horizontal progress bar showing abstract field steps toward the next encounter.
+/// The underlying accumulator is token-derived, but the Now surface uses steps
+/// so gameplay progress does not look like raw dashboard token accounting.
 struct TokenProgressBar: View {
     let currentTokens: Int64
     let totalTokens: Int64
     let segmentCount: Int
 
     @State private var isInfoPresented = false
+    private let totalSteps = 100
 
     private var fraction: Double {
         guard totalTokens > 0 else { return 0 }
         return min(1.0, max(0.0, Double(currentTokens) / Double(totalTokens)))
     }
 
+    private var currentSteps: Int {
+        min(totalSteps, max(0, Int((fraction * Double(totalSteps)).rounded(.down))))
+    }
+
+    private var remainingSteps: Int {
+        max(0, totalSteps - currentSteps)
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             HStack(alignment: .firstTextBaseline, spacing: 4) {
-                Text(TokenmonL10n.format("progress.tokens.current", formatted(currentTokens), formatted(totalTokens)))
+                Text(TokenmonL10n.format("progress.steps.remaining", remainingSteps))
                     .font(.subheadline.weight(.semibold))
                 Button {
                     isInfoPresented.toggle()
@@ -73,10 +82,6 @@ struct TokenProgressBar: View {
             }
             .frame(height: 12)
         }
-    }
-
-    private func formatted(_ value: Int64) -> String {
-        TokenmonCompactCountFormatter.string(for: value)
     }
 }
 

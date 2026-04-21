@@ -1737,6 +1737,15 @@ private struct TokenmonDeveloperIngestEventRow: View {
                 .foregroundStyle(gameplayEligibility == UsageSampleGameplayEligibility.eligibleLive.rawValue ? .green : .secondary)
             }
 
+            if let bucket = event.gameplayBalanceBucket,
+               let weight = event.gameplayBalanceWeight {
+                Text(
+                    "Balance: \(bucket) · weight \(weight.formatted(.number.precision(.fractionLength(3)))) · \(event.gameplayBalancePolicy ?? "policy unknown")"
+                )
+                .font(.caption2.monospaced())
+                .foregroundStyle(.secondary)
+            }
+
             Text(event.providerEventFingerprint)
                 .font(.caption.monospaced())
                 .foregroundStyle(.secondary)

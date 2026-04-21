@@ -99,6 +99,9 @@ public final class TokenmonDatabaseManager {
     }
 
     private static let bootstrapState = BootstrapState()
+    private static let encounterThresholdPolicySettingKey = "encounter_threshold_policy_version"
+    private static let encounterThresholdPolicyVersion = "encounter_threshold_v2_collection_scaled"
+    private static let encounterThresholdRebaseGraceTokens: Int64 = 20_000
 
     public let path: String
 
@@ -297,6 +300,12 @@ public final class TokenmonDatabaseManager {
                 updatedAt: now,
                 database: database
             )
+            try upsertRawSetting(
+                key: Self.encounterThresholdPolicySettingKey,
+                encodedValue: "\"\(Self.encounterThresholdPolicyVersion)\"",
+                updatedAt: now,
+                database: database
+            )
         }
     }
 
@@ -312,6 +321,7 @@ public final class TokenmonDatabaseManager {
             try database.execute("DELETE FROM dex_captured;")
             try database.execute("DELETE FROM dex_seen;")
             try touchExplorationState(updatedAt: now, database: database)
+            try ensurePendingEncounterThresholdPolicy(database: database, force: true)
         }
     }
 
@@ -357,6 +367,12 @@ public final class TokenmonDatabaseManager {
                 updatedAt: now,
                 database: database
             )
+            try upsertRawSetting(
+                key: Self.encounterThresholdPolicySettingKey,
+                encodedValue: "\"\(Self.encounterThresholdPolicyVersion)\"",
+                updatedAt: now,
+                database: database
+            )
         }
     }
 
@@ -377,6 +393,11 @@ public final class TokenmonDatabaseManager {
                 .text(now),
             ]
         )
+    }
+
+    func refreshPendingEncounterThresholdPolicy() throws {
+        let database = try open()
+        try ensurePendingEncounterThresholdPolicy(database: database, force: false)
     }
 
     public func applyExplorationOverride(
@@ -619,6 +640,7 @@ public final class TokenmonDatabaseManager {
         try seedProviders(database)
         try ensureSpeciesCatalog(database)
         try ensureExplorationState(database)
+        try ensurePendingEncounterThresholdPolicy(database: database, force: false)
         try ensureGameplayStartedAt(database)
     }
 
@@ -1141,6 +1163,70 @@ public final class TokenmonDatabaseManager {
         }
     }
 
+    private func ensurePendingEncounterThresholdPolicy(
+        database: SQLiteDatabase,
+        force: Bool
+    ) throws {
+        let lowThresholdOverrideEnabled = try internalLowThresholdOverrideEnabled(database: database)
+        guard lowThresholdOverrideEnabled == false else {
+            return
+        }
+
+        let state = try currentExplorationState(database: database)
+        let capturedSpeciesCount = try dexCapturedSpeciesCount(database: database)
+        let config = ExplorationAccumulatorConfig()
+        let currentPolicy = try stringSetting(
+            key: Self.encounterThresholdPolicySettingKey,
+            database: database
+        )
+        let range = config.scaledThresholdRange(capturedSpeciesCount: capturedSpeciesCount)
+
+        let policyChanged = currentPolicy != Self.encounterThresholdPolicyVersion
+        let invalidThreshold = state.nextEncounterThresholdTokens <= 0
+            || state.nextEncounterThresholdTokens < range.min
+
+        guard force || policyChanged || invalidThreshold else {
+            return
+        }
+
+        var nextThreshold = config.tokensRequiredForEncounter(
+            state.totalEncounters + 1,
+            capturedSpeciesCount: capturedSpeciesCount
+        )
+        if nextThreshold <= state.tokensSinceLastEncounter {
+            nextThreshold = state.tokensSinceLastEncounter + Self.encounterThresholdRebaseGraceTokens
+        }
+
+        let now = ISO8601DateFormatter().string(from: Date())
+        try database.execute(
+            """
+            UPDATE exploration_state
+            SET next_encounter_threshold_tokens = ?,
+                updated_at = ?
+            WHERE exploration_state_id = 1;
+            """,
+            bindings: [
+                .integer(nextThreshold),
+                .text(now),
+            ]
+        )
+        try upsertRawSetting(
+            key: Self.encounterThresholdPolicySettingKey,
+            encodedValue: "\"\(Self.encounterThresholdPolicyVersion)\"",
+            updatedAt: now,
+            database: database
+        )
+    }
+
+    private func dexCapturedSpeciesCount(database: SQLiteDatabase) throws -> Int {
+        let count = try database.fetchOne(
+            "SELECT COUNT(*) FROM dex_captured;"
+        ) { statement in
+            SQLiteDatabase.columnInt64(statement, index: 0)
+        } ?? 0
+        return Int(count)
+    }
+
     private func ensureGameplayStartedAt(_ database: SQLiteDatabase) throws {
         let now = ISO8601DateFormatter().string(from: Date())
         try database.execute(
@@ -1427,6 +1513,9 @@ public final class TokenmonDatabaseManager {
                     current_output_tokens INTEGER,
                     gameplay_eligibility TEXT NOT NULL DEFAULT 'outside_live_runtime',
                     gameplay_delta_tokens INTEGER NOT NULL DEFAULT 0,
+                    gameplay_balance_bucket TEXT,
+                    gameplay_balance_weight REAL,
+                    gameplay_balance_policy TEXT,
                     burst_intensity_band INTEGER NOT NULL,
                     created_at TEXT NOT NULL
                 );
@@ -1449,6 +1538,19 @@ public final class TokenmonDatabaseManager {
                     raw_reference_offset TEXT,
                     payload_json TEXT NOT NULL,
                     created_at TEXT NOT NULL
+                );
+                """,
+                """
+                CREATE TABLE IF NOT EXISTS gameplay_balance_buckets (
+                    bucket_key TEXT PRIMARY KEY NOT NULL,
+                    provider_code TEXT NOT NULL REFERENCES providers(provider_code),
+                    model_bucket TEXT NOT NULL,
+                    effective_weight REAL NOT NULL,
+                    observed_rate_tokens_per_minute REAL NOT NULL,
+                    sample_count INTEGER NOT NULL,
+                    active_minutes REAL NOT NULL,
+                    last_sample_at TEXT,
+                    updated_at TEXT NOT NULL
                 );
                 """,
                 """
@@ -1546,6 +1648,8 @@ public final class TokenmonDatabaseManager {
                 "CREATE INDEX IF NOT EXISTS idx_provider_ingest_events_acceptance_created ON provider_ingest_events(acceptance_state, created_at DESC);",
                 "CREATE INDEX IF NOT EXISTS idx_usage_samples_session_observed ON usage_samples(provider_session_row_id, observed_at);",
                 "CREATE INDEX IF NOT EXISTS idx_usage_samples_observed ON usage_samples(observed_at DESC);",
+                "CREATE INDEX IF NOT EXISTS idx_usage_samples_gameplay_balance_bucket ON usage_samples(gameplay_balance_bucket, observed_at DESC);",
+                "CREATE INDEX IF NOT EXISTS idx_gameplay_balance_buckets_provider ON gameplay_balance_buckets(provider_code, updated_at DESC);",
                 "CREATE INDEX IF NOT EXISTS idx_encounters_occurred ON encounters(occurred_at DESC);",
                 "CREATE INDEX IF NOT EXISTS idx_account_usage_samples_provider_observed ON account_usage_samples(provider_code, observed_at DESC);",
                 "CREATE INDEX IF NOT EXISTS idx_account_usage_samples_observed ON account_usage_samples(observed_at DESC);",
@@ -1739,6 +1843,9 @@ public final class TokenmonDatabaseManager {
                     current_output_tokens INTEGER,
                     gameplay_eligibility TEXT NOT NULL DEFAULT 'outside_live_runtime',
                     gameplay_delta_tokens INTEGER NOT NULL DEFAULT 0,
+                    gameplay_balance_bucket TEXT,
+                    gameplay_balance_weight REAL,
+                    gameplay_balance_policy TEXT,
                     burst_intensity_band INTEGER NOT NULL,
                     created_at TEXT NOT NULL
                 );
@@ -1785,6 +1892,7 @@ public final class TokenmonDatabaseManager {
                 "CREATE INDEX IF NOT EXISTS idx_usage_samples_session_observed ON usage_samples(provider_session_row_id, observed_at);",
                 "CREATE INDEX IF NOT EXISTS idx_usage_samples_observed ON usage_samples(observed_at DESC);",
                 "CREATE INDEX IF NOT EXISTS idx_usage_samples_gameplay_eligibility ON usage_samples(gameplay_eligibility, observed_at DESC);",
+                "CREATE INDEX IF NOT EXISTS idx_usage_samples_gameplay_balance_bucket ON usage_samples(gameplay_balance_bucket, observed_at DESC);",
                 "PRAGMA foreign_keys = ON;",
             ], runsInTransaction: false),
             SQLiteMigration(version: 8, statements: [
@@ -1967,6 +2075,26 @@ public final class TokenmonDatabaseManager {
                 """,
                 "CREATE INDEX IF NOT EXISTS idx_account_usage_samples_provider_observed ON account_usage_samples(provider_code, observed_at DESC);",
                 "CREATE INDEX IF NOT EXISTS idx_account_usage_samples_observed ON account_usage_samples(observed_at DESC);",
+            ]),
+            SQLiteMigration(version: 12, statements: [
+                "ALTER TABLE usage_samples ADD COLUMN gameplay_balance_bucket TEXT;",
+                "ALTER TABLE usage_samples ADD COLUMN gameplay_balance_weight REAL;",
+                "ALTER TABLE usage_samples ADD COLUMN gameplay_balance_policy TEXT;",
+                """
+                CREATE TABLE IF NOT EXISTS gameplay_balance_buckets (
+                    bucket_key TEXT PRIMARY KEY NOT NULL,
+                    provider_code TEXT NOT NULL REFERENCES providers(provider_code),
+                    model_bucket TEXT NOT NULL,
+                    effective_weight REAL NOT NULL,
+                    observed_rate_tokens_per_minute REAL NOT NULL,
+                    sample_count INTEGER NOT NULL,
+                    active_minutes REAL NOT NULL,
+                    last_sample_at TEXT,
+                    updated_at TEXT NOT NULL
+                );
+                """,
+                "CREATE INDEX IF NOT EXISTS idx_usage_samples_gameplay_balance_bucket ON usage_samples(gameplay_balance_bucket, observed_at DESC);",
+                "CREATE INDEX IF NOT EXISTS idx_gameplay_balance_buckets_provider ON gameplay_balance_buckets(provider_code, updated_at DESC);",
             ]),
         ]
     }

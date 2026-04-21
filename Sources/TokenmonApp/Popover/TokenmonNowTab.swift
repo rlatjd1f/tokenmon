@@ -4,7 +4,7 @@ import TokenmonGameEngine
 import TokenmonPersistence
 import TokenmonProviders
 
-/// Now tab content: status summary, token progress, latest encounter,
+/// Now tab content: status summary, step progress, latest encounter,
 /// today/cumulative counters, provider indicators.
 struct TokenmonNowStatusSummary: Equatable {
     let fieldTitle: String

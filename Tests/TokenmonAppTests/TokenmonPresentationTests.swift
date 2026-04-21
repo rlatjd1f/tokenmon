@@ -563,6 +563,7 @@ struct TokenmonPresentationTests {
         #expect(TokenmonL10n.localizedValue(forKey: "settings.pane.general.title", localeIdentifier: "ko-KR") == "일반")
         #expect(TokenmonL10n.localizedValue(forKey: "window.title.dex", localeIdentifier: "ko") == "Dex")
         #expect(TokenmonL10n.localizedValue(forKey: "outcome.captured", localeIdentifier: "ko") == "포획")
+        #expect(TokenmonL10n.format("progress.steps.remaining", 42) == "42 steps left")
     }
 
     @Test
@@ -801,8 +802,11 @@ struct TokenmonPresentationTests {
         #expect(result.rejectedEvents == 0)
         #expect(result.acceptedEvents == 3)
         #expect(summary.usageSamples == 3)
-        #expect(summary.totalNormalizedTokens == 500)
-        #expect(summary.tokensSinceLastEncounter == 500)
+        let gameplayDelta = try gameplayDeltaSum(databaseManager)
+        #expect(gameplayDelta > 0)
+        #expect(gameplayDelta < 500)
+        #expect(summary.totalNormalizedTokens == gameplayDelta)
+        #expect(summary.tokensSinceLastEncounter == gameplayDelta)
         #expect(try databaseManager.tokenUsageTotals().allTimeTokens == 1_500)
     }
 
@@ -2040,8 +2044,11 @@ struct TokenmonPresentationTests {
         }
 
         #expect(ingestedEvent)
-        #expect(try manager.summary().totalNormalizedTokens == 1_400)
-        #expect(try manager.summary().tokensSinceLastEncounter == 1_400)
+        let gameplayDelta = try gameplayDeltaSum(manager)
+        #expect(gameplayDelta > 0)
+        #expect(gameplayDelta < 1_400)
+        #expect(try manager.summary().totalNormalizedTokens == gameplayDelta)
+        #expect(try manager.summary().tokensSinceLastEncounter == gameplayDelta)
         #expect(try manager.tokenUsageTotals().allTimeTokens == 1_400)
     }
 
@@ -4228,6 +4235,15 @@ struct TokenmonPresentationTests {
                 .quit,
             ]
         )
+    }
+
+    private func gameplayDeltaSum(_ manager: TokenmonDatabaseManager) throws -> Int64 {
+        let database = try manager.open()
+        return try database.fetchOne(
+            "SELECT COALESCE(SUM(gameplay_delta_tokens), 0) FROM usage_samples;"
+        ) { statement in
+            SQLiteDatabase.columnInt64(statement, index: 0)
+        } ?? 0
     }
 }
 

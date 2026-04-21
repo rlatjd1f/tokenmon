@@ -292,6 +292,20 @@ enum TokenmonAutomationCommand {
             lines.append("next_step: \(nextStep(for: summary))")
         }
 
+        if let latestBalancedEvent = try databaseManager.recentProviderIngestEventSummaries(limit: 12)
+            .first(where: { $0.gameplayBalanceBucket != nil }) {
+            lines.append("")
+            lines.append("latest gameplay balance")
+            lines.append("provider: \(latestBalancedEvent.provider.rawValue)")
+            lines.append("source_mode: \(latestBalancedEvent.sourceMode)")
+            lines.append("bucket: \(latestBalancedEvent.gameplayBalanceBucket ?? "none")")
+            lines.append("gameplay_delta_tokens: \(latestBalancedEvent.gameplayDeltaTokens ?? 0)")
+            if let weight = latestBalancedEvent.gameplayBalanceWeight {
+                lines.append("weight: \(String(format: "%.4f", weight))")
+            }
+            lines.append("policy: \(latestBalancedEvent.gameplayBalancePolicy ?? "none")")
+        }
+
         lines.append("")
         lines.append("idle footprint")
         lines.append("inbox_ingest_mode: checkpointed file reads plus recovery scans and app startup replay")

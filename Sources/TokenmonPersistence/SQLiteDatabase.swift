@@ -120,6 +120,13 @@ public final class SQLiteDatabase {
         return columnInt64(statement, index: index)
     }
 
+    public static func columnOptionalDouble(_ statement: OpaquePointer, index: Int32) -> Double? {
+        guard sqlite3_column_type(statement, index) != SQLITE_NULL else {
+            return nil
+        }
+        return columnDouble(statement, index: index)
+    }
+
     private func prepare(sql: String) throws -> OpaquePointer {
         var statement: OpaquePointer?
         let result = sqlite3_prepare_v2(handle, sql, -1, &statement, nil)
