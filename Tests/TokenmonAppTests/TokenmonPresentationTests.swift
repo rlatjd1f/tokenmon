@@ -1565,15 +1565,174 @@ struct TokenmonPresentationTests {
         let claudeResult = try #require(results.first(where: { $0.provider == .claude }))
         let geminiResult = try #require(results.first(where: { $0.provider == .gemini }))
         let claudeSettings = try String(contentsOf: claudeDirectory.appendingPathComponent("settings.json"), encoding: .utf8)
+        let claudeWrapper = try String(contentsOf: claudeDirectory.appendingPathComponent("tokenmon-statusline.sh"), encoding: .utf8)
         let geminiSettings = try String(contentsOf: geminiDirectory.appendingPathComponent("settings.json"), encoding: .utf8)
 
         #expect(claudeResult.configured)
         #expect(geminiResult.configured)
-        #expect(claudeSettings.contains("--tokenmon-provider-claude-statusline-import"))
+        #expect(claudeSettings.contains("tokenmon-statusline.sh"))
+        #expect(claudeWrapper.contains("--tokenmon-provider-claude-statusline-import"))
         #expect(claudeSettings.contains("--tokenmon-provider-claude-hook-import") == false)
         #expect(geminiSettings.contains("\"otlpEndpoint\""))
         #expect(geminiSettings.contains("127.0.0.1:4317"))
         #expect(geminiSettings.contains("honeycomb.io:4317") == false)
+    }
+
+    @Test
+    func claudeInstallPreservesExistingStatusLineOutputThroughWrapper() throws {
+        let directory = try makeTemporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+
+        let claudeDirectory = directory.appendingPathComponent(".claude", isDirectory: true)
+        try FileManager.default.createDirectory(at: claudeDirectory, withIntermediateDirectories: true)
+
+        let previousStatusLine = claudeDirectory.appendingPathComponent("statusline.sh")
+        try """
+        #!/bin/sh
+        cat >/dev/null
+        printf 'USER STATUS\\n'
+        """.write(to: previousStatusLine, atomically: true, encoding: .utf8)
+        try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: previousStatusLine.path)
+
+        let previousCommand = "'\(previousStatusLine.path)'"
+        try """
+        {
+          "statusLine": {
+            "type": "command",
+            "command": "\(previousCommand)",
+            "padding": 2,
+            "refreshInterval": 5
+          }
+        }
+        """.write(
+            to: claudeDirectory.appendingPathComponent("settings.json"),
+            atomically: true,
+            encoding: .utf8
+        )
+
+        let capturedPayload = directory.appendingPathComponent("captured-payload.json")
+        let fakeTokenmon = directory.appendingPathComponent("TokenmonApp")
+        try """
+        #!/bin/sh
+        cat > '\(capturedPayload.path)'
+        printf 'TOKENMON STATUS\\n'
+        """.write(to: fakeTokenmon, atomically: true, encoding: .utf8)
+        try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: fakeTokenmon.path)
+
+        var preferences = ProviderInstallationPreferences()
+        preferences.setConfigurationPath(claudeDirectory.path, for: .claude)
+
+        let databasePath = directory.appendingPathComponent("tokenmon.sqlite").path
+        _ = try TokenmonProviderOnboarding.install(
+            provider: .claude,
+            databasePath: databasePath,
+            executablePath: fakeTokenmon.path,
+            preferences: preferences
+        )
+
+        let claudeSettings = try String(
+            contentsOf: claudeDirectory.appendingPathComponent("settings.json"),
+            encoding: .utf8
+        )
+        let rawSettings = try JSONSerialization.jsonObject(with: Data(claudeSettings.utf8))
+        let settings = try #require(rawSettings as? [String: Any])
+        let statusLine = try #require(settings["statusLine"] as? [String: Any])
+        let wrapperCommand = try #require(statusLine["command"] as? String)
+        let wrapperPath = claudeDirectory.appendingPathComponent("tokenmon-statusline.sh")
+        let wrapperContents = try String(contentsOf: wrapperPath, encoding: .utf8)
+        let fixture = "{\"session_id\":\"claude_statusline_fixture\",\"context_window\":{\"total_input_tokens\":1,\"total_output_tokens\":2}}"
+
+        #expect(wrapperCommand == "'\(wrapperPath.path)'")
+        #expect(statusLine["padding"] as? Int == 2)
+        #expect(statusLine["refreshInterval"] as? Int == 5)
+        #expect(wrapperContents.contains("--tokenmon-provider-claude-statusline-import"))
+        #expect(wrapperContents.contains(Data(previousCommand.utf8).base64EncodedString()))
+
+        let wrapperOutput = try runShellCommand(command: wrapperCommand, stdin: fixture)
+        let tokenmonPayload = try String(contentsOf: capturedPayload, encoding: .utf8)
+
+        #expect(wrapperOutput == "USER STATUS\n")
+        #expect(tokenmonPayload == fixture)
+    }
+
+    @Test
+    func claudeInstallRecoversPreviousStatusLineFromTokenmonBackup() throws {
+        let directory = try makeTemporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+
+        let claudeDirectory = directory.appendingPathComponent(".claude", isDirectory: true)
+        try FileManager.default.createDirectory(at: claudeDirectory, withIntermediateDirectories: true)
+
+        let previousStatusLine = claudeDirectory.appendingPathComponent("statusline.sh")
+        try """
+        #!/bin/sh
+        cat >/dev/null
+        printf 'BACKUP USER STATUS\\n'
+        """.write(to: previousStatusLine, atomically: true, encoding: .utf8)
+        try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: previousStatusLine.path)
+
+        let previousCommand = "'\(previousStatusLine.path)'"
+        let settingsPath = claudeDirectory.appendingPathComponent("settings.json")
+        try """
+        {
+          "statusLine": {
+            "type": "command",
+            "command": "'/tmp/TokenmonApp' --tokenmon-provider-claude-statusline-import --db '/tmp/tokenmon.sqlite'",
+            "padding": 0
+          }
+        }
+        """.write(to: settingsPath, atomically: true, encoding: .utf8)
+        try """
+        {
+          "statusLine": {
+            "type": "command",
+            "command": "\(previousCommand)",
+            "padding": 2
+          }
+        }
+        """.write(
+            to: claudeDirectory.appendingPathComponent("settings.json.tokenmon-backup"),
+            atomically: true,
+            encoding: .utf8
+        )
+
+        let capturedPayload = directory.appendingPathComponent("captured-payload.json")
+        let fakeTokenmon = directory.appendingPathComponent("TokenmonApp")
+        try """
+        #!/bin/sh
+        cat > '\(capturedPayload.path)'
+        printf 'TOKENMON STATUS\\n'
+        """.write(to: fakeTokenmon, atomically: true, encoding: .utf8)
+        try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: fakeTokenmon.path)
+
+        var preferences = ProviderInstallationPreferences()
+        preferences.setConfigurationPath(claudeDirectory.path, for: .claude)
+
+        let databasePath = directory.appendingPathComponent("tokenmon.sqlite").path
+        _ = try TokenmonProviderOnboarding.install(
+            provider: .claude,
+            databasePath: databasePath,
+            executablePath: fakeTokenmon.path,
+            preferences: preferences
+        )
+
+        let claudeSettings = try String(contentsOf: settingsPath, encoding: .utf8)
+        let rawSettings = try JSONSerialization.jsonObject(with: Data(claudeSettings.utf8))
+        let settings = try #require(rawSettings as? [String: Any])
+        let statusLine = try #require(settings["statusLine"] as? [String: Any])
+        let wrapperCommand = try #require(statusLine["command"] as? String)
+        let wrapperPath = claudeDirectory.appendingPathComponent("tokenmon-statusline.sh")
+        let wrapperContents = try String(contentsOf: wrapperPath, encoding: .utf8)
+        let fixture = "{\"session_id\":\"claude_statusline_fixture\",\"context_window\":{\"total_input_tokens\":1,\"total_output_tokens\":2}}"
+
+        #expect(wrapperCommand == "'\(wrapperPath.path)'")
+        #expect(wrapperContents.contains(Data(previousCommand.utf8).base64EncodedString()))
+
+        let wrapperOutput = try runShellCommand(command: wrapperCommand, stdin: fixture)
+        let tokenmonPayload = try String(contentsOf: capturedPayload, encoding: .utf8)
+
+        #expect(wrapperOutput == "BACKUP USER STATUS\n")
+        #expect(tokenmonPayload == fixture)
     }
 
     @Test
@@ -3840,6 +3999,26 @@ struct TokenmonPresentationTests {
             .appendingPathComponent(UUID().uuidString, isDirectory: true)
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         return directory
+    }
+
+    private func runShellCommand(command: String, stdin: String) throws -> String {
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/bin/sh")
+        process.arguments = ["-c", command]
+
+        let input = Pipe()
+        let output = Pipe()
+        process.standardInput = input
+        process.standardOutput = output
+        process.standardError = Pipe()
+
+        try process.run()
+        try input.fileHandleForWriting.write(contentsOf: Data(stdin.utf8))
+        try input.fileHandleForWriting.close()
+        process.waitUntilExit()
+
+        let data = output.fileHandleForReading.readDataToEndOfFile()
+        return String(decoding: data, as: UTF8.self)
     }
 
     private func makeFakeAppBundle(appURL: URL) throws -> Bundle {

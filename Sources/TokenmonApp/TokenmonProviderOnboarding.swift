@@ -33,6 +33,10 @@ struct TokenmonProviderAutoSetupResult: Sendable {
 }
 
 enum TokenmonProviderOnboarding {
+    private static let claudeStatusLineWrapperFileName = "tokenmon-statusline.sh"
+    private static let claudeStatusLineWrapperMarker = "# tokenmon-claude-statusline-wrapper-v1"
+    private static let claudePreviousStatusLineCommandPrefix = "# tokenmon-previous-statusline-command-base64: "
+
     static func inspectAll(
         databasePath: String,
         executablePath: String,
@@ -288,7 +292,10 @@ enum TokenmonProviderOnboarding {
             )
         }
 
-        let statusLineInstalled = containsTokenmonClaudeStatusLine(in: json)
+        let statusLineInstalled = containsTokenmonClaudeStatusLine(
+            in: json,
+            configurationRootPath: discovery.configurationRootPath
+        )
         let hooksInstalled = containsTokenmonClaudeHooks(in: json)
 
         if statusLineInstalled {
@@ -402,7 +409,9 @@ enum TokenmonProviderOnboarding {
         executablePath: String,
         preferences: ProviderInstallationPreferences
     ) throws -> TokenmonProviderInstallResult {
-        let settingsPath = TokenmonProviderDiscovery.claudeSettingsPath(preferences: preferences)
+        let discovery = TokenmonProviderDiscovery.discover(provider: .claude, preferences: preferences)
+        let settingsPath = TokenmonProviderDiscovery.claudeSettingsPath(configurationRootPath: discovery.configurationRootPath)
+        let wrapperPath = claudeStatusLineWrapperPath(configurationRootPath: discovery.configurationRootPath)
         let statusLineCommand = shellCommand(
             executablePath: executablePath,
             flag: "--tokenmon-provider-claude-statusline-import",
@@ -411,11 +420,25 @@ enum TokenmonProviderOnboarding {
         var json = loadJSONObject(at: settingsPath) ?? [:]
         try backupIfExists(path: settingsPath)
 
-        json["statusLine"] = [
-            "type": "command",
-            "command": statusLineCommand,
-            "padding": 0,
-        ]
+        let existingStatusLine = json["statusLine"] as? [String: Any]
+        let previousStatusLineCommand = preservedClaudeStatusLineCommand(
+            from: existingStatusLine,
+            wrapperPath: wrapperPath,
+            backupSettingsPath: backupPath(for: settingsPath)
+        )
+        try writeClaudeStatusLineWrapper(
+            path: wrapperPath,
+            tokenmonCommand: statusLineCommand,
+            previousCommand: previousStatusLineCommand
+        )
+
+        var statusLine = existingStatusLine ?? [:]
+        statusLine["type"] = "command"
+        statusLine["command"] = shellQuote(wrapperPath)
+        if statusLine["padding"] == nil {
+            statusLine["padding"] = 0
+        }
+        json["statusLine"] = statusLine
 
         try writeJSONObject(json, to: settingsPath)
 
@@ -519,12 +542,28 @@ enum TokenmonProviderOnboarding {
         hooks[event] = matcherGroups
     }
 
-    private static func containsTokenmonClaudeStatusLine(in json: [String: Any]) -> Bool {
+    private static func containsTokenmonClaudeStatusLine(
+        in json: [String: Any],
+        configurationRootPath: String
+    ) -> Bool {
         guard let statusLine = json["statusLine"] as? [String: Any],
               let command = statusLine["command"] as? String else {
             return false
         }
-        return command.contains("--tokenmon-provider-claude-statusline-import")
+        if command.contains("--tokenmon-provider-claude-statusline-import") {
+            return true
+        }
+
+        guard command.contains(claudeStatusLineWrapperFileName) else {
+            return false
+        }
+
+        let wrapperPath = claudeStatusLineWrapperPath(configurationRootPath: configurationRootPath)
+        guard let contents = try? String(contentsOfFile: wrapperPath, encoding: .utf8) else {
+            return false
+        }
+        return contents.contains(claudeStatusLineWrapperMarker) &&
+            contents.contains("--tokenmon-provider-claude-statusline-import")
     }
 
     private static func containsTokenmonClaudeHooks(in json: [String: Any]) -> Bool {
@@ -778,6 +817,124 @@ enum TokenmonProviderOnboarding {
         "\(shellQuote(executablePath)) \(flag) --db \(shellQuote(databasePath))"
     }
 
+    private static func claudeStatusLineWrapperPath(configurationRootPath: String) -> String {
+        URL(fileURLWithPath: configurationRootPath, isDirectory: true)
+            .appendingPathComponent(claudeStatusLineWrapperFileName)
+            .path
+    }
+
+    private static func preservedClaudeStatusLineCommand(
+        from statusLine: [String: Any]?,
+        wrapperPath: String,
+        backupSettingsPath: String
+    ) -> String? {
+        guard let command = trimmedNilIfEmpty(statusLine?["command"] as? String) else {
+            return nil
+        }
+
+        if isTokenmonClaudeStatusLineCommand(command) {
+            return readPreviousClaudeStatusLineCommand(from: wrapperPath) ??
+                readBackupClaudeStatusLineCommand(from: backupSettingsPath)
+        }
+
+        return command
+    }
+
+    private static func isTokenmonClaudeStatusLineCommand(_ command: String) -> Bool {
+        command.contains("--tokenmon-provider-claude-statusline-import") ||
+            command.contains(claudeStatusLineWrapperFileName)
+    }
+
+    private static func writeClaudeStatusLineWrapper(
+        path: String,
+        tokenmonCommand: String,
+        previousCommand: String?
+    ) throws {
+        try writeString(
+            claudeStatusLineWrapperContents(
+                tokenmonCommand: tokenmonCommand,
+                previousCommand: previousCommand
+            ),
+            to: path
+        )
+        try FileManager.default.setAttributes(
+            [.posixPermissions: 0o755],
+            ofItemAtPath: path
+        )
+    }
+
+    private static func claudeStatusLineWrapperContents(
+        tokenmonCommand: String,
+        previousCommand: String?
+    ) -> String {
+        let previousCommand = previousCommand ?? ""
+        let previousCommandBase64 = Data(previousCommand.utf8).base64EncodedString()
+
+        return """
+        #!/bin/sh
+        \(claudeStatusLineWrapperMarker)
+        \(claudePreviousStatusLineCommandPrefix)\(previousCommandBase64)
+        TOKENMON_STATUSLINE_COMMAND=\(shellQuote(tokenmonCommand))
+        TOKENMON_PREVIOUS_STATUSLINE_COMMAND=\(shellQuote(previousCommand))
+
+        payload="$(cat)"
+        tokenmon_status="$(
+            printf '%s' "$payload" | /bin/sh -c "$TOKENMON_STATUSLINE_COMMAND" 2>/dev/null
+        )"
+        previous_status=""
+        if [ -n "$TOKENMON_PREVIOUS_STATUSLINE_COMMAND" ]; then
+            previous_status="$(
+                printf '%s' "$payload" | /bin/sh -c "$TOKENMON_PREVIOUS_STATUSLINE_COMMAND" 2>/dev/null
+            )"
+        fi
+
+        if [ -n "$previous_status" ]; then
+            printf '%s\\n' "$previous_status"
+        elif [ -n "$tokenmon_status" ]; then
+            printf '%s\\n' "$tokenmon_status"
+        else
+            printf '%s\\n' "Tokenmon waiting for Claude usage"
+        fi
+
+        """
+    }
+
+    private static func readPreviousClaudeStatusLineCommand(from wrapperPath: String) -> String? {
+        guard let contents = try? String(contentsOfFile: wrapperPath, encoding: .utf8),
+              contents.contains(claudeStatusLineWrapperMarker) else {
+            return nil
+        }
+
+        for line in contents.components(separatedBy: .newlines) {
+            guard line.hasPrefix(claudePreviousStatusLineCommandPrefix) else {
+                continue
+            }
+            let encoded = String(line.dropFirst(claudePreviousStatusLineCommandPrefix.count))
+            guard let data = Data(base64Encoded: encoded),
+                  let command = trimmedNilIfEmpty(String(data: data, encoding: .utf8)) else {
+                return nil
+            }
+            return command
+        }
+
+        return nil
+    }
+
+    private static func readBackupClaudeStatusLineCommand(from backupSettingsPath: String) -> String? {
+        guard let json = loadJSONObject(at: backupSettingsPath),
+              let statusLine = json["statusLine"] as? [String: Any],
+              let command = trimmedNilIfEmpty(statusLine["command"] as? String),
+              isTokenmonClaudeStatusLineCommand(command) == false else {
+            return nil
+        }
+        return command
+    }
+
+    private static func trimmedNilIfEmpty(_ value: String?) -> String? {
+        let trimmed = value?.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed?.isEmpty == false ? trimmed : nil
+    }
+
     private static func shellQuote(_ value: String) -> String {
         "'\(value.replacingOccurrences(of: "'", with: "'\"'\"'"))'"
     }
@@ -806,10 +963,14 @@ enum TokenmonProviderOnboarding {
         guard FileManager.default.fileExists(atPath: path) else {
             return
         }
-        let backupPath = "\(path).tokenmon-backup"
+        let backupPath = backupPath(for: path)
         if FileManager.default.fileExists(atPath: backupPath) == false {
             try FileManager.default.copyItem(atPath: path, toPath: backupPath)
         }
+    }
+
+    private static func backupPath(for path: String) -> String {
+        "\(path).tokenmon-backup"
     }
 }
 

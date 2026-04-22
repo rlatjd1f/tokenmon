@@ -1097,7 +1097,9 @@ claude_onboarding_output="$(TOKENMON_HOME_OVERRIDE="$onboarding_home" tokenmon_a
 require_contains "$claude_onboarding_output" "provider_connect: ok"
 require_contains "$claude_onboarding_output" "provider: claude"
 claude_settings_path="$onboarding_home/.claude/settings.json"
-require_contains "$(cat "$claude_settings_path")" "--tokenmon-provider-claude-statusline-import"
+claude_wrapper_path="$onboarding_home/.claude/tokenmon-statusline.sh"
+require_contains "$(cat "$claude_settings_path")" "tokenmon-statusline.sh"
+require_contains "$(cat "$claude_wrapper_path")" "--tokenmon-provider-claude-statusline-import"
 printf 'VERIFY PASS: claude onboarding installer\n'
 
 codex_onboarding_db="$tmpdir/codex-onboarding.sqlite"

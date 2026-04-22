@@ -272,7 +272,7 @@
 
 "provider.auto_setup.cli_not_found" = "%1$@ CLI를 찾지 못해 자동 설정을 건너뜁니다.";
 "provider.auto_setup.failed" = "자동 설정에 실패했습니다.";
-"provider.install.claude.success" = "Claude 상태 줄이 자동으로 설정되었습니다.";
+"provider.install.claude.success" = "Claude 상태 줄이 자동으로 설정되었습니다. 기존 상태 줄 출력이 있으면 그대로 보존됩니다.";
 "provider.install.codex.success" = "Codex 관찰은 automatic입니다. Tokenmon이 로컬 Codex 세션 파일을 별도 설치 없이 감시합니다.";
 "provider.install.gemini.success" = "Gemini 텔레메트리가 자동으로 설정되었습니다. Tokenmon이 127.0.0.1:4317에서 라이브 텔레메트리를 받습니다.";
 "provider.install.gemini.already_configured" = "Gemini 텔레메트리가 이미 Tokenmon용으로 설정되어 있습니다.";

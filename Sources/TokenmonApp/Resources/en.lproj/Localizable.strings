@@ -1,4 +1,4 @@
-"provider.install.claude.success" = "Claude status line was configured automatically.";
+"provider.install.claude.success" = "Claude status line was configured automatically. Existing status line output is preserved when present.";
 "provider.install.codex.success" = "Codex observation is automatic. Tokenmon will watch local Codex session files without installing hooks.";
 "provider.install.gemini.success" = "Gemini telemetry was configured automatically. Tokenmon will receive live telemetry on 127.0.0.1:4317.";
 "provider.install.gemini.already_configured" = "Gemini telemetry was already configured for Tokenmon.";
