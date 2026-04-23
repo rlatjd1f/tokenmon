@@ -16,4 +16,8 @@ extension TokenmonDatabaseManager: GeminiOtelReceiverDataSource {
     public func latestGeminiSessionTotals() throws -> [String: GeminiSessionRunningTotals] {
         try latestGeminiSessionTotals(activeWithinHours: 24, asOf: Date())
     }
+
+    public func latestClaudeSessionTotals() throws -> [String: GeminiSessionRunningTotals] {
+        try latestClaudeSessionTotals(activeWithinHours: 24, asOf: Date())
+    }
 }

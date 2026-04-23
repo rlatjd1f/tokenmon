@@ -266,7 +266,18 @@ public extension TokenmonDatabaseManager {
             return (
                 sourceMode,
                 "connected",
-                "Claude transcript recovery updated dashboard totals at \(lastObservedAt); gameplay still requires the status line"
+                "Claude transcript recovery updated dashboard totals at \(lastObservedAt); gameplay still requires OTel live usage or the status line fallback"
+            )
+        }
+
+        if provider == .claude,
+           sourceMode == "claude_otel_api_request_live",
+           let lastObservedAt
+        {
+            return (
+                sourceMode,
+                "active",
+                "Claude ingest active via OTel api_request at \(lastObservedAt)"
             )
         }
 
@@ -297,9 +308,9 @@ public extension TokenmonDatabaseManager {
         switch provider {
         case .claude:
             return (
-                sourceMode ?? "claude_statusline_live",
+                sourceMode ?? "claude_otel_api_request_live",
                 "missing_configuration",
-                "Claude status line is not configured yet"
+                "Claude OTel live usage or status line fallback is not configured yet"
             )
         case .codex:
             return (

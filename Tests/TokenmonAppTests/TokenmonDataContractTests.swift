@@ -2409,6 +2409,132 @@ struct TokenmonDataContractTests {
     }
 
     @Test
+    func claudeOtelInboxWriterAppendsApiRequestUsageSampleWithCacheTokens() throws {
+        let tempDirectory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("tokenmon-claude-otel-writer-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: tempDirectory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: tempDirectory) }
+
+        let inboxPath = tempDirectory.appendingPathComponent("claude.ndjson").path
+        let event = ClaudeOtelSampleEvent(
+            sessionID: "claude-session",
+            observedAt: ISO8601DateFormatter().date(from: "2026-04-09T14:25:11Z")!,
+            model: "claude-sonnet-4-5",
+            requestID: "req_123",
+            eventSequence: "42",
+            inputTokens: 100,
+            outputTokens: 50,
+            cacheReadTokens: 20,
+            cacheCreationTokens: 30
+        )
+
+        let writer = ClaudeOtelInboxWriter(inboxPath: inboxPath)
+        try writer.append(
+            event: event,
+            cumulativeInputTokens: 100,
+            cumulativeOutputTokens: 50,
+            cumulativeCachedInputTokens: 50,
+            cumulativeNormalizedTotalTokens: 200
+        )
+
+        let contents = try String(contentsOfFile: inboxPath, encoding: .utf8)
+        let line = contents.split(separator: "\n").first.map(String.init) ?? ""
+        let decoded = try JSONDecoder().decode(ProviderUsageSampleEvent.self, from: Data(line.utf8))
+
+        #expect(decoded.provider == .claude)
+        #expect(decoded.sourceMode == "claude_otel_api_request_live")
+        #expect(decoded.providerSessionID == "claude-session")
+        #expect(decoded.modelSlug == "claude-sonnet-4-5")
+        #expect(decoded.totalInputTokens == 100)
+        #expect(decoded.totalOutputTokens == 50)
+        #expect(decoded.totalCachedInputTokens == 50)
+        #expect(decoded.normalizedTotalTokens == 200)
+        #expect(decoded.currentInputTokens == 100)
+        #expect(decoded.currentOutputTokens == 50)
+        #expect(decoded.providerEventFingerprint == "claude-otel:claude-session:req_123")
+        #expect(decoded.rawReference.kind == "claude-otel")
+        #expect(decoded.rawReference.eventName == "claude_code.api_request")
+        #expect(decoded.sessionOriginHint == .startedDuringLiveRuntime)
+    }
+
+    @Test
+    func otelLogsServiceExtractsClaudeApiRequestEventsAndKeepsGeminiSeparated() throws {
+        let tempDirectory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("tokenmon-mixed-otel-logs-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: tempDirectory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: tempDirectory) }
+
+        let geminiInboxPath = tempDirectory.appendingPathComponent("gemini.ndjson").path
+        let claudeInboxPath = tempDirectory.appendingPathComponent("claude.ndjson").path
+        let service = GeminiOtelLogsService(
+            writer: GeminiOtelInboxWriter(inboxPath: geminiInboxPath),
+            tracker: GeminiCumulativeTracker(seed: [:]),
+            claudeWriter: ClaudeOtelInboxWriter(inboxPath: claudeInboxPath),
+            claudeTracker: ClaudeOtelCumulativeTracker(seed: [:])
+        )
+
+        var claudeRecord = Opentelemetry_Proto_Logs_V1_LogRecord()
+        claudeRecord.timeUnixNano = 1_775_000_100_000_000_000
+        claudeRecord.attributes = [
+            Self.makeStringAttr(key: "event.name", value: "api_request"),
+            Self.makeStringAttr(key: "model", value: "claude-sonnet-4-5"),
+            Self.makeStringAttr(key: "request_id", value: "req_abc"),
+            Self.makeIntAttr(key: "event.sequence", value: 7),
+            Self.makeIntAttr(key: "input_tokens", value: 100),
+            Self.makeIntAttr(key: "output_tokens", value: 40),
+            Self.makeIntAttr(key: "cache_read_tokens", value: 20),
+            Self.makeIntAttr(key: "cache_creation_tokens", value: 10),
+        ]
+
+        var claudeResourceLogs = Opentelemetry_Proto_Logs_V1_ResourceLogs()
+        claudeResourceLogs.resource.attributes = [
+            Self.makeStringAttr(key: "service.name", value: "claude-code"),
+            Self.makeStringAttr(key: "session.id", value: "claude-session"),
+        ]
+        var claudeScopeLogs = Opentelemetry_Proto_Logs_V1_ScopeLogs()
+        claudeScopeLogs.logRecords = [claudeRecord]
+        claudeResourceLogs.scopeLogs = [claudeScopeLogs]
+
+        var geminiRecord = Opentelemetry_Proto_Logs_V1_LogRecord()
+        geminiRecord.timeUnixNano = 1_775_000_200_000_000_000
+        geminiRecord.attributes = [
+            Self.makeStringAttr(key: "event.name", value: "gemini_cli.api_response"),
+            Self.makeStringAttr(key: "session.id", value: "gemini-session"),
+            Self.makeStringAttr(key: "model", value: "gemini-2.5-pro"),
+            Self.makeIntAttr(key: "input_token_count", value: 25),
+            Self.makeIntAttr(key: "output_token_count", value: 5),
+            Self.makeIntAttr(key: "total_token_count", value: 30),
+        ]
+        var geminiScopeLogs = Opentelemetry_Proto_Logs_V1_ScopeLogs()
+        geminiScopeLogs.logRecords = [geminiRecord]
+        var geminiResourceLogs = Opentelemetry_Proto_Logs_V1_ResourceLogs()
+        geminiResourceLogs.scopeLogs = [geminiScopeLogs]
+
+        var request = Opentelemetry_Proto_Collector_Logs_V1_ExportLogsServiceRequest()
+        request.resourceLogs = [claudeResourceLogs, geminiResourceLogs]
+
+        try service.handleExportRequestForTesting(request)
+
+        let claudeLine = try String(contentsOfFile: claudeInboxPath, encoding: .utf8)
+            .split(separator: "\n")
+            .first
+            .map(String.init) ?? ""
+        let geminiLine = try String(contentsOfFile: geminiInboxPath, encoding: .utf8)
+            .split(separator: "\n")
+            .first
+            .map(String.init) ?? ""
+        let claudeDecoded = try JSONDecoder().decode(ProviderUsageSampleEvent.self, from: Data(claudeLine.utf8))
+        let geminiDecoded = try JSONDecoder().decode(ProviderUsageSampleEvent.self, from: Data(geminiLine.utf8))
+
+        #expect(claudeDecoded.provider == .claude)
+        #expect(claudeDecoded.sourceMode == "claude_otel_api_request_live")
+        #expect(claudeDecoded.normalizedTotalTokens == 170)
+        #expect(claudeDecoded.totalCachedInputTokens == 30)
+        #expect(geminiDecoded.provider == .gemini)
+        #expect(geminiDecoded.normalizedTotalTokens == 30)
+    }
+
+    @Test
     func cursorUsageCSVAdapterUsesExplicitTotalTokensAndFallsBackToComponentSum() throws {
         let tempDirectory = FileManager.default.temporaryDirectory
             .appendingPathComponent("tokenmon-cursor-csv-\(UUID().uuidString)", isDirectory: true)
@@ -3048,6 +3174,10 @@ struct TokenmonDataContractTests {
 
 private final class StubGeminiReceiverDataSource: GeminiOtelReceiverDataSource {
     func latestGeminiSessionTotals() throws -> [String: GeminiSessionRunningTotals] {
+        [:]
+    }
+
+    func latestClaudeSessionTotals() throws -> [String: GeminiSessionRunningTotals] {
         [:]
     }
 }

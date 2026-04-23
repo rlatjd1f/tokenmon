@@ -662,8 +662,10 @@ enum TokenmonAutomationCommand {
 
     private static func runClaudeStatusLineImport(arguments: [String]) throws -> String {
         let payloadJSON = try inputJSON(arguments: arguments)
-        let outputPath = optionValue("--out", in: arguments) ??
-            TokenmonDatabaseManager.inboxPath(provider: .claude, databasePath: optionValue("--db", in: arguments))
+        let outputPath = arguments.contains("--metadata-only")
+            ? nil
+            : optionValue("--out", in: arguments) ??
+                TokenmonDatabaseManager.inboxPath(provider: .claude, databasePath: optionValue("--db", in: arguments))
         let verbose = arguments.contains("--verbose")
         let result = try ClaudeStatusLineAdapter.importPayload(
             json: payloadJSON,
@@ -1011,7 +1013,7 @@ enum TokenmonAutomationCommand {
     private static func nextStep(for summary: ProviderHealthSummary) -> String {
         switch (summary.provider, summary.healthState) {
         case (.claude, "missing_configuration"):
-            return "Tokenmon should configure Claude automatically; repair Claude if the status line is still unavailable"
+            return "Tokenmon should configure Claude automatically; repair Claude if OTel live usage or the status line fallback is still unavailable"
         case (.codex, "missing_configuration"):
             return "Codex is watched automatically; inspect the local session store path if live updates are missing"
         case (.gemini, "missing_configuration"):

@@ -640,8 +640,47 @@ public final class TokenmonDatabaseManager {
         try seedProviders(database)
         try ensureSpeciesCatalog(database)
         try ensureExplorationState(database)
+        try ensureEncounterTotalsConsistent(database: database)
         try ensurePendingEncounterThresholdPolicy(database: database, force: false)
         try ensureGameplayStartedAt(database)
+    }
+
+    private func ensureEncounterTotalsConsistent(database: SQLiteDatabase) throws {
+        let actualMaxSequence = try database.fetchOne(
+            "SELECT COALESCE(MAX(encounter_sequence), 0) FROM encounters;"
+        ) { statement in
+            SQLiteDatabase.columnInt64(statement, index: 0)
+        } ?? 0
+
+        let actualCaptureCount = try database.fetchOne(
+            "SELECT COUNT(*) FROM encounters WHERE outcome = 'captured';"
+        ) { statement in
+            SQLiteDatabase.columnInt64(statement, index: 0)
+        } ?? 0
+
+        let state = try currentExplorationState(database: database)
+        let encountersDesynced = state.totalEncounters < actualMaxSequence
+        let capturesDesynced = state.totalCaptures < actualCaptureCount
+
+        guard encountersDesynced || capturesDesynced else {
+            return
+        }
+
+        let now = ISO8601DateFormatter().string(from: Date())
+        try database.execute(
+            """
+            UPDATE exploration_state
+            SET total_encounters = ?,
+                total_captures = ?,
+                updated_at = ?
+            WHERE exploration_state_id = 1;
+            """,
+            bindings: [
+                .integer(max(state.totalEncounters, actualMaxSequence)),
+                .integer(max(state.totalCaptures, actualCaptureCount)),
+                .text(now),
+            ]
+        )
     }
 
     private func touchExplorationState(updatedAt: String, database: SQLiteDatabase) throws {

@@ -6,6 +6,7 @@ enum ProviderAccountingConfidence: String, Sendable {
 }
 
 enum ProviderAccountingSemantics: String, Sendable {
+    case claudeOtelApiRequest = "claude_otel_api_request"
     case claudeStatusLineCumulativeTotals = "claude_statusline_cumulative_totals"
     case claudeTranscriptComponentTotals = "claude_transcript_component_totals"
     case codexProviderTotal = "codex_provider_total"
@@ -27,6 +28,26 @@ struct ProviderAccountingSample: Sendable {
 }
 
 enum ProviderTokenAccounting {
+    static func claudeOtel(
+        totalInputTokens: Int64,
+        totalOutputTokens: Int64,
+        totalCachedInputTokens: Int64,
+        normalizedTotalTokens: Int64,
+        currentInputTokens: Int64?,
+        currentOutputTokens: Int64?
+    ) -> ProviderAccountingSample {
+        ProviderAccountingSample(
+            totalInputTokens: totalInputTokens,
+            totalOutputTokens: totalOutputTokens,
+            totalCachedInputTokens: totalCachedInputTokens,
+            normalizedTotalTokens: normalizedTotalTokens,
+            currentInputTokens: currentInputTokens,
+            currentOutputTokens: currentOutputTokens,
+            confidence: .providerReportedTotal,
+            semantics: .claudeOtelApiRequest
+        )
+    }
+
     static func claudeStatusLine(
         totalInputTokens: Int64,
         totalOutputTokens: Int64,

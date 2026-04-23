@@ -375,7 +375,8 @@ final class TokenmonAppController {
                 let geminiSetupStartedAt = Date()
                 let supervisor = GeminiOtelReceiverSupervisor(
                     dataSource: databaseManager,
-                    inboxPath: TokenmonDatabaseManager.inboxPath(provider: .gemini)
+                    inboxPath: TokenmonDatabaseManager.inboxPath(provider: .gemini, databasePath: databasePath),
+                    claudeInboxPath: TokenmonDatabaseManager.inboxPath(provider: .claude, databasePath: databasePath)
                 )
                 self.geminiSupervisor = supervisor
                 self.menuModel.observeGeminiReceiver(supervisor)

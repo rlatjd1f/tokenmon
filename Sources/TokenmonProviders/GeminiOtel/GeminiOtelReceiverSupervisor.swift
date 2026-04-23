@@ -16,6 +16,10 @@ public protocol GeminiOtelReceiverDataSource: AnyObject {
     /// Returns the per-session cumulative totals used to seed the tracker on
     /// startup so that a process restart does not produce a downward token jump.
     func latestGeminiSessionTotals() throws -> [String: GeminiSessionRunningTotals]
+
+    /// Returns Claude session totals used to continue OTel cumulative values
+    /// across app restarts or a status-line-to-OTel transition.
+    func latestClaudeSessionTotals() throws -> [String: GeminiSessionRunningTotals]
 }
 
 @MainActor
@@ -31,6 +35,7 @@ public final class GeminiOtelReceiverSupervisor: ObservableObject {
 
     private let dataSource: GeminiOtelReceiverDataSource
     private let inboxPath: String
+    private let claudeInboxPath: String?
     private let configuration: GeminiOtelGrpcServer.Configuration
     private let makeServer: (
         GeminiOtelGrpcServer.Configuration,
@@ -42,11 +47,13 @@ public final class GeminiOtelReceiverSupervisor: ObservableObject {
     public convenience init(
         dataSource: GeminiOtelReceiverDataSource,
         inboxPath: String,
+        claudeInboxPath: String? = nil,
         configuration: GeminiOtelGrpcServer.Configuration = .default
     ) {
         self.init(
             dataSource: dataSource,
             inboxPath: inboxPath,
+            claudeInboxPath: claudeInboxPath,
             configuration: configuration,
             makeServer: { configuration, logs, trace in
                 GeminiOtelGrpcServer(configuration: configuration, logsService: logs, traceService: trace)
@@ -57,6 +64,7 @@ public final class GeminiOtelReceiverSupervisor: ObservableObject {
     init(
         dataSource: GeminiOtelReceiverDataSource,
         inboxPath: String,
+        claudeInboxPath: String? = nil,
         configuration: GeminiOtelGrpcServer.Configuration = .default,
         makeServer: @escaping (
             GeminiOtelGrpcServer.Configuration,
@@ -66,6 +74,7 @@ public final class GeminiOtelReceiverSupervisor: ObservableObject {
     ) {
         self.dataSource = dataSource
         self.inboxPath = inboxPath
+        self.claudeInboxPath = claudeInboxPath
         self.configuration = configuration
         self.makeServer = makeServer
     }
@@ -78,14 +87,23 @@ public final class GeminiOtelReceiverSupervisor: ObservableObject {
 
         let writer = GeminiOtelInboxWriter(inboxPath: inboxPath)
         let seed: [String: GeminiSessionRunningTotals]
+        let claudeSeed: [String: GeminiSessionRunningTotals]
         do {
             seed = try dataSource.latestGeminiSessionTotals()
+            claudeSeed = try dataSource.latestClaudeSessionTotals()
         } catch {
-            state = .failed(message: "Could not seed gemini session totals: \(error.localizedDescription)")
+            state = .failed(message: "Could not seed OTel session totals: \(error.localizedDescription)")
             return
         }
         let tracker = GeminiCumulativeTracker(seed: seed)
-        let logs = GeminiOtelLogsService(writer: writer, tracker: tracker)
+        let claudeWriter = claudeInboxPath.map(ClaudeOtelInboxWriter.init(inboxPath:))
+        let claudeTracker = claudeWriter == nil ? nil : ClaudeOtelCumulativeTracker(seed: claudeSeed)
+        let logs = GeminiOtelLogsService(
+            writer: writer,
+            tracker: tracker,
+            claudeWriter: claudeWriter,
+            claudeTracker: claudeTracker
+        )
         let trace = GeminiOtelTraceService()
         let server = makeServer(configuration, logs, trace)
 

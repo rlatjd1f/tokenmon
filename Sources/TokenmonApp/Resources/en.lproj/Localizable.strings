@@ -1,4 +1,5 @@
-"provider.install.claude.success" = "Claude status line was configured automatically. Existing status line output is preserved when present.";
+"provider.install.claude.success" = "Claude OTel live token capture was configured. The status line remains as a fallback that preserves existing output.";
+"provider.install.claude.statusline_fallback" = "Existing Claude OTel settings were preserved. Tokenmon will observe Claude usage through the status line fallback.";
 "provider.install.codex.success" = "Codex observation is automatic. Tokenmon will watch local Codex session files without installing hooks.";
 "provider.install.gemini.success" = "Gemini telemetry was configured automatically. Tokenmon will receive live telemetry on 127.0.0.1:4317.";
 "provider.install.gemini.already_configured" = "Gemini telemetry was already configured for Tokenmon.";
@@ -304,6 +305,13 @@
 "provider.cursor.connected.detail" = "Recent Cursor usage has been imported into Tokenmon stats. Cursor export rows are accounting-only and do not drive gameplay.";
 "provider.codex.ready.title" = "Codex ready";
 "provider.codex.ready.detail" = "Tokenmon automatically watches local Codex sessions. Downtime recovery updates dashboard totals only; gameplay only reflects live observation.";
+"provider.claude.connected.title" = "Claude connected";
+"provider.claude.connected.detail" = "Status line fallback live gameplay is ready. Dashboard recovery only applies to known transcripts.";
+"provider.claude.connected.detail_with_hooks" = "Status line fallback live gameplay is ready. Claude hooks remain optional.";
+"provider.claude.connected.detail_otel" = "OTel live token capture is ready. The status line is only used for session metadata and preserving existing output.";
+"provider.claude.connected.detail_otel_with_hooks" = "OTel live token capture is ready. Claude hooks and status line are supporting signals.";
+"provider.claude.connected.detail_external_otel_statusline" = "Existing Claude OTel backend settings were preserved. Tokenmon is using the status line fallback for live usage.";
+"provider.claude.repair.external_otel_detail" = "Existing Claude OTel settings were detected, so Tokenmon will not change them automatically. Repair configures only the status line fallback.";
 "settings.banner.error" = "Settings Error";
 "settings.banner.updated" = "Updated";
 "settings.providers.metadata.support" = "Support: %1$@";
@@ -312,6 +320,7 @@
 "settings.providers.support.first_class" = "First-class";
 "settings.providers.support.best_effort" = "Best-effort";
 "settings.providers.source_mode.codex_interactive_observer" = "Interactive observer";
+"settings.providers.source_mode.claude_otel_api_request_live" = "OTel API request live";
 "settings.providers.support.managed_only" = "Managed-only";
 "settings.providers.source_mode.cursor_usage_export_api" = "Usage export sync";
 "settings.providers.next_step.cursor_missing_configuration" = "Sync Cursor usage from Tokenmon to import the latest managed-only accounting data.";

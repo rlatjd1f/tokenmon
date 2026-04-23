@@ -36,6 +36,15 @@ enum TokenmonProviderOnboarding {
     private static let claudeStatusLineWrapperFileName = "tokenmon-statusline.sh"
     private static let claudeStatusLineWrapperMarker = "# tokenmon-claude-statusline-wrapper-v1"
     private static let claudePreviousStatusLineCommandPrefix = "# tokenmon-previous-statusline-command-base64: "
+    private static let tokenmonOtelHost = "127.0.0.1"
+    private static let tokenmonOtelPort = 4317
+    private static let tokenmonOtelEndpoint = "http://127.0.0.1:4317"
+
+    private enum ClaudeOtelSettingsState: Equatable {
+        case tokenmonConfigured
+        case safeToInstall
+        case externalOrSensitive
+    }
 
     static func inspectAll(
         databasePath: String,
@@ -298,16 +307,20 @@ enum TokenmonProviderOnboarding {
         )
         let hooksInstalled = containsTokenmonClaudeHooks(in: json)
 
-        if statusLineInstalled {
+        let claudeOtelState = claudeOtelSettingsState(in: json)
+
+        if statusLineInstalled || claudeOtelState == .tokenmonConfigured {
             return TokenmonProviderOnboardingStatus(
                 provider: .claude,
                 cliInstalled: true,
                 isConnected: true,
                 isPartial: false,
                 title: TokenmonL10n.string("provider.claude.connected.title"),
-                detail: hooksInstalled
-                    ? TokenmonL10n.string("provider.claude.connected.detail_with_hooks")
-                    : TokenmonL10n.string("provider.claude.connected.detail"),
+                detail: claudeConnectedDetail(
+                    otelState: claudeOtelState,
+                    statusLineInstalled: statusLineInstalled,
+                    hooksInstalled: hooksInstalled
+                ),
                 actionTitle: nil,
                 executablePath: discovery.executablePath,
                 executableSource: discovery.executableSource,
@@ -323,11 +336,9 @@ enum TokenmonProviderOnboarding {
             provider: .claude,
             cliInstalled: true,
             isConnected: false,
-            isPartial: statusLineInstalled || hooksInstalled,
+            isPartial: statusLineInstalled || hooksInstalled || claudeOtelState == .externalOrSensitive,
             title: TokenmonL10n.string("provider.claude.repair.title"),
-            detail: hooksInstalled
-                ? TokenmonL10n.string("provider.claude.repair.hooks_only_detail")
-                : TokenmonL10n.string("provider.claude.repair.statusline_detail"),
+            detail: claudeRepairDetail(otelState: claudeOtelState, hooksInstalled: hooksInstalled),
             actionTitle: TokenmonL10n.string("provider.claude.repair.action"),
             executablePath: discovery.executablePath,
             executableSource: discovery.executableSource,
@@ -412,12 +423,14 @@ enum TokenmonProviderOnboarding {
         let discovery = TokenmonProviderDiscovery.discover(provider: .claude, preferences: preferences)
         let settingsPath = TokenmonProviderDiscovery.claudeSettingsPath(configurationRootPath: discovery.configurationRootPath)
         let wrapperPath = claudeStatusLineWrapperPath(configurationRootPath: discovery.configurationRootPath)
+        var json = loadJSONObject(at: settingsPath) ?? [:]
+        let claudeOtelState = claudeOtelSettingsState(in: json)
         let statusLineCommand = shellCommand(
             executablePath: executablePath,
             flag: "--tokenmon-provider-claude-statusline-import",
-            databasePath: databasePath
+            databasePath: databasePath,
+            extraArguments: claudeOtelState == .externalOrSensitive ? [] : ["--metadata-only"]
         )
-        var json = loadJSONObject(at: settingsPath) ?? [:]
         try backupIfExists(path: settingsPath)
 
         let existingStatusLine = json["statusLine"] as? [String: Any]
@@ -440,11 +453,17 @@ enum TokenmonProviderOnboarding {
         }
         json["statusLine"] = statusLine
 
+        if claudeOtelState != .externalOrSensitive {
+            mergeTokenmonClaudeOtelEnv(into: &json)
+        }
+
         try writeJSONObject(json, to: settingsPath)
 
         return TokenmonProviderInstallResult(
             provider: .claude,
-            message: TokenmonL10n.string("provider.install.claude.success")
+            message: claudeOtelState == .externalOrSensitive
+                ? TokenmonL10n.string("provider.install.claude.statusline_fallback")
+                : TokenmonL10n.string("provider.install.claude.success")
         )
     }
 
@@ -576,6 +595,118 @@ enum TokenmonProviderOnboarding {
             }
             return groups.contains { containsCommand($0, commandSubstring: "--tokenmon-provider-claude-hook-import") }
         }
+    }
+
+    private static func claudeConnectedDetail(
+        otelState: ClaudeOtelSettingsState,
+        statusLineInstalled: Bool,
+        hooksInstalled: Bool
+    ) -> String {
+        if otelState == .tokenmonConfigured {
+            return hooksInstalled
+                ? TokenmonL10n.string("provider.claude.connected.detail_otel_with_hooks")
+                : TokenmonL10n.string("provider.claude.connected.detail_otel")
+        }
+        if otelState == .externalOrSensitive, statusLineInstalled {
+            return TokenmonL10n.string("provider.claude.connected.detail_external_otel_statusline")
+        }
+        return hooksInstalled
+            ? TokenmonL10n.string("provider.claude.connected.detail_with_hooks")
+            : TokenmonL10n.string("provider.claude.connected.detail")
+    }
+
+    private static func claudeRepairDetail(
+        otelState: ClaudeOtelSettingsState,
+        hooksInstalled: Bool
+    ) -> String {
+        if otelState == .externalOrSensitive {
+            return TokenmonL10n.string("provider.claude.repair.external_otel_detail")
+        }
+        return hooksInstalled
+            ? TokenmonL10n.string("provider.claude.repair.hooks_only_detail")
+            : TokenmonL10n.string("provider.claude.repair.statusline_detail")
+    }
+
+    private static func claudeOtelSettingsState(in json: [String: Any]) -> ClaudeOtelSettingsState {
+        guard let env = json["env"] as? [String: Any], env.isEmpty == false else {
+            return .safeToInstall
+        }
+
+        let normalized = env.reduce(into: [String: String]()) { result, entry in
+            result[entry.key] = String(describing: entry.value)
+        }
+        if tokenmonClaudeOtelConfigured(in: normalized) {
+            return .tokenmonConfigured
+        }
+
+        let hasSensitiveFlag = [
+            "OTEL_LOG_USER_PROMPTS",
+            "OTEL_LOG_TOOL_DETAILS",
+            "OTEL_LOG_TOOL_CONTENT",
+            "OTEL_LOG_RAW_API_BODIES",
+        ].contains { key in
+            truthy(normalized[key])
+        }
+        if hasSensitiveFlag {
+            return .externalOrSensitive
+        }
+
+        let hasOtelConfig = normalized.keys.contains { key in
+            key == "CLAUDE_CODE_ENABLE_TELEMETRY" || key.hasPrefix("OTEL_")
+        }
+        return hasOtelConfig ? .externalOrSensitive : .safeToInstall
+    }
+
+    private static func tokenmonClaudeOtelConfigured(in env: [String: String]) -> Bool {
+        guard truthy(env["CLAUDE_CODE_ENABLE_TELEMETRY"]) else {
+            return false
+        }
+        let logsExporter = env["OTEL_LOGS_EXPORTER"] ?? ""
+        guard logsExporter
+            .split(separator: ",")
+            .map({ $0.trimmingCharacters(in: .whitespacesAndNewlines) })
+            .contains("otlp") else {
+            return false
+        }
+
+        let endpoints = [
+            env["OTEL_EXPORTER_OTLP_ENDPOINT"],
+            env["OTEL_EXPORTER_OTLP_LOGS_ENDPOINT"],
+        ].compactMap { $0 }
+        return endpoints.contains(where: isTokenmonOtelEndpoint(_:))
+    }
+
+    private static func isTokenmonOtelEndpoint(_ value: String) -> Bool {
+        var normalized = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        while normalized.hasSuffix("/") {
+            normalized.removeLast()
+        }
+        return normalized == tokenmonOtelEndpoint ||
+            normalized == "http://localhost:\(tokenmonOtelPort)" ||
+            normalized == "\(tokenmonOtelHost):\(tokenmonOtelPort)" ||
+            normalized == "localhost:\(tokenmonOtelPort)"
+    }
+
+    private static func truthy(_ value: String?) -> Bool {
+        guard let value else {
+            return false
+        }
+        let normalized = value.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        return normalized.isEmpty == false &&
+            normalized != "0" &&
+            normalized != "false" &&
+            normalized != "none"
+    }
+
+    private static func mergeTokenmonClaudeOtelEnv(into json: inout [String: Any]) {
+        var env = (json["env"] as? [String: Any]) ?? [:]
+        env["CLAUDE_CODE_ENABLE_TELEMETRY"] = "1"
+        env["OTEL_LOGS_EXPORTER"] = "otlp"
+        env["OTEL_METRICS_EXPORTER"] = "none"
+        env["OTEL_TRACES_EXPORTER"] = "none"
+        env["OTEL_EXPORTER_OTLP_PROTOCOL"] = "grpc"
+        env["OTEL_EXPORTER_OTLP_ENDPOINT"] = tokenmonOtelEndpoint
+        json["env"] = env
     }
 
     private static func containsAppOwnedCodexHooks(configurationRootPath: String) -> Bool {
@@ -812,9 +943,11 @@ enum TokenmonProviderOnboarding {
     private static func shellCommand(
         executablePath: String,
         flag: String,
-        databasePath: String
+        databasePath: String,
+        extraArguments: [String] = []
     ) -> String {
-        "\(shellQuote(executablePath)) \(flag) --db \(shellQuote(databasePath))"
+        let extras = extraArguments.isEmpty ? "" : " \(extraArguments.joined(separator: " "))"
+        return "\(shellQuote(executablePath)) \(flag) --db \(shellQuote(databasePath))\(extras)"
     }
 
     private static func claudeStatusLineWrapperPath(configurationRootPath: String) -> String {

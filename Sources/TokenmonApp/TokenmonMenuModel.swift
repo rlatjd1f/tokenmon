@@ -2423,12 +2423,32 @@ final class TokenmonInboxMonitor: @unchecked Sendable {
     }
 
     private func performScan(onRefresh: @escaping @MainActor () -> Void) {
+        logInboxMonitor(event: "perform_scan_started", metadata: [:])
         let inboxPaths = ensureInboxFilesExist()
 
         for inboxPath in inboxPaths where FileManager.default.fileExists(atPath: inboxPath) {
+            let filename = URL(fileURLWithPath: inboxPath).lastPathComponent
             do {
-                _ = try ingestService.ingestInboxFile(at: inboxPath)
+                let result = try ingestService.ingestInboxFile(at: inboxPath)
+                logInboxMonitor(
+                    event: "ingest_inbox_file_completed",
+                    metadata: [
+                        "inbox": filename,
+                        "accepted": "\(result.acceptedEvents)",
+                        "duplicates": "\(result.duplicateEvents)",
+                        "rejected": "\(result.rejectedEvents)",
+                        "usage_samples": "\(result.usageSamplesCreated)",
+                        "last_offset": "\(result.lastOffset)",
+                    ]
+                )
             } catch {
+                logInboxMonitor(
+                    event: "ingest_inbox_file_failed",
+                    metadata: [
+                        "inbox": filename,
+                        "error": String(describing: error),
+                    ]
+                )
                 continue
             }
         }
@@ -2440,6 +2460,16 @@ final class TokenmonInboxMonitor: @unchecked Sendable {
         Task { @MainActor in
             onRefresh()
         }
+    }
+
+    private func logInboxMonitor(event: String, metadata: [String: String]) {
+        let supportDirectoryPath = TokenmonDatabaseManager.supportDirectory(forDatabasePath: databasePath)
+        TokenmonAppBehaviorLogger.debug(
+            category: "inbox_monitor",
+            event: event,
+            metadata: metadata,
+            supportDirectoryPath: supportDirectoryPath
+        )
     }
 
     private func processPendingBackfillRequests() {
@@ -2508,7 +2538,13 @@ final class TokenmonInboxMonitor: @unchecked Sendable {
             queue: workerQueue
         )
         source.setEventHandler { [weak self] in
-            self?.scheduleScan(onRefresh: onRefresh)
+            guard let self else { return }
+            let rawMask = source.data.rawValue
+            self.logInboxMonitor(
+                event: "directory_event",
+                metadata: ["mask": String(rawMask)]
+            )
+            self.scheduleScan(onRefresh: onRefresh)
         }
         source.setCancelHandler { [weak self] in
             guard let self else {
@@ -2528,12 +2564,17 @@ final class TokenmonInboxMonitor: @unchecked Sendable {
     }
 
     private func scheduleScan(onRefresh: @escaping @MainActor () -> Void) {
+        let hadPending = pendingWorkItem != nil
         pendingWorkItem?.cancel()
         let workItem = DispatchWorkItem { [weak self] in
             self?.performScan(onRefresh: onRefresh)
         }
         pendingWorkItem = workItem
         workerQueue.asyncAfter(deadline: .now() + scanDebounceDelay, execute: workItem)
+        logInboxMonitor(
+            event: "scan_scheduled",
+            metadata: ["cancelled_previous": hadPending ? "yes" : "no"]
+        )
     }
 
     private func refreshFileWatchers(onRefresh: @escaping @MainActor () -> Void) {
@@ -2564,6 +2605,15 @@ final class TokenmonInboxMonitor: @unchecked Sendable {
                 guard let self else {
                     return
                 }
+
+                let rawMask = source.data.rawValue
+                self.logInboxMonitor(
+                    event: "file_event",
+                    metadata: [
+                        "file": URL(fileURLWithPath: path).lastPathComponent,
+                        "mask": String(rawMask),
+                    ]
+                )
 
                 if source.data.contains(.rename) || source.data.contains(.delete) {
                     self.refreshFileWatchers(onRefresh: onRefresh)

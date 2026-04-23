@@ -1584,6 +1584,8 @@ enum TokenmonSettingsPresentationBuilder {
 
     private static func formattedSourceMode(_ rawValue: String) -> String {
         switch rawValue {
+        case "claude_otel_api_request_live":
+            return TokenmonL10n.string("settings.providers.source_mode.claude_otel_api_request_live")
         case "claude_statusline_live":
             return TokenmonL10n.string("settings.providers.source_mode.claude_statusline_live")
         case "claude_transcript_backfill":

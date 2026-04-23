@@ -1019,6 +1019,32 @@ public extension TokenmonDatabaseManager {
         activeWithinHours: Int = 24,
         asOf reference: Date = Date()
     ) throws -> [String: GeminiSessionRunningTotals] {
+        try latestProviderSessionTotals(
+            provider: .gemini,
+            sourceModes: nil,
+            activeWithinHours: activeWithinHours,
+            asOf: reference
+        )
+    }
+
+    func latestClaudeSessionTotals(
+        activeWithinHours: Int = 24,
+        asOf reference: Date = Date()
+    ) throws -> [String: GeminiSessionRunningTotals] {
+        try latestProviderSessionTotals(
+            provider: .claude,
+            sourceModes: ["claude_otel_api_request_live", "claude_statusline_live"],
+            activeWithinHours: activeWithinHours,
+            asOf: reference
+        )
+    }
+
+    private func latestProviderSessionTotals(
+        provider: ProviderCode,
+        sourceModes: [String]?,
+        activeWithinHours: Int,
+        asOf reference: Date
+    ) throws -> [String: GeminiSessionRunningTotals] {
         precondition(activeWithinHours > 0)
 
         let database = try open()
@@ -1027,7 +1053,7 @@ public extension TokenmonDatabaseManager {
         let cutoff = reference.addingTimeInterval(-Double(activeWithinHours) * 3600)
         let cutoffString = formatter.string(from: cutoff)
 
-        let sql = """
+        var sql = """
         SELECT ps.provider_session_id,
                MAX(us.total_input_tokens),
                MAX(us.total_output_tokens),
@@ -1036,15 +1062,28 @@ public extension TokenmonDatabaseManager {
         FROM provider_sessions ps
         JOIN usage_samples us
           ON us.provider_session_row_id = ps.provider_session_row_id
-         AND us.provider_code = 'gemini'
-        WHERE ps.provider_code = 'gemini'
+         AND us.provider_code = ?
+        WHERE ps.provider_code = ?
           AND us.observed_at >= ?
+        """
+        var bindings: [SQLiteValue] = [
+            .text(provider.rawValue),
+            .text(provider.rawValue),
+            .text(cutoffString),
+        ]
+        if let sourceModes, sourceModes.isEmpty == false {
+            let placeholders = Array(repeating: "?", count: sourceModes.count).joined(separator: ", ")
+            sql += "\n  AND us.source_mode IN (\(placeholders))"
+            bindings.append(contentsOf: sourceModes.map { .text($0) })
+        }
+        sql += """
+
         GROUP BY ps.provider_session_id;
         """
 
         let rows: [(String, Int64, Int64, Int64, Int64)] = try database.fetchAll(
             sql,
-            bindings: [.text(cutoffString)]
+            bindings: bindings
         ) { statement in
             (
                 SQLiteDatabase.columnText(statement, index: 0),
