@@ -646,62 +646,148 @@ struct TokenmonPresentationTests {
 
     @Test
     func popoverHeroMotionRespectsReducedMotion() {
-        let drift = TokenmonPopoverHeroMotionModel.fieldDrift(
-            fieldState: .rustle,
-            phase: 42,
-            itemPhase: 2,
-            reduceMotion: true
-        )
-        let scale = TokenmonPopoverHeroMotionModel.stageScale(
-            sceneState: .spawn,
-            phase: 42,
-            reduceMotion: true
-        )
-        let opacity = TokenmonPopoverHeroMotionModel.ambientOpacity(
+        let frame = TokenmonPopoverHeroMotionModel.motionFrame(
+            fieldKind: .coast,
             sceneState: .spawn,
             fieldState: .rustle,
+            phase: 42,
+            itemIndex: 2,
             reduceMotion: true
         )
 
-        #expect(drift == .zero)
-        #expect(scale == 1)
-        #expect(opacity == 0)
+        #expect(frame.backgroundOffset == .zero)
+        #expect(frame.backgroundScale == 1)
+        #expect(frame.foregroundOffset == .zero)
+        #expect(frame.foregroundOpacity == 0)
+        #expect(frame.companionOffset == .zero)
+        #expect(frame.companionScale == 1)
+        #expect(frame.effectIntensity == 0)
     }
 
     @Test
     func popoverHeroMotionAddsEnergyForEncounterStates() {
-        let calmDrift = TokenmonPopoverHeroMotionModel.fieldDrift(
-            fieldState: .calm,
-            phase: 10,
-            itemPhase: 0,
-            reduceMotion: false
-        )
-        let rustleDrift = TokenmonPopoverHeroMotionModel.fieldDrift(
-            fieldState: .rustle,
-            phase: 10,
-            itemPhase: 0,
-            reduceMotion: false
-        )
-        let spawnScale = TokenmonPopoverHeroMotionModel.stageScale(
-            sceneState: .spawn,
-            phase: 10,
-            reduceMotion: false
-        )
-        let exploringOpacity = TokenmonPopoverHeroMotionModel.ambientOpacity(
+        let exploring = TokenmonPopoverHeroMotionModel.motionFrame(
+            fieldKind: .grassland,
             sceneState: .exploring,
             fieldState: .exploring,
+            phase: 10,
+            itemIndex: 0,
             reduceMotion: false
         )
-        let spawnOpacity = TokenmonPopoverHeroMotionModel.ambientOpacity(
+        let rustle = TokenmonPopoverHeroMotionModel.motionFrame(
+            fieldKind: .grassland,
+            sceneState: .rustle,
+            fieldState: .rustle,
+            phase: 10,
+            itemIndex: 0,
+            reduceMotion: false
+        )
+        let spawn = TokenmonPopoverHeroMotionModel.motionFrame(
+            fieldKind: .grassland,
             sceneState: .spawn,
             fieldState: .rustle,
+            phase: 10,
+            itemIndex: 0,
+            reduceMotion: false
+        )
+        let alert = TokenmonPopoverHeroMotionModel.motionFrame(
+            fieldKind: .grassland,
+            sceneState: .alert,
+            fieldState: .rustle,
+            phase: 10,
+            itemIndex: 0,
+            reduceMotion: false
+        )
+        let resolveSuccess = TokenmonPopoverHeroMotionModel.motionFrame(
+            fieldKind: .ice,
+            sceneState: .resolveSuccess,
+            fieldState: .settle,
+            phase: 10,
+            itemIndex: 0,
+            reduceMotion: false
+        )
+        let resolveEscape = TokenmonPopoverHeroMotionModel.motionFrame(
+            fieldKind: .coast,
+            sceneState: .resolveEscape,
+            fieldState: .settle,
+            phase: 10,
+            itemIndex: 0,
             reduceMotion: false
         )
 
-        #expect(calmDrift == .zero)
-        #expect(abs(rustleDrift.width) > 0.1 || abs(rustleDrift.height) > 0.1)
-        #expect(spawnScale > 1)
-        #expect(spawnOpacity > exploringOpacity)
+        #expect(exploring.foregroundOffset != .zero)
+        #expect(rustle.foregroundOpacity > exploring.foregroundOpacity)
+        #expect(spawn.backgroundScale > 1)
+        #expect(spawn.effectIntensity > exploring.effectIntensity)
+        #expect(alert.effectIntensity > exploring.effectIntensity)
+        #expect(resolveSuccess.effectIntensity > exploring.effectIntensity)
+        #expect(resolveEscape.effectIntensity > exploring.effectIntensity)
+    }
+
+    @Test
+    func popoverHeroMotionUsesDistinctFieldAxes() {
+        let phase = 10.5
+        let grassland = TokenmonPopoverHeroMotionModel.motionFrame(
+            fieldKind: .grassland,
+            sceneState: .exploring,
+            fieldState: .exploring,
+            phase: phase,
+            itemIndex: 1,
+            reduceMotion: false
+        )
+        let coast = TokenmonPopoverHeroMotionModel.motionFrame(
+            fieldKind: .coast,
+            sceneState: .exploring,
+            fieldState: .exploring,
+            phase: phase,
+            itemIndex: 1,
+            reduceMotion: false
+        )
+        let ice = TokenmonPopoverHeroMotionModel.motionFrame(
+            fieldKind: .ice,
+            sceneState: .exploring,
+            fieldState: .exploring,
+            phase: phase,
+            itemIndex: 1,
+            reduceMotion: false
+        )
+        let sky = TokenmonPopoverHeroMotionModel.motionFrame(
+            fieldKind: .sky,
+            sceneState: .exploring,
+            fieldState: .exploring,
+            phase: phase,
+            itemIndex: 1,
+            reduceMotion: false
+        )
+
+        #expect(abs(coast.foregroundOffset.width) > abs(grassland.foregroundOffset.width))
+        #expect(abs(sky.foregroundOffset.width) > abs(ice.foregroundOffset.width))
+        #expect(coast.foregroundOffset != ice.foregroundOffset)
+        #expect(sky.backgroundOffset != grassland.backgroundOffset)
+    }
+
+    @Test
+    func nowFieldHeroCardSupportsPopoverOnboardingAndDebuggerConstruction() {
+        let context = TokenmonSceneContext(
+            sceneState: .spawn,
+            fieldKind: .sky,
+            fieldState: .rustle,
+            effectState: .alert,
+            wildState: .spawning,
+            wildAssetKey: "sky_012_nimbusray"
+        )
+        let fixedDate = Date(timeIntervalSinceReferenceDate: 20_000)
+
+        _ = TokenmonNowFieldHeroCard(sceneContext: context)
+        _ = TokenmonNowFieldHeroCard(
+            sceneContext: context,
+            companionAssetKeys: ["sky_012_nimbusray"]
+        )
+        _ = TokenmonNowFieldHeroCard(
+            sceneContext: context,
+            companionAssetKeys: ["sky_012_nimbusray"],
+            backgroundDate: fixedDate
+        )
     }
 
     @Test

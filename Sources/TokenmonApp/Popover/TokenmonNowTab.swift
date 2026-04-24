@@ -290,22 +290,26 @@ struct TokenmonNowFieldHeroCard: View {
     let sceneContext: TokenmonSceneContext
     let companionAssetKeys: [String]
     let backgroundDate: Date?
+    let animates: Bool
 
     init(
         sceneContext: TokenmonSceneContext,
         companionAssetKeys: [String] = [],
-        backgroundDate: Date? = nil
+        backgroundDate: Date? = nil,
+        animates: Bool = true
     ) {
         self.sceneContext = sceneContext
         self.companionAssetKeys = companionAssetKeys
         self.backgroundDate = backgroundDate
+        self.animates = animates
     }
 
     var body: some View {
-        TokenmonMenuHeroSceneCard(
+        TokenmonPopoverHeroSceneCard(
             context: sceneContext,
             companionAssetKeys: companionAssetKeys,
-            backgroundDate: backgroundDate
+            backgroundDate: backgroundDate,
+            animates: animates
         )
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(accessibilityLabel)
