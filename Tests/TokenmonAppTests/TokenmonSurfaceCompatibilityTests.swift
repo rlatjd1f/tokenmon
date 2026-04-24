@@ -48,11 +48,24 @@ struct TokenmonSurfaceCompatibilityTests {
                 selectSpecies: { _ in }
             )
         )
+        let raidPopoverContainer = TokenmonPopoverContainer(
+            model: model,
+            actions: TokenmonPopoverContainerActions(
+                openFullDex: {},
+                openRewardArchive: {},
+                openSettings: { _ in },
+                openDeveloperTools: {},
+                quit: {},
+                selectSpecies: { _ in }
+            ),
+            initialActiveTab: .raid
+        )
 
         assertHostedRender(settingsPanel, size: CGSize(width: 760, height: 560))
         assertHostedRender(onboardingPanel, size: CGSize(width: 620, height: 500))
         assertHostedRender(developerPanel, size: CGSize(width: 1040, height: 760))
         assertHostedRender(popoverContainer, size: CGSize(width: 360, height: 480))
+        assertHostedRender(raidPopoverContainer, size: CGSize(width: 360, height: 520))
     }
 
     @MainActor

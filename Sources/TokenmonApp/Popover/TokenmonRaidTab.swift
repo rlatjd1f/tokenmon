@@ -14,7 +14,7 @@ struct TokenmonRaidTab: View {
     }
 
     var body: some View {
-        ScrollView {
+        ScrollView(.vertical, showsIndicators: false) {
             VStack(alignment: .leading, spacing: 14) {
                 if let dashboard, let raid = dashboard.currentRaid {
                     TokenmonRaidBattleStage(
