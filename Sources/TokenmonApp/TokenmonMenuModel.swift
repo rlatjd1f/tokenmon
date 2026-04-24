@@ -1046,6 +1046,8 @@ final class TokenmonMenuModel: ObservableObject {
 
     var recentEncounterFeed: [RecentEncounterSummary] { runtimeSnapshot.recentEncounterFeed }
 
+    var raidDashboard: RaidDashboardSummary? { runtimeSnapshot.raidDashboard }
+
     var dexEntries: [DexEntrySummary] { insightsSnapshot.dexEntries }
 
     var partyMembers: [PartyMemberSummary] { insightsSnapshot.partyMembers }
@@ -1313,7 +1315,8 @@ final class TokenmonMenuModel: ObservableObject {
                 recentEncounterFeed: recentEncounterFeed,
                 todayActivity: try databaseManager.todayActivitySummary(),
                 providerHealthSummaries: [],
-                ambientCompanionRoster: try databaseManager.ambientCompanionRoster()
+                ambientCompanionRoster: try databaseManager.ambientCompanionRoster(),
+                raidDashboard: try databaseManager.raidDashboardSummary()
             )
             loadError = nil
         } catch {

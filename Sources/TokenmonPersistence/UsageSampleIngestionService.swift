@@ -442,6 +442,16 @@ public final class UsageSampleIngestionService {
                 )
             )
 
+            if gameplayDecision.eligibility == .eligibleLive,
+               balanceDecision.gameplayDeltaTokens > 0 {
+                _ = try databaseManager.processRaidAttackForUsageSample(
+                    database: database,
+                    usageSampleID: usageSampleID,
+                    observedAt: event.observedAt,
+                    correlationID: event.providerEventFingerprint
+                )
+            }
+
             if balanceDecision.gameplayDeltaTokens > 0 {
                 let explorationUpdate = try accumulateExplorationProgress(
                     database: database,

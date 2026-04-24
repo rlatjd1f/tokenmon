@@ -16,6 +16,15 @@ public enum TokenmonDomainEventType: String, Sendable {
     case capturedDexUpdated = "captured_dex_updated"
     case backfillStarted = "backfill_started"
     case backfillCompleted = "backfill_completed"
+    case raidInstanceStarted = "raid_instance_started"
+    case raidAttackTriggered = "raid_attack_triggered"
+    case raidMemberHitResolved = "raid_member_hit_resolved"
+    case raidProgressUpdated = "raid_progress_updated"
+    case raidCleared = "raid_cleared"
+    case raidExpired = "raid_expired"
+    case raidRewardAcquired = "raid_reward_acquired"
+    case raidRewardMissed = "raid_reward_missed"
+    case rewardArchiveRecorded = "reward_archive_recorded"
 }
 
 public struct DomainEventEnvelope<Payload: Encodable & Sendable>: Sendable {

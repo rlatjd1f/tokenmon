@@ -10,6 +10,7 @@ typealias TokenmonProviderInspector = @Sendable (
 
 enum TokenmonRefreshSurface: Sendable {
     case now
+    case raid
     case tokens
     case stats
     case dex
@@ -59,6 +60,8 @@ extension TokenmonRefreshReason {
             return insightsLoaded ? [.runtime, .insights] : .runtime
         case .surfaceOpened(.now):
             return .runtime
+        case .surfaceOpened(.raid):
+            return [.runtime, .insights]
         case .surfaceOpened(.tokens), .surfaceOpened(.stats), .surfaceOpened(.dex):
             return .insights
         case .surfaceOpened(.settings), .surfaceOpened(.onboarding):
@@ -79,6 +82,7 @@ struct TokenmonRuntimeSnapshot: Equatable, Sendable {
     var todayActivity: TodayActivitySummary?
     var providerHealthSummaries: [ProviderHealthSummary] = []
     var ambientCompanionRoster: AmbientCompanionRoster = .byField([:])
+    var raidDashboard: RaidDashboardSummary?
 }
 
 struct TokenmonInsightsSnapshot: Equatable, Sendable {
@@ -226,7 +230,8 @@ enum TokenmonMenuSnapshotLoader {
                 recentEncounterFeed: recentEncounterFeed,
                 todayActivity: try manager.todayActivitySummary(),
                 providerHealthSummaries: providerHealth,
-                ambientCompanionRoster: ambientRoster
+                ambientCompanionRoster: ambientRoster,
+                raidDashboard: try manager.raidDashboardSummary()
             )
             let rosterMetric: String = {
                 switch ambientRoster {

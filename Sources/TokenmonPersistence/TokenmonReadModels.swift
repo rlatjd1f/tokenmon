@@ -169,6 +169,8 @@ public struct PartyMemberSummary: Equatable, Sendable {
     public let displayName: String
     public let addedAt: String
     public let slotOrder: Int
+    public let capturedCount: Int64
+    public let stats: SpeciesStatBlock
 }
 
 public enum AmbientCompanionRoster: Equatable, Sendable {
@@ -1152,9 +1154,18 @@ public extension TokenmonDatabaseManager {
                species.rarity_tier,
                species.name,
                party_members.added_at,
-               party_members.slot_order
+               party_members.slot_order,
+               dex_captured.captured_count,
+               species.stat_planning,
+               species.stat_design,
+               species.stat_frontend,
+               species.stat_backend,
+               species.stat_pm,
+               species.stat_infra,
+               species.traits_json
         FROM party_members
         INNER JOIN species ON species.species_id = party_members.species_id
+        INNER JOIN dex_captured ON dex_captured.species_id = party_members.species_id
         ORDER BY party_members.slot_order ASC;
         """
         return try database.fetchAll(sql) { statement in
@@ -1165,6 +1176,18 @@ public extension TokenmonDatabaseManager {
             let name = SQLiteDatabase.columnText(statement, index: 4)
             let addedAt = SQLiteDatabase.columnText(statement, index: 5)
             let slot = Int(SQLiteDatabase.columnInt64(statement, index: 6))
+            let capturedCount = SQLiteDatabase.columnInt64(statement, index: 7)
+            let traitsJSON = SQLiteDatabase.columnText(statement, index: 14)
+            let traits = (try? JSONDecoder().decode([String].self, from: Data(traitsJSON.utf8))) ?? []
+            let stats = SpeciesStatBlock(
+                planning: Int(SQLiteDatabase.columnInt64(statement, index: 8)),
+                design: Int(SQLiteDatabase.columnInt64(statement, index: 9)),
+                frontend: Int(SQLiteDatabase.columnInt64(statement, index: 10)),
+                backend: Int(SQLiteDatabase.columnInt64(statement, index: 11)),
+                pm: Int(SQLiteDatabase.columnInt64(statement, index: 12)),
+                infra: Int(SQLiteDatabase.columnInt64(statement, index: 13)),
+                traits: traits
+            )
             return PartyMemberSummary(
                 speciesID: speciesID,
                 assetKey: assetKey,
@@ -1172,7 +1195,9 @@ public extension TokenmonDatabaseManager {
                 rarity: rarity,
                 displayName: name,
                 addedAt: addedAt,
-                slotOrder: slot
+                slotOrder: slot,
+                capturedCount: capturedCount,
+                stats: stats
             )
         }
     }

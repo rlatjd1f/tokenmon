@@ -41,6 +41,7 @@ struct TokenmonSurfaceCompatibilityTests {
             model: model,
             actions: TokenmonPopoverContainerActions(
                 openFullDex: {},
+                openRewardArchive: {},
                 openSettings: { _ in },
                 openDeveloperTools: {},
                 quit: {},

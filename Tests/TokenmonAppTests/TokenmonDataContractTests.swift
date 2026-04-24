@@ -3170,6 +3170,433 @@ struct TokenmonDataContractTests {
             #expect(assetKeys.count == 1)
         }
     }
+
+    @Test
+    func raidDamageCalculatorUsesStatsAndFitBonuses() throws {
+        let raid = RaidCatalog.allRaids.first { $0.raidID == "raid_2026_06_logo_vault" }!
+        let member = RaidPartyMember(
+            speciesID: "CST_TEST",
+            assetKey: "cst_test",
+            displayName: "Coralcoder",
+            field: .coast,
+            rarity: .rare,
+            slotOrder: 1,
+            capturedCount: 4,
+            stats: SpeciesStatBlock(
+                planning: 2,
+                design: 7,
+                frontend: 8,
+                backend: 4,
+                pm: 2,
+                infra: 1,
+                traits: ["Quick Prototyper", "Clean Coder"]
+            )
+        )
+
+        let hit = RaidDamageCalculator.memberHit(raid: raid, member: member)
+
+        #expect(hit.roundedAxisScore == 5)
+        #expect(hit.roleFitBonus == 1)
+        #expect(hit.fieldFitBonus == 1)
+        #expect(hit.traitFitBonus == 1)
+        #expect(hit.captureBondBonus == 1)
+        #expect(hit.baseHitPower == 9)
+        #expect(hit.rollOutcome == .normal)
+        #expect(hit.rollMultiplier == 1.0)
+        #expect(hit.hitPower == 9)
+    }
+
+    @Test
+    func raidDamageRollsAreDeterministicPerUsageSample() throws {
+        let raid = RaidCatalog.allRaids.first { $0.raidID == "raid_2026_06_logo_vault" }!
+        let member = RaidPartyMember(
+            speciesID: "CST_TEST",
+            assetKey: "cst_test",
+            displayName: "Coralcoder",
+            field: .coast,
+            rarity: .rare,
+            slotOrder: 1,
+            capturedCount: 4,
+            stats: SpeciesStatBlock(
+                planning: 2,
+                design: 7,
+                frontend: 8,
+                backend: 4,
+                pm: 2,
+                infra: 1,
+                traits: ["Quick Prototyper", "Clean Coder"]
+            )
+        )
+
+        let first = RaidDamageCalculator.resolveAttack(
+            raid: raid,
+            partyMembers: [member],
+            usageSampleID: 101
+        )
+        let replay = RaidDamageCalculator.resolveAttack(
+            raid: raid,
+            partyMembers: [member],
+            usageSampleID: 101
+        )
+        let nextSample = RaidDamageCalculator.resolveAttack(
+            raid: raid,
+            partyMembers: [member],
+            usageSampleID: 102
+        )
+
+        #expect(first == replay)
+        #expect(first.memberHits.first?.baseHitPower == 9)
+        #expect(nextSample.memberHits.first?.baseHitPower == 9)
+        #expect(first.memberHits.first?.rollOutcome != nil)
+        #expect(nextSample.memberHits.first?.rollOutcome != nil)
+    }
+
+    @Test
+    func raidTablesAndSeedExistAfterBootstrap() throws {
+        let manager = try makeManager(prefix: "raid-bootstrap")
+        let database = try manager.open()
+
+        #expect(try rowCount(in: "raid_definitions", database: database) == 11)
+        #expect(try rowCount(in: "raid_reward_definitions", database: database) == 10)
+
+        let dashboard = try manager.raidDashboardSummary(
+            asOf: ISO8601DateFormatter().date(from: "2026-04-23T00:00:00Z")!
+        )
+        #expect(dashboard.currentRaid?.raidID == "raid_2026_04_april_vault")
+        #expect(dashboard.currentRaid?.maxHP == 12_000)
+        #expect(dashboard.archiveEntries.contains { $0.rewardID == "reward_first_spark_trophy" })
+        #expect(dashboard.archiveEntries.contains { $0.rewardID == "reward_2026_04_april_relic" })
+        #expect(dashboard.archiveEntries.contains { $0.rewardID == "reward_2026_12_december_relic" })
+        #expect(dashboard.archiveEntries.first { $0.rewardID == "reward_2026_04_april_relic" }?.status == .available)
+        #expect(dashboard.archiveEntries.first { $0.rewardID == "reward_2026_04_april_relic" }?.sourceRaidTargetName == "Clovercore Sentinel")
+        #expect(dashboard.archiveEntries.first { $0.rewardID == "reward_2026_04_april_relic" }?.sourceRaidTargetArtKey == "raid_target_token_vault_sentinel")
+        #expect(dashboard.archiveEntries.first { $0.rewardID == "reward_2026_05_may_relic" }?.status == .unknown)
+
+        let decemberHP = try database.fetchOne(
+            "SELECT max_hp FROM raid_definitions WHERE raid_id = 'raid_2026_12_december_vault';"
+        ) { statement in
+            SQLiteDatabase.columnInt64(statement, index: 0)
+        }
+        #expect(decemberHP == 120_000)
+    }
+
+    @Test
+    func activeRaidInstanceHPReconcilesWhenSeededDefinitionChanges() throws {
+        let manager = try makeManager(prefix: "raid-hp-reconcile")
+        let database = try manager.open()
+
+        _ = try manager.raidDashboardSummary(
+            asOf: ISO8601DateFormatter().date(from: "2026-04-23T00:00:00Z")!
+        )
+        try database.execute(
+            """
+            UPDATE raid_instances
+            SET current_hp = 9000,
+                total_damage = 1000
+            WHERE raid_id = 'raid_2026_04_april_vault';
+            """
+        )
+
+        let dashboard = try manager.raidDashboardSummary(
+            asOf: ISO8601DateFormatter().date(from: "2026-04-23T00:05:00Z")!
+        )
+
+        #expect(dashboard.currentRaid?.raidID == "raid_2026_04_april_vault")
+        #expect(dashboard.currentRaid?.maxHP == 12_000)
+        #expect(dashboard.currentRaid?.currentHP == 11_000)
+    }
+
+    @Test
+    func newPlayerBlessingBoostsMonthlyRaidDamageForSmallParty() throws {
+        let manager = try makeManager(prefix: "raid-new-player-blessing")
+        let database = try manager.open()
+        try upsertStringSetting(
+            database: database,
+            key: "live_gameplay_started_at",
+            value: "2026-04-23T00:00:00Z"
+        )
+
+        _ = try manager.forgeEncounter(
+            TokenmonDeveloperEncounterForgeRequest(
+                provider: .codex,
+                field: .grassland,
+                rarity: .common,
+                speciesID: "GRS_001",
+                outcome: .captured,
+                occurredAt: "2026-04-23T00:00:00Z"
+            )
+        )
+        try manager.addToParty(speciesID: "GRS_001")
+
+        let service = UsageSampleIngestionService(databasePath: manager.path)
+        _ = try service.ingestProviderEvents(
+            [
+                codexUsageEvent(
+                    sessionID: "raid-blessing-session",
+                    observedAt: "2026-04-23T00:01:00Z",
+                    totalInputTokens: 1_000,
+                    totalOutputTokens: 500,
+                    fingerprint: "codex:raid-blessing-session:001"
+                ),
+            ],
+            sourceKey: "raid-new-player-blessing",
+            sourceKind: "ndjson_file"
+        )
+
+        let totalDamage = try database.fetchOne(
+            """
+            SELECT total_damage
+            FROM raid_attacks
+            ORDER BY raid_attack_row_id DESC
+            LIMIT 1;
+            """
+        ) { statement in
+            SQLiteDatabase.columnInt64(statement, index: 0)
+        }
+        let attackEventPayload = try database.fetchOne(
+            """
+            SELECT payload_json
+            FROM domain_events
+            WHERE event_type = 'raid_attack_triggered'
+            ORDER BY occurred_at DESC
+            LIMIT 1;
+            """
+        ) { statement in
+            SQLiteDatabase.columnText(statement, index: 0)
+        }
+        let dashboard = try manager.raidDashboardSummary(
+            asOf: ISO8601DateFormatter().date(from: "2026-04-23T00:02:00Z")!
+        )
+
+        #expect(totalDamage == 120)
+        #expect(attackEventPayload?.contains("\"damage_blessing_id\":\"first_spark_blessing\"") == true)
+        #expect(dashboard.currentRaid?.activeBlessing?.id == "first_spark_blessing")
+        #expect(dashboard.currentRaid?.partyPower == 120)
+    }
+
+    @Test
+    func clearedMonthlyRaidFallsBackToPracticeDisplayDuringActiveMonth() throws {
+        let manager = try makeManager(prefix: "raid-cleared-month-display")
+        let database = try manager.open()
+
+        _ = try manager.raidDashboardSummary(
+            asOf: ISO8601DateFormatter().date(from: "2026-04-23T00:00:00Z")!
+        )
+        _ = try manager.raidDashboardSummary(
+            asOf: ISO8601DateFormatter().date(from: "2027-01-02T00:00:00Z")!
+        )
+
+        try database.execute(
+            """
+            UPDATE raid_instances
+            SET status = 'cleared',
+                current_hp = 0,
+                cleared_at = '2026-04-23T00:01:00Z',
+                updated_at = '2026-04-23T00:01:00Z'
+            WHERE raid_id IN ('raid_2026_04_april_vault', 'raid_tutorial_first_spark');
+            """
+        )
+
+        let dashboard = try manager.raidDashboardSummary(
+            asOf: ISO8601DateFormatter().date(from: "2026-04-23T00:02:00Z")!
+        )
+
+        #expect(dashboard.currentRaid?.raidID == "raid_practice_token_vault")
+        #expect(dashboard.currentRaid?.currentHP ?? 0 > 0)
+    }
+
+    @Test
+    func raidFallsBackToPracticeAfterTutorialClear() throws {
+        let manager = try makeManager(prefix: "raid-practice-fallback")
+        let database = try manager.open()
+        try upsertStringSetting(
+            database: database,
+            key: "live_gameplay_started_at",
+            value: "2026-04-23T00:00:00Z"
+        )
+
+        _ = try manager.raidDashboardSummary(
+            asOf: ISO8601DateFormatter().date(from: "2027-01-02T00:00:00Z")!
+        )
+        try database.execute(
+            """
+            UPDATE raid_instances
+            SET status = 'cleared',
+                current_hp = 0,
+                cleared_at = '2026-04-23T00:01:00Z',
+                updated_at = '2026-04-23T00:01:00Z'
+            WHERE raid_id = 'raid_tutorial_first_spark';
+            """
+        )
+
+        _ = try manager.forgeEncounter(
+            TokenmonDeveloperEncounterForgeRequest(
+                provider: .codex,
+                field: .grassland,
+                rarity: .common,
+                speciesID: "GRS_001",
+                outcome: .captured,
+                occurredAt: "2027-01-02T00:00:00Z"
+            )
+        )
+        try manager.addToParty(speciesID: "GRS_001")
+
+        let service = UsageSampleIngestionService(databasePath: manager.path)
+        _ = try service.ingestProviderEvents(
+            [
+                codexUsageEvent(
+                    sessionID: "raid-practice-session",
+                    observedAt: "2027-01-02T00:02:00Z",
+                    totalInputTokens: 1_000,
+                    totalOutputTokens: 500,
+                    fingerprint: "codex:raid-practice-session:001"
+                ),
+            ],
+            sourceKey: "raid-practice-fallback",
+            sourceKind: "ndjson_file"
+        )
+
+        let attackRaidID = try database.fetchOne(
+            """
+            SELECT raid_id
+            FROM raid_attacks
+            ORDER BY raid_attack_row_id DESC
+            LIMIT 1;
+            """
+        ) { statement in
+            SQLiteDatabase.columnText(statement, index: 0)
+        }
+        let dashboard = try manager.raidDashboardSummary(
+            asOf: ISO8601DateFormatter().date(from: "2027-01-02T00:03:00Z")!
+        )
+
+        #expect(attackRaidID == "raid_practice_token_vault")
+        #expect(dashboard.currentRaid?.raidID == "raid_practice_token_vault")
+        #expect((dashboard.currentRaid?.totalAttacks ?? 0) == 1)
+    }
+
+    @Test
+    func raidAttackCountFollowsUsageSamplesNotTokenVolume() throws {
+        let manager = try makeManager(prefix: "raid-usage-samples")
+        let database = try manager.open()
+        try upsertStringSetting(
+            database: database,
+            key: "live_gameplay_started_at",
+            value: "2026-04-23T00:00:00Z"
+        )
+
+        _ = try manager.forgeEncounter(
+            TokenmonDeveloperEncounterForgeRequest(
+                provider: .codex,
+                field: .grassland,
+                rarity: .common,
+                speciesID: "GRS_001",
+                outcome: .captured,
+                occurredAt: "2026-04-23T00:00:00Z"
+            )
+        )
+        try manager.addToParty(speciesID: "GRS_001")
+
+        let service = UsageSampleIngestionService(databasePath: manager.path)
+        _ = try service.ingestProviderEvents(
+            [
+                codexUsageEvent(
+                    sessionID: "raid-session",
+                    observedAt: "2026-04-23T00:01:00Z",
+                    totalInputTokens: 1_000,
+                    totalOutputTokens: 500,
+                    fingerprint: "codex:raid-session:001"
+                ),
+                codexUsageEvent(
+                    sessionID: "raid-session",
+                    observedAt: "2026-04-23T00:02:00Z",
+                    totalInputTokens: 1_000_000,
+                    totalOutputTokens: 500_000,
+                    fingerprint: "codex:raid-session:002"
+                ),
+            ],
+            sourceKey: "raid-usage-samples",
+            sourceKind: "ndjson_file"
+        )
+
+        let damages = try database.fetchAll(
+            """
+            SELECT total_damage
+            FROM raid_attacks
+            ORDER BY raid_attack_row_id ASC;
+            """
+        ) { statement in
+            SQLiteDatabase.columnInt64(statement, index: 0)
+        }
+
+        #expect(damages.count == 2)
+        #expect(damages.allSatisfy { $0 >= 0 })
+        #expect(damages.reduce(0, +) > 0)
+    }
+
+    @Test
+    func raidClearAcquiresRewardOnce() throws {
+        let manager = try makeManager(prefix: "raid-clear")
+        let database = try manager.open()
+        try upsertStringSetting(
+            database: database,
+            key: "live_gameplay_started_at",
+            value: "2026-03-02T00:00:00Z"
+        )
+
+        for speciesID in ["GRS_001", "GRS_002", "GRS_003", "GRS_004", "GRS_005", "GRS_006", "GRS_007", "GRS_008", "GRS_009", "GRS_010"] {
+            _ = try manager.forgeEncounter(
+                TokenmonDeveloperEncounterForgeRequest(
+                    provider: .codex,
+                    field: .grassland,
+                    rarity: .common,
+                    speciesID: speciesID,
+                    outcome: .captured,
+                    occurredAt: "2026-03-02T00:00:00Z"
+                )
+            )
+            try manager.addToParty(speciesID: speciesID)
+        }
+
+        let service = UsageSampleIngestionService(databasePath: manager.path)
+        var events: [ProviderUsageSampleEvent] = []
+        var runningInput: Int64 = 0
+        for index in 1...20 {
+            runningInput += 5_000
+            events.append(
+                codexUsageEvent(
+                    sessionID: "raid-clear-session",
+                    observedAt: String(format: "2026-03-02T00:%02d:00Z", index),
+                    totalInputTokens: runningInput,
+                    totalOutputTokens: 1_000,
+                    fingerprint: "codex:raid-clear-session:\(index)"
+                )
+            )
+        }
+        _ = try service.ingestProviderEvents(
+            events,
+            sourceKey: "raid-clear",
+            sourceKind: "ndjson_file"
+        )
+
+        let reward = try database.fetchOne(
+            """
+            SELECT status, acquired_at
+            FROM reward_archive_entries
+            WHERE reward_id = 'reward_first_spark_trophy'
+            LIMIT 1;
+            """
+        ) { statement in
+            (
+                status: SQLiteDatabase.columnText(statement, index: 0),
+                acquiredAt: SQLiteDatabase.columnOptionalText(statement, index: 1)
+            )
+        }
+
+        #expect(reward?.status == RaidRewardArchiveStatus.acquired.rawValue)
+        #expect(reward?.acquiredAt != nil)
+        #expect(try rowCount(in: "reward_archive_entries", database: database) == 1)
+    }
 }
 
 private final class StubGeminiReceiverDataSource: GeminiOtelReceiverDataSource {

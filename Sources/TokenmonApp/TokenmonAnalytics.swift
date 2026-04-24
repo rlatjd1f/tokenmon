@@ -509,6 +509,8 @@ private extension TokenmonRefreshSurface {
         switch self {
         case .now:
             return "now"
+        case .raid:
+            return "raid"
         case .tokens:
             return "tokens"
         case .stats:

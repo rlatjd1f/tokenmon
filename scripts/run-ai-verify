@@ -377,6 +377,30 @@ seen_dex_updated_count = cur.execute(
 captured_dex_updated_count = cur.execute(
     "SELECT COUNT(*) FROM domain_events WHERE event_type = 'captured_dex_updated';"
 ).fetchone()[0]
+raid_attack_triggered_count = cur.execute(
+    "SELECT COUNT(*) FROM domain_events WHERE event_type = 'raid_attack_triggered';"
+).fetchone()[0]
+raid_member_hit_resolved_count = cur.execute(
+    "SELECT COUNT(*) FROM domain_events WHERE event_type = 'raid_member_hit_resolved';"
+).fetchone()[0]
+raid_progress_updated_count = cur.execute(
+    "SELECT COUNT(*) FROM domain_events WHERE event_type = 'raid_progress_updated';"
+).fetchone()[0]
+raid_cleared_count = cur.execute(
+    "SELECT COUNT(*) FROM domain_events WHERE event_type = 'raid_cleared';"
+).fetchone()[0]
+raid_expired_count = cur.execute(
+    "SELECT COUNT(*) FROM domain_events WHERE event_type = 'raid_expired';"
+).fetchone()[0]
+raid_reward_acquired_count = cur.execute(
+    "SELECT COUNT(*) FROM domain_events WHERE event_type = 'raid_reward_acquired';"
+).fetchone()[0]
+raid_reward_missed_count = cur.execute(
+    "SELECT COUNT(*) FROM domain_events WHERE event_type = 'raid_reward_missed';"
+).fetchone()[0]
+reward_archive_recorded_count = cur.execute(
+    "SELECT COUNT(*) FROM domain_events WHERE event_type = 'reward_archive_recorded';"
+).fetchone()[0]
 domain_event_count = cur.execute("SELECT COUNT(*) FROM domain_events;").fetchone()[0]
 state_total_encounters, state_total_captures = cur.execute(
     "SELECT total_encounters, total_captures FROM exploration_state WHERE exploration_state_id = 1;"
@@ -479,6 +503,14 @@ print(f"encounter_spawned_count={encounter_spawned_count}")
 print(f"capture_resolved_event_count={capture_resolved_event_count}")
 print(f"seen_dex_updated_count={seen_dex_updated_count}")
 print(f"captured_dex_updated_count={captured_dex_updated_count}")
+print(f"raid_attack_triggered_count={raid_attack_triggered_count}")
+print(f"raid_member_hit_resolved_count={raid_member_hit_resolved_count}")
+print(f"raid_progress_updated_count={raid_progress_updated_count}")
+print(f"raid_cleared_count={raid_cleared_count}")
+print(f"raid_expired_count={raid_expired_count}")
+print(f"raid_reward_acquired_count={raid_reward_acquired_count}")
+print(f"raid_reward_missed_count={raid_reward_missed_count}")
+print(f"reward_archive_recorded_count={reward_archive_recorded_count}")
 print(f"domain_event_count={domain_event_count}")
 print(f"state_total_encounters={state_total_encounters}")
 print(f"state_total_captures={state_total_captures}")
@@ -490,7 +522,7 @@ print(f"encounter_spawned_count_matches_expected={int(encounter_spawned_count ==
 print(f"capture_resolved_matches_encounter_count={int(capture_resolved_event_count == encounter_count)}")
 print(f"seen_dex_updated_matches_encounter_count={int(seen_dex_updated_count == encounter_count)}")
 print(f"captured_dex_updated_matches_captured_count={int(captured_dex_updated_count == captured_count)}")
-print(f"domain_event_count_matches_expected={int(domain_event_count == 2 + threshold_event_count + field_selected_count + rarity_selected_count + species_selected_count + encounter_spawned_count + capture_resolved_event_count + seen_dex_updated_count + captured_dex_updated_count)}")
+print(f"domain_event_count_matches_expected={int(domain_event_count == 2 + threshold_event_count + field_selected_count + rarity_selected_count + species_selected_count + encounter_spawned_count + capture_resolved_event_count + seen_dex_updated_count + captured_dex_updated_count + raid_attack_triggered_count + raid_member_hit_resolved_count + raid_progress_updated_count + raid_cleared_count + raid_expired_count + raid_reward_acquired_count + raid_reward_missed_count + reward_archive_recorded_count)}")
 print(f"dex_seen_matches_unique_encounter_species={int(dex_seen_species == encounter_species)}")
 print(f"dex_captured_matches_unique_captured_species={int(dex_captured_species == captured_species)}")
 print(f"state_total_captures_matches_captured_count={int(state_total_captures == captured_count)}")
@@ -1822,7 +1854,7 @@ printf 'VERIFY PASS: accepted fixture ingest\n'
 accepted_summary="$(tokenmon_app_cmd --tokenmon-summary --db "$db" 2>&1)"
 accepted_probe="$(probe_cli_lane "$db")"
 require_contains "$accepted_summary" "usage_samples: 1"
-require_contains "$accepted_summary" "domain_events: 2"
+require_contains "$accepted_summary" "domain_events: 4"
 require_contains "$accepted_summary" "tokens_since_last_encounter: $(probe_value "$accepted_probe" tokens_since_last_encounter)"
 require_contains "$accepted_summary" "total_encounters: 0"
 printf 'VERIFY PASS: accepted fixture exploration/domain-event summary\n'

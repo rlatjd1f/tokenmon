@@ -289,19 +289,23 @@ struct TokenmonNowTab: View {
 struct TokenmonNowFieldHeroCard: View {
     let sceneContext: TokenmonSceneContext
     let companionAssetKeys: [String]
+    let backgroundDate: Date?
 
     init(
         sceneContext: TokenmonSceneContext,
-        companionAssetKeys: [String] = []
+        companionAssetKeys: [String] = [],
+        backgroundDate: Date? = nil
     ) {
         self.sceneContext = sceneContext
         self.companionAssetKeys = companionAssetKeys
+        self.backgroundDate = backgroundDate
     }
 
     var body: some View {
         TokenmonMenuHeroSceneCard(
             context: sceneContext,
-            companionAssetKeys: companionAssetKeys
+            companionAssetKeys: companionAssetKeys,
+            backgroundDate: backgroundDate
         )
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(accessibilityLabel)

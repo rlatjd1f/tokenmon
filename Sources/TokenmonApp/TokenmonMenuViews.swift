@@ -178,6 +178,47 @@ struct TokenmonSceneDebugPanel: View {
                     }
                 }
             }
+
+            VStack(alignment: .leading, spacing: 12) {
+                Text(TokenmonL10n.string("developer.visual.scene_debugger.field_time_of_day"))
+                    .font(.headline)
+                Text(TokenmonL10n.string("developer.visual.scene_debugger.field_time_of_day_note"))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+
+                VStack(alignment: .leading, spacing: 14) {
+                    ForEach(fields, id: \.rawValue) { field in
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text(field.debugTitle)
+                                .font(.subheadline.weight(.semibold))
+
+                            ScrollView(.horizontal, showsIndicators: false) {
+                                HStack(alignment: .top, spacing: 14) {
+                                    ForEach(TokenmonPopoverBackgroundSlot.allCases, id: \.rawValue) { slot in
+                                        TokenmonSceneDebugCard(
+                                            title: slotTitle(slot),
+                                            subtitle: slotSubtitle(slot),
+                                            isSelected: field == debugController.previewFieldKind,
+                                            action: {
+                                                debugController.selectField(field)
+                                            },
+                                            content: AnyView(
+                                                TokenmonNowFieldHeroCard(
+                                                    sceneContext: debugContext(for: field),
+                                                    companionAssetKeys: debugCompanionAssetKeys(for: field),
+                                                    backgroundDate: previewDate(for: slot)
+                                                )
+                                                .frame(width: 272)
+                                            )
+                                        )
+                                        .frame(width: 344)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
         }
     }
 
@@ -193,6 +234,62 @@ struct TokenmonSceneDebugPanel: View {
 
     private func debugOffsetLabel(_ value: Double) -> String {
         value.formatted(.number.precision(.fractionLength(1)))
+    }
+
+    private func slotTitle(_ slot: TokenmonPopoverBackgroundSlot) -> String {
+        switch slot {
+        case .morning:
+            return TokenmonL10n.string("developer.visual.time.morning")
+        case .day:
+            return TokenmonL10n.string("developer.visual.time.day")
+        case .evening:
+            return TokenmonL10n.string("developer.visual.time.evening")
+        case .night:
+            return TokenmonL10n.string("developer.visual.time.night")
+        }
+    }
+
+    private func slotSubtitle(_ slot: TokenmonPopoverBackgroundSlot) -> String {
+        switch slot {
+        case .morning:
+            return "05:00-10:59"
+        case .day:
+            return "11:00-16:59"
+        case .evening:
+            return "17:00-20:59"
+        case .night:
+            return "21:00-04:59"
+        }
+    }
+
+    private func previewDate(for slot: TokenmonPopoverBackgroundSlot) -> Date {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = .autoupdatingCurrent
+
+        var components = DateComponents()
+        components.calendar = calendar
+        components.timeZone = calendar.timeZone
+        components.year = 2026
+        components.month = 4
+        components.day = 24
+        components.hour = previewHour(for: slot)
+        components.minute = 0
+        components.second = 0
+
+        return calendar.date(from: components) ?? Date(timeIntervalSince1970: 0)
+    }
+
+    private func previewHour(for slot: TokenmonPopoverBackgroundSlot) -> Int {
+        switch slot {
+        case .morning:
+            return 7
+        case .day:
+            return 13
+        case .evening:
+            return 18
+        case .night:
+            return 22
+        }
     }
 
     private func debugCompanionAssetKeys(
@@ -299,6 +396,7 @@ private struct TokenmonSceneStatusPreview: View {
 struct TokenmonMenuHeroSceneCard: View {
     let context: TokenmonSceneContext
     var companionAssetKeys: [String] = []
+    var backgroundDate: Date? = nil
 
     var body: some View {
         let clipShape = RoundedRectangle(cornerRadius: 18, style: .continuous)
@@ -306,7 +404,8 @@ struct TokenmonMenuHeroSceneCard: View {
         ZStack(alignment: .topLeading) {
             TokenmonHeroFieldStage(
                 context: context,
-                companionAssetKeys: companionAssetKeys
+                companionAssetKeys: companionAssetKeys,
+                backgroundDate: backgroundDate
             )
 
             fieldBadge
@@ -364,14 +463,33 @@ struct TokenmonMenuHeroSceneCard: View {
 }
 
 private struct TokenmonHeroFieldStage: View {
+    @Environment(\.accessibilityReduceMotion) private var accessibilityReduceMotion
+
     let context: TokenmonSceneContext
     let companionAssetKeys: [String]
+    let backgroundDate: Date?
 
     var body: some View {
         GeometryReader { geometry in
-            TimelineView(.animation(minimumInterval: TokenmonSceneTiming.interval(for: context.sceneState), paused: false)) { timeline in
+            TimelineView(
+                .animation(
+                    minimumInterval: TokenmonSceneTiming.interval(for: context.sceneState),
+                    paused: accessibilityReduceMotion
+                )
+            ) { timeline in
                 let tick = TokenmonSceneTiming.tick(for: context, at: timeline.date)
                 let layout = fieldLayout
+                let phase = TokenmonPopoverHeroMotionModel.phase(at: timeline.date)
+                let isReducedMotion = accessibilityReduceMotion
+                let stageScale = TokenmonPopoverHeroMotionModel.stageScale(
+                    sceneState: context.sceneState,
+                    phase: phase,
+                    reduceMotion: isReducedMotion
+                )
+                let popoverBackground = TokenmonFieldSpriteLoader.popoverBackgroundImage(
+                    field: context.fieldKind,
+                    at: backgroundDate ?? timeline.date
+                )
 
                 ZStack {
                     RoundedRectangle(cornerRadius: 18, style: .continuous)
@@ -389,12 +507,13 @@ private struct TokenmonHeroFieldStage: View {
                             )
                         )
 
-                    if let popoverBackground = TokenmonFieldSpriteLoader.popoverBackgroundImage(field: context.fieldKind) {
+                    if let popoverBackground {
                         Image(nsImage: popoverBackground)
                             .resizable()
                             .interpolation(.none)
                             .scaledToFill()
                             .frame(width: geometry.size.width, height: geometry.size.height)
+                            .scaleEffect(stageScale)
                             .clipped()
                     } else {
                         ForEach(Array(layout.items.enumerated()), id: \.offset) { _, item in
@@ -404,11 +523,20 @@ private struct TokenmonHeroFieldStage: View {
                                 .opacity(item.opacity)
                                 .shadow(color: Color.black.opacity(0.10), radius: 3, y: 2)
                                 .position(
-                                    x: geometry.size.width * item.center.x + fieldDrift(tick: tick, phase: item.phase).width,
-                                    y: geometry.size.height * item.center.y + fieldDrift(tick: tick, phase: item.phase).height
+                                    x: geometry.size.width * item.center.x + fieldDrift(phase: phase, itemPhase: item.phase, reduceMotion: isReducedMotion).width,
+                                    y: geometry.size.height * item.center.y + fieldDrift(phase: phase, itemPhase: item.phase, reduceMotion: isReducedMotion).height
                                 )
                         }
                     }
+
+                    TokenmonPopoverAmbientFieldLayer(
+                        context: context,
+                        layout: layout,
+                        phase: phase,
+                        reduceMotion: isReducedMotion,
+                        showsFieldSprites: popoverBackground == nil
+                    )
+                    .allowsHitTesting(false)
 
                     if let selectedCompanionAssetKey {
                         TokenmonAmbientCompanionPortrait(
@@ -418,7 +546,7 @@ private struct TokenmonHeroFieldStage: View {
                             tick: tick,
                             sizeMultiplier: layout.companionScale
                         )
-                        .position(companionPosition(in: geometry.size, layout: layout, tick: tick))
+                        .position(companionPosition(in: geometry.size, layout: layout, phase: phase, date: timeline.date, reduceMotion: isReducedMotion))
                     }
                 }
             }
@@ -439,58 +567,43 @@ private struct TokenmonHeroFieldStage: View {
     private func companionPosition(
         in size: CGSize,
         layout: TokenmonPopoverFieldLayout,
-        tick: Int
+        phase: Double,
+        date: Date,
+        reduceMotion: Bool
     ) -> CGPoint {
         let base = CGPoint(
             x: size.width * layout.companionAnchor.x,
             y: size.height * layout.companionAnchor.y
         )
-        let roam = companionRoamOffset(layout: layout)
+        let roam = companionRoamOffset(layout: layout, date: date, reduceMotion: reduceMotion)
+        let drift = fieldDrift(phase: phase, itemPhase: 2, reduceMotion: reduceMotion)
 
         return CGPoint(
-            x: base.x + roam.width + fieldDrift(tick: tick, phase: 2).width,
-            y: base.y + roam.height + fieldDrift(tick: tick, phase: 1).height
+            x: base.x + roam.width + drift.width,
+            y: base.y + roam.height + drift.height
         )
     }
 
-    private func fieldDrift(tick: Int, phase: Int) -> CGSize {
-        switch context.fieldState {
-        case .calm, .unavailable:
-            return .zero
-        case .exploring:
-            let pattern = [
-                CGSize(width: -2, height: 0),
-                CGSize(width: 0, height: -1),
-                CGSize(width: 2, height: 0),
-                CGSize(width: 0, height: 0),
-            ]
-            return pattern[(tick + phase) % pattern.count]
-        case .rustle:
-            let pattern = [
-                CGSize(width: -3, height: -1),
-                CGSize(width: 0, height: -2),
-                CGSize(width: 3, height: -1),
-                CGSize(width: 0, height: 0),
-            ]
-            return pattern[(tick + phase) % pattern.count]
-        case .settle:
-            let pattern = [
-                CGSize(width: -1, height: 0),
-                CGSize(width: 0, height: 0),
-                CGSize(width: 1, height: 0),
-                CGSize(width: 0, height: 0),
-            ]
-            return pattern[(tick + phase) % pattern.count]
-        }
+    private func fieldDrift(phase: Double, itemPhase: Int, reduceMotion: Bool) -> CGSize {
+        TokenmonPopoverHeroMotionModel.fieldDrift(
+            fieldState: context.fieldState,
+            phase: phase,
+            itemPhase: itemPhase,
+            reduceMotion: reduceMotion
+        )
     }
 
-    private func companionRoamOffset(layout: TokenmonPopoverFieldLayout) -> CGSize {
+    private func companionRoamOffset(layout: TokenmonPopoverFieldLayout, date: Date, reduceMotion: Bool) -> CGSize {
+        guard reduceMotion == false else {
+            return .zero
+        }
+
         let points = layout.companionWaypoints
         guard points.count > 1 else {
             return .zero
         }
 
-        let raw = Date().timeIntervalSinceReferenceDate / 1.8
+        let raw = date.timeIntervalSinceReferenceDate / 1.8
         let segment = Int(floor(raw))
         let progress = raw - floor(raw)
         let current = points[segment % points.count]
@@ -660,6 +773,200 @@ private struct TokenmonPopoverFieldItem {
     let center: CGPoint
     let opacity: Double
     let phase: Int
+}
+
+struct TokenmonPopoverHeroMotionModel {
+    static func phase(at date: Date) -> Double {
+        date.timeIntervalSinceReferenceDate
+    }
+
+    static func fieldDrift(
+        fieldState: TokenmonFieldState,
+        phase: Double,
+        itemPhase: Int,
+        reduceMotion: Bool
+    ) -> CGSize {
+        guard reduceMotion == false else {
+            return .zero
+        }
+
+        let shiftedPhase = phase + (Double(itemPhase) * 0.43)
+
+        switch fieldState {
+        case .calm, .unavailable:
+            return .zero
+        case .exploring:
+            return CGSize(
+                width: sin(shiftedPhase * 1.4) * 1.8,
+                height: cos(shiftedPhase * 1.1) * 0.9
+            )
+        case .rustle:
+            return CGSize(
+                width: sin(shiftedPhase * 4.2) * 3.0,
+                height: -1.0 + (cos(shiftedPhase * 3.4) * 1.2)
+            )
+        case .settle:
+            return CGSize(
+                width: sin(shiftedPhase * 1.0) * 1.0,
+                height: cos(shiftedPhase * 0.8) * 0.5
+            )
+        }
+    }
+
+    static func stageScale(
+        sceneState: TokenmonSceneState,
+        phase: Double,
+        reduceMotion: Bool
+    ) -> CGFloat {
+        guard reduceMotion == false else {
+            return 1
+        }
+
+        switch sceneState {
+        case .rustle, .alert, .spawn:
+            return 1.012 + (sin(phase * 3.8) * 0.004)
+        case .resolveSuccess:
+            return 1.018 + (sin(phase * 4.4) * 0.006)
+        case .resolveEscape:
+            return 1.010 + (sin(phase * 5.2) * 0.004)
+        case .loading, .exploring, .settle:
+            return 1.006 + (sin(phase * 1.2) * 0.003)
+        case .idle, .unavailable:
+            return 1
+        }
+    }
+
+    static func ambientOpacity(
+        sceneState: TokenmonSceneState,
+        fieldState: TokenmonFieldState,
+        reduceMotion: Bool
+    ) -> Double {
+        guard reduceMotion == false else {
+            return 0.0
+        }
+
+        switch sceneState {
+        case .alert, .spawn:
+            return 0.36
+        case .resolveSuccess:
+            return 0.42
+        case .resolveEscape:
+            return 0.28
+        default:
+            switch fieldState {
+            case .calm, .unavailable:
+                return 0.0
+            case .exploring:
+                return 0.18
+            case .rustle:
+                return 0.30
+            case .settle:
+                return 0.12
+            }
+        }
+    }
+
+    static func particleOffset(
+        fieldKind: TokenmonSceneFieldKind,
+        phase: Double,
+        index: Int,
+        reduceMotion: Bool
+    ) -> CGSize {
+        guard reduceMotion == false else {
+            return .zero
+        }
+
+        let shiftedPhase = phase + Double(index)
+
+        switch fieldKind {
+        case .grassland:
+            return CGSize(width: sin(shiftedPhase * 1.8) * 4, height: cos(shiftedPhase * 1.2) * 1.5)
+        case .coast:
+            return CGSize(width: sin(shiftedPhase * 1.6) * 7, height: cos(shiftedPhase * 2.0) * 2.0)
+        case .ice:
+            return CGSize(width: sin(shiftedPhase * 0.9) * 5, height: -abs(sin(shiftedPhase * 1.1) * 4))
+        case .sky:
+            return CGSize(width: sin(shiftedPhase * 0.7) * 8, height: cos(shiftedPhase * 0.8) * 4)
+        case .unavailable:
+            return .zero
+        }
+    }
+}
+
+private struct TokenmonPopoverAmbientFieldLayer: View {
+    let context: TokenmonSceneContext
+    let layout: TokenmonPopoverFieldLayout
+    let phase: Double
+    let reduceMotion: Bool
+    let showsFieldSprites: Bool
+
+    var body: some View {
+        GeometryReader { geometry in
+            ZStack {
+                if showsFieldSprites {
+                    ForEach(Array(layout.items.enumerated()), id: \.offset) { index, item in
+                        TokenmonFieldSpriteImage(field: context.fieldKind, variant: item.variant)
+                            .aspectRatio(contentMode: .fit)
+                            .frame(width: geometry.size.width * max(0.08, item.widthFactor * 0.52))
+                            .opacity(TokenmonPopoverHeroMotionModel.ambientOpacity(
+                                sceneState: context.sceneState,
+                                fieldState: context.fieldState,
+                                reduceMotion: reduceMotion
+                            ) * item.opacity)
+                            .shadow(color: Color.black.opacity(0.08), radius: 2, y: 1)
+                            .position(
+                                x: geometry.size.width * item.center.x + motionOffset(index: index).width,
+                                y: geometry.size.height * item.center.y + motionOffset(index: index).height
+                            )
+                    }
+                }
+
+                if shouldShowResolutionGlow {
+                    Circle()
+                        .fill(resolutionTint.opacity(resolutionGlowOpacity))
+                        .frame(width: 64, height: 64)
+                        .blur(radius: 10)
+                        .position(x: geometry.size.width * 0.5, y: geometry.size.height * 0.55)
+                }
+            }
+        }
+    }
+
+    private var shouldShowResolutionGlow: Bool {
+        reduceMotion == false && (context.sceneState == .resolveSuccess || context.sceneState == .resolveEscape)
+    }
+
+    private var resolutionGlowOpacity: Double {
+        0.18 + (abs(sin(phase * 3.0)) * 0.12)
+    }
+
+    private var resolutionTint: Color {
+        switch context.sceneState {
+        case .resolveSuccess:
+            return .green
+        case .resolveEscape:
+            return .orange
+        default:
+            return .clear
+        }
+    }
+
+    private func motionOffset(index: Int) -> CGSize {
+        let particle = TokenmonPopoverHeroMotionModel.particleOffset(
+            fieldKind: context.fieldKind,
+            phase: phase,
+            index: index,
+            reduceMotion: reduceMotion
+        )
+        let drift = TokenmonPopoverHeroMotionModel.fieldDrift(
+            fieldState: context.fieldState,
+            phase: phase,
+            itemPhase: index,
+            reduceMotion: reduceMotion
+        )
+
+        return CGSize(width: particle.width + drift.width, height: particle.height + drift.height)
+    }
 }
 
 private struct TokenmonAmbientCompanionPortrait: View {

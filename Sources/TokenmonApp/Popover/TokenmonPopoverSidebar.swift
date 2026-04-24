@@ -1,7 +1,7 @@
 import SwiftUI
 
 enum TokenmonPopoverTab: Hashable {
-    case now, stats, dex, tokens
+    case now, raid, stats, dex, tokens
 }
 
 struct TokenmonPopoverSidebarActions {
@@ -18,6 +18,7 @@ struct TokenmonPopoverSidebar: View {
     var body: some View {
         VStack(spacing: 6) {
             tabButton(.now, systemImage: "dot.radiowaves.left.and.right", tooltip: TokenmonL10n.string("popover.tab.now"))
+            tabButton(.raid, systemImage: "shield.lefthalf.filled", tooltip: TokenmonL10n.string("popover.tab.raid"))
             tabButton(.tokens, systemImage: "bolt.fill", tooltip: TokenmonL10n.string("popover.tab.tokens"))
             tabButton(.stats, systemImage: "chart.bar.fill", tooltip: TokenmonL10n.string("popover.tab.stats"))
             tabButton(.dex, systemImage: "books.vertical.fill", tooltip: TokenmonL10n.string("window.title.dex"))
