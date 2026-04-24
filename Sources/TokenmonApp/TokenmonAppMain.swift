@@ -16,6 +16,9 @@ struct TokenmonAppMain: App {
             try TokenmonActualPopoverScreenshotRenderer.runIfRequested(arguments: CommandLine.arguments)
         }
         runAndExitIfRequested {
+            try TokenmonRewardArchiveScreenshotRenderer.runIfRequested(arguments: CommandLine.arguments)
+        }
+        runAndExitIfRequested {
             try TokenmonAppSmokeTest.runIfRequested(arguments: CommandLine.arguments)
         }
         runAndExitIfRequested {

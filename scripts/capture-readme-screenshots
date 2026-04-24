@@ -8,7 +8,7 @@ output_dir="$ROOT/assets/screenshots"
 tmpdir="$(mktemp -d)"
 trap 'rm -rf "$tmpdir"' EXIT
 allow_menu_bar_skip=0
-installed_app_path="$HOME/Applications/Tokenmon.app"
+installed_app_path="${TOKENMON_CAPTURE_INSTALLED_APP_PATH:-/Applications/Tokenmon.app}"
 installed_app_bin="$installed_app_path/Contents/MacOS/TokenmonApp"
 local_app_bin=""
 capture_app_bundle="${TOKENMON_CAPTURE_APP_BUNDLE:-}"
@@ -119,7 +119,6 @@ variant_root="$output_dir/variants"
 mkdir -p "$output_dir" "$variant_root"
 
 ensure_installed_app_bin() {
-  mkdir -p "$HOME/Applications"
   if [[ -n "$capture_app_bundle" ]]; then
     if [[ ! -d "$capture_app_bundle" ]]; then
       printf 'TOKENMON_CAPTURE_APP_BUNDLE does not exist: %s\n' "$capture_app_bundle" >&2

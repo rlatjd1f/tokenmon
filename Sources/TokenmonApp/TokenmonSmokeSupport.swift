@@ -322,6 +322,7 @@ enum TokenmonActualPopoverScreenshotRenderer {
             throw ScreenshotRenderError.missingOutputDirectory
         }
         let fileName = optionValue("--filename", in: arguments) ?? "actual-popover.png"
+        let tab = popoverTabOption(optionValue("--tab", in: arguments))
 
         try FileManager.default.createDirectory(
             at: URL(fileURLWithPath: outputDirectory, isDirectory: true),
@@ -331,11 +332,16 @@ enum TokenmonActualPopoverScreenshotRenderer {
         let model = makeScreenshotMenuModel(databasePath: databasePath)
         waitForInitialRefresh(of: model)
         TokenmonAppAppearanceController.apply(model.appSettings.appearancePreference)
-        model.surfaceOpened(.now, entrypoint: "actual_popover_capture", refresh: true, emitAnalytics: false)
+        model.surfaceOpened(
+            TokenmonPopoverContainer.analyticsSurface(for: tab),
+            entrypoint: "actual_popover_capture",
+            refresh: true,
+            emitAnalytics: false
+        )
         waitForInitialRefresh(of: model)
         let outputURL = URL(fileURLWithPath: outputDirectory).appendingPathComponent(fileName)
         try captureHostedWindowRootView(
-            actualPopoverRootView(model: model),
+            actualPopoverRootView(model: model, initialActiveTab: tab),
             size: NSSize(width: TokenmonPopoverContainer.width, height: TokenmonPopoverContainer.height),
             to: outputURL
         )
@@ -356,6 +362,16 @@ enum TokenmonActualPopoverScreenshotRenderer {
             return nil
         }
         return arguments[valueIndex]
+    }
+
+    private static func popoverTabOption(_ rawValue: String?) -> TokenmonPopoverTab {
+        switch rawValue?.lowercased() {
+        case "raid": return .raid
+        case "tokens": return .tokens
+        case "stats": return .stats
+        case "dex": return .dex
+        default: return .now
+        }
     }
 }
 
@@ -638,6 +654,57 @@ private struct TokenmonMenubarEffectMatrixView: View {
         }
         .padding(24)
         .background(Color(nsColor: .underPageBackgroundColor))
+    }
+}
+
+@MainActor
+enum TokenmonRewardArchiveScreenshotRenderer {
+    static func runIfRequested(arguments: [String]) throws -> String? {
+        guard arguments.contains("--render-reward-archive-screenshot") else {
+            return nil
+        }
+
+        let databasePath = optionValue("--db", in: arguments) ?? TokenmonDatabaseManager.defaultPath()
+        guard let outputDirectory = optionValue("--out-dir", in: arguments) else {
+            throw ScreenshotRenderError.missingOutputDirectory
+        }
+        let fileName = optionValue("--filename", in: arguments) ?? "reward-archive.png"
+
+        try FileManager.default.createDirectory(
+            at: URL(fileURLWithPath: outputDirectory, isDirectory: true),
+            withIntermediateDirectories: true
+        )
+
+        TokenmonInboxMonitor(databasePath: databasePath).performInitialScan()
+        let model = makeScreenshotMenuModel(databasePath: databasePath)
+        waitForInitialRefresh(of: model)
+        TokenmonAppAppearanceController.apply(model.appSettings.appearancePreference)
+        model.surfaceOpened(.raid, entrypoint: "reward_archive_capture", refresh: true, emitAnalytics: false)
+        waitForInitialRefresh(of: model)
+
+        let outputURL = URL(fileURLWithPath: outputDirectory).appendingPathComponent(fileName)
+        try captureHostedWindowRootView(
+            AnyView(TokenmonRewardArchivePanel(model: model)),
+            size: NSSize(width: 920, height: 620),
+            captureWholeWindow: true,
+            to: outputURL
+        )
+
+        return """
+        reward_archive_screenshot: ok
+        output: \(outputURL.path)
+        """
+    }
+
+    private static func optionValue(_ flag: String, in arguments: [String]) -> String? {
+        guard let index = arguments.firstIndex(of: flag) else {
+            return nil
+        }
+        let valueIndex = arguments.index(after: index)
+        guard valueIndex < arguments.endIndex else {
+            return nil
+        }
+        return arguments[valueIndex]
     }
 }
 
@@ -988,6 +1055,7 @@ private func actualPopoverRootView(model: TokenmonMenuModel) -> AnyView {
             model: model,
             actions: TokenmonPopoverContainerActions(
                 openFullDex: {},
+                openRewardArchive: {},
                 openSettings: { _ in },
                 openDeveloperTools: nil,
                 quit: {},
@@ -1010,6 +1078,7 @@ private func actualPopoverRootView(
             model: model,
             actions: TokenmonPopoverContainerActions(
                 openFullDex: {},
+                openRewardArchive: {},
                 openSettings: { _ in },
                 openDeveloperTools: nil,
                 quit: {},

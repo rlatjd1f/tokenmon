@@ -592,6 +592,119 @@ struct TokenmonPresentationTests {
     }
 
     @Test
+    func popoverBackgroundSlotResolvesLocalHourBoundaries() {
+        #expect(TokenmonPopoverBackgroundSlot.resolve(hour: 4) == .night)
+        #expect(TokenmonPopoverBackgroundSlot.resolve(hour: 5) == .morning)
+        #expect(TokenmonPopoverBackgroundSlot.resolve(hour: 10) == .morning)
+        #expect(TokenmonPopoverBackgroundSlot.resolve(hour: 11) == .day)
+        #expect(TokenmonPopoverBackgroundSlot.resolve(hour: 16) == .day)
+        #expect(TokenmonPopoverBackgroundSlot.resolve(hour: 17) == .evening)
+        #expect(TokenmonPopoverBackgroundSlot.resolve(hour: 20) == .evening)
+        #expect(TokenmonPopoverBackgroundSlot.resolve(hour: 21) == .night)
+        #expect(TokenmonPopoverBackgroundSlot.resolve(hour: 23) == .night)
+        #expect(TokenmonPopoverBackgroundSlot.resolve(hour: 0) == .night)
+    }
+
+    @Test
+    func popoverBackgroundLookupUsesTimeOfDayForEveryField() throws {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = try #require(TimeZone(secondsFromGMT: 0))
+
+        for field in [TokenmonSceneFieldKind.grassland, .coast, .ice, .sky] {
+            #expect(
+                TokenmonFieldSpriteLoader.popoverBackgroundRelativePath(
+                    field: field,
+                    at: date(hour: 5, calendar: calendar),
+                    calendar: calendar
+                ) == "backgrounds/popover/\(field.rawValue)/morning.png"
+            )
+            #expect(
+                TokenmonFieldSpriteLoader.popoverBackgroundRelativePath(
+                    field: field,
+                    at: date(hour: 11, calendar: calendar),
+                    calendar: calendar
+                ) == "backgrounds/popover/\(field.rawValue)/day.png"
+            )
+            #expect(
+                TokenmonFieldSpriteLoader.popoverBackgroundRelativePath(
+                    field: field,
+                    at: date(hour: 17, calendar: calendar),
+                    calendar: calendar
+                ) == "backgrounds/popover/\(field.rawValue)/evening.png"
+            )
+            #expect(
+                TokenmonFieldSpriteLoader.popoverBackgroundRelativePath(
+                    field: field,
+                    at: date(hour: 21, calendar: calendar),
+                    calendar: calendar
+                ) == "backgrounds/popover/\(field.rawValue)/night.png"
+            )
+        }
+
+        #expect(TokenmonFieldSpriteLoader.popoverBackgroundRelativePath(field: .unavailable) == nil)
+    }
+
+    @Test
+    func popoverHeroMotionRespectsReducedMotion() {
+        let drift = TokenmonPopoverHeroMotionModel.fieldDrift(
+            fieldState: .rustle,
+            phase: 42,
+            itemPhase: 2,
+            reduceMotion: true
+        )
+        let scale = TokenmonPopoverHeroMotionModel.stageScale(
+            sceneState: .spawn,
+            phase: 42,
+            reduceMotion: true
+        )
+        let opacity = TokenmonPopoverHeroMotionModel.ambientOpacity(
+            sceneState: .spawn,
+            fieldState: .rustle,
+            reduceMotion: true
+        )
+
+        #expect(drift == .zero)
+        #expect(scale == 1)
+        #expect(opacity == 0)
+    }
+
+    @Test
+    func popoverHeroMotionAddsEnergyForEncounterStates() {
+        let calmDrift = TokenmonPopoverHeroMotionModel.fieldDrift(
+            fieldState: .calm,
+            phase: 10,
+            itemPhase: 0,
+            reduceMotion: false
+        )
+        let rustleDrift = TokenmonPopoverHeroMotionModel.fieldDrift(
+            fieldState: .rustle,
+            phase: 10,
+            itemPhase: 0,
+            reduceMotion: false
+        )
+        let spawnScale = TokenmonPopoverHeroMotionModel.stageScale(
+            sceneState: .spawn,
+            phase: 10,
+            reduceMotion: false
+        )
+        let exploringOpacity = TokenmonPopoverHeroMotionModel.ambientOpacity(
+            sceneState: .exploring,
+            fieldState: .exploring,
+            reduceMotion: false
+        )
+        let spawnOpacity = TokenmonPopoverHeroMotionModel.ambientOpacity(
+            sceneState: .spawn,
+            fieldState: .rustle,
+            reduceMotion: false
+        )
+
+        #expect(calmDrift == .zero)
+        #expect(abs(rustleDrift.width) > 0.1 || abs(rustleDrift.height) > 0.1)
+        #expect(spawnScale > 1)
+        #expect(spawnOpacity > exploringOpacity)
+    }
+
+    @Test
     func explorationThresholdConfigUsesStableRangePerEncounter() {
         let config = ExplorationAccumulatorConfig()
         let first = config.tokensRequiredForEncounter(1)
@@ -4443,6 +4556,7 @@ struct TokenmonPresentationTests {
         #expect(
             TokenmonStatusItemShortcutMenuItem.defaultItems(developerToolsVisible: false) == [
                 .popover(.now),
+                .popover(.raid),
                 .popover(.tokens),
                 .popover(.stats),
                 .separator,
@@ -4459,6 +4573,7 @@ struct TokenmonPresentationTests {
         #expect(
             TokenmonStatusItemShortcutMenuItem.defaultItems(developerToolsVisible: true) == [
                 .popover(.now),
+                .popover(.raid),
                 .popover(.tokens),
                 .popover(.stats),
                 .separator,
@@ -4471,6 +4586,25 @@ struct TokenmonPresentationTests {
         )
     }
 
+    @Test
+    func raidArtLoaderLoadsSeededRaidAssets() {
+        #expect(TokenmonRaidArtLoader.image(artKey: "raid_backdrop_treasure_vault") != nil)
+        #expect(TokenmonRaidArtLoader.image(artKey: "raid_backdrop_token_vault_chamber") != nil)
+        #expect(TokenmonRaidArtLoader.image(artKey: "raid_target_training_trophy_cache") != nil)
+        #expect(TokenmonRaidArtLoader.image(artKey: "raid_target_logo_vault") != nil)
+        #expect(TokenmonRaidArtLoader.image(artKey: "raid_target_token_vault_sentinel") != nil)
+        #expect(TokenmonRaidArtLoader.image(artKey: "reward_first_spark_trophy") != nil)
+        #expect(TokenmonRaidArtLoader.image(artKey: "reward_2026_04_april_relic") != nil)
+        #expect(TokenmonRaidArtLoader.image(artKey: "reward_2026_05_may_relic") != nil)
+        #expect(TokenmonRaidArtLoader.image(artKey: "reward_tokenmon_logo_relic") != nil)
+        #expect(TokenmonRaidArtLoader.image(artKey: "reward_2026_07_july_relic") != nil)
+        #expect(TokenmonRaidArtLoader.image(artKey: "reward_2026_08_august_relic") != nil)
+        #expect(TokenmonRaidArtLoader.image(artKey: "reward_2026_09_september_relic") != nil)
+        #expect(TokenmonRaidArtLoader.image(artKey: "reward_2026_10_october_relic") != nil)
+        #expect(TokenmonRaidArtLoader.image(artKey: "reward_2026_11_november_relic") != nil)
+        #expect(TokenmonRaidArtLoader.image(artKey: "reward_2026_12_december_relic") != nil)
+    }
+
     private func gameplayDeltaSum(_ manager: TokenmonDatabaseManager) throws -> Int64 {
         let database = try manager.open()
         return try database.fetchOne(
@@ -4478,6 +4612,19 @@ struct TokenmonPresentationTests {
         ) { statement in
             SQLiteDatabase.columnInt64(statement, index: 0)
         } ?? 0
+    }
+
+    private func date(hour: Int, calendar: Calendar) -> Date {
+        var components = DateComponents()
+        components.calendar = calendar
+        components.timeZone = calendar.timeZone
+        components.year = 2026
+        components.month = 4
+        components.day = 24
+        components.hour = hour
+        components.minute = 0
+        components.second = 0
+        return calendar.date(from: components) ?? Date(timeIntervalSince1970: 0)
     }
 }
 

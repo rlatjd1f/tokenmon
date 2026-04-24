@@ -3,6 +3,7 @@ import TokenmonPersistence
 
 struct TokenmonPopoverContainerActions {
     let openFullDex: () -> Void
+    let openRewardArchive: () -> Void
     let openSettings: (TokenmonSettingsPane) -> Void
     let openDeveloperTools: (() -> Void)?
     let quit: () -> Void
@@ -36,6 +37,8 @@ struct TokenmonPopoverContainer: View {
         switch activeTab {
         case .now:
             return runtimeLoaded ? nil : .now
+        case .raid:
+            return .raid
         case .tokens:
             return .tokens
         case .stats:
@@ -49,6 +52,8 @@ struct TokenmonPopoverContainer: View {
         switch activeTab {
         case .now:
             return .now
+        case .raid:
+            return .raid
         case .tokens:
             return .tokens
         case .stats:
@@ -82,16 +87,18 @@ struct TokenmonPopoverContainer: View {
             prewarmActiveTabIfNeeded()
         }
         .background(
-            // Hidden hotkey buttons for ⌘1 / ⌘2 / ⌘3 / ⌘4
+            // Hidden hotkey buttons for ⌘1 / ⌘2 / ⌘3 / ⌘4 / ⌘5
             HStack {
                 Button(TokenmonL10n.string("popover.tab.now")) { activeTab = .now }
                     .keyboardShortcut("1", modifiers: [.command])
-                Button(TokenmonL10n.string("popover.tab.tokens")) { activeTab = .tokens }
+                Button(TokenmonL10n.string("popover.tab.raid")) { activeTab = .raid }
                     .keyboardShortcut("2", modifiers: [.command])
-                Button(TokenmonL10n.string("popover.tab.stats")) { activeTab = .stats }
+                Button(TokenmonL10n.string("popover.tab.tokens")) { activeTab = .tokens }
                     .keyboardShortcut("3", modifiers: [.command])
-                Button(TokenmonL10n.string("window.title.dex")) { activeTab = .dex }
+                Button(TokenmonL10n.string("popover.tab.stats")) { activeTab = .stats }
                     .keyboardShortcut("4", modifiers: [.command])
+                Button(TokenmonL10n.string("window.title.dex")) { activeTab = .dex }
+                    .keyboardShortcut("5", modifiers: [.command])
             }
             .opacity(0)
             .frame(width: 0, height: 0)
@@ -105,6 +112,11 @@ struct TokenmonPopoverContainer: View {
             TokenmonNowTab(
                 model: model,
                 onOpenProviderSettings: { actions.openSettings(.providers) }
+            )
+        case .raid:
+            TokenmonRaidTab(
+                model: model,
+                onOpenRewardArchive: actions.openRewardArchive
             )
         case .stats:
             TokenmonStatsTab(model: model)

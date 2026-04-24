@@ -9,6 +9,35 @@ enum TokenmonFieldSpriteVariant: String {
     case iceSnowflake = "ice_snowflake.png"
 }
 
+enum TokenmonPopoverBackgroundSlot: String, CaseIterable {
+    case morning
+    case day
+    case evening
+    case night
+
+    static func resolve(hour: Int) -> TokenmonPopoverBackgroundSlot {
+        let normalizedHour = ((hour % 24) + 24) % 24
+
+        switch normalizedHour {
+        case 5..<11:
+            return .morning
+        case 11..<17:
+            return .day
+        case 17..<21:
+            return .evening
+        default:
+            return .night
+        }
+    }
+
+    static func resolve(
+        at date: Date = Date(),
+        calendar: Calendar = .autoupdatingCurrent
+    ) -> TokenmonPopoverBackgroundSlot {
+        resolve(hour: calendar.component(.hour, from: date))
+    }
+}
+
 @MainActor
 enum TokenmonFieldSpriteLoader {
     private static var cache: [String: NSImage] = [:]
@@ -30,13 +59,21 @@ enum TokenmonFieldSpriteLoader {
         return image
     }
 
-    static func popoverBackgroundImage(field: TokenmonSceneFieldKind) -> NSImage? {
-        let cacheKey = "\(popoverBackgroundPrefix)\(field.rawValue)"
+    static func popoverBackgroundImage(
+        field: TokenmonSceneFieldKind,
+        at date: Date = Date(),
+        calendar: Calendar = .autoupdatingCurrent
+    ) -> NSImage? {
+        guard let relativePath = popoverBackgroundRelativePath(field: field, at: date, calendar: calendar) else {
+            return nil
+        }
+
+        let cacheKey = "\(popoverBackgroundPrefix)\(relativePath)"
         if let cached = cache[cacheKey] {
             return cached
         }
 
-        guard let url = popoverBackgroundURL(field: field),
+        guard let url = resourceURL(relative: "assets/\(relativePath)", bundledRelative: relativePath),
               let sourceImage = NSImage(contentsOf: url) else {
             return nil
         }
@@ -46,51 +83,31 @@ enum TokenmonFieldSpriteLoader {
         return image
     }
 
-    private static func spriteURL(field: TokenmonSceneFieldKind, variant: TokenmonFieldSpriteVariant) -> URL? {
-        let relative = "assets/sprites/fields/\(field.rawValue)/\(variant.rawValue)"
-        let fm = FileManager.default
-
-        let cwdURL = URL(fileURLWithPath: fm.currentDirectoryPath).appendingPathComponent(relative)
-        if fm.fileExists(atPath: cwdURL.path) {
-            return cwdURL
-        }
-
-        if let executableURL = Bundle.main.executableURL {
-            var candidate = executableURL.deletingLastPathComponent()
-            for _ in 0..<8 {
-                let url = candidate.appendingPathComponent(relative)
-                if fm.fileExists(atPath: url.path) {
-                    return url
-                }
-                candidate.deleteLastPathComponent()
-            }
-        }
-
-        if let bundled = TokenmonAppResourceLocator.resourceURL(
-            relativePath: "sprites/fields/\(field.rawValue)/\(variant.rawValue)"
-        ) {
-            return bundled
-        }
-
-        return nil
-    }
-
-    private static func popoverBackgroundURL(field: TokenmonSceneFieldKind) -> URL? {
-        let relative: String
+    static func popoverBackgroundRelativePath(
+        field: TokenmonSceneFieldKind,
+        at date: Date = Date(),
+        calendar: Calendar = .autoupdatingCurrent
+    ) -> String? {
         switch field {
-        case .coast:
-            relative = "assets/backgrounds/popover/coast/variant-3.png"
-        case .grassland:
-            relative = "assets/backgrounds/popover/grassland/variant-2.png"
-        case .ice:
-            relative = "assets/backgrounds/popover/ice/variant-2.png"
-        case .sky:
-            relative = "assets/backgrounds/popover/sky/variant-4.png"
+        case .coast, .grassland, .ice, .sky:
+            let slot = TokenmonPopoverBackgroundSlot.resolve(at: date, calendar: calendar)
+            return "backgrounds/popover/\(field.rawValue)/\(slot.rawValue).png"
         default:
             return nil
         }
+    }
 
+    private static func spriteURL(field: TokenmonSceneFieldKind, variant: TokenmonFieldSpriteVariant) -> URL? {
+        let relative = "assets/sprites/fields/\(field.rawValue)/\(variant.rawValue)"
+        return resourceURL(
+            relative: relative,
+            bundledRelative: "sprites/fields/\(field.rawValue)/\(variant.rawValue)"
+        )
+    }
+
+    private static func resourceURL(relative: String, bundledRelative: String) -> URL? {
         let fm = FileManager.default
+
         let cwdURL = URL(fileURLWithPath: fm.currentDirectoryPath).appendingPathComponent(relative)
         if fm.fileExists(atPath: cwdURL.path) {
             return cwdURL
@@ -107,9 +124,7 @@ enum TokenmonFieldSpriteLoader {
             }
         }
 
-        if let bundled = TokenmonAppResourceLocator.resourceURL(
-            relativePath: "backgrounds/popover/\(field.rawValue)/variant-3.png"
-        ) {
+        if let bundled = TokenmonAppResourceLocator.resourceURL(relativePath: bundledRelative) {
             return bundled
         }
 

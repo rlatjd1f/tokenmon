@@ -639,6 +639,7 @@ public final class TokenmonDatabaseManager {
         try applyMigrations(database)
         try seedProviders(database)
         try ensureSpeciesCatalog(database)
+        try ensureRaidCatalog(database)
         try ensureExplorationState(database)
         try ensureEncounterTotalsConsistent(database: database)
         try ensurePendingEncounterThresholdPolicy(database: database, force: false)
@@ -1430,6 +1431,108 @@ public final class TokenmonDatabaseManager {
         }
     }
 
+    private func ensureRaidCatalog(_ database: SQLiteDatabase) throws {
+        let now = ISO8601DateFormatter().string(from: Date())
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.sortedKeys]
+
+        for raid in RaidCatalog.allRaids {
+            let axisWeightsJSON = String(decoding: try encoder.encode(raid.axisWeights), as: UTF8.self)
+            let preferredTraitsJSON = String(decoding: try encoder.encode(raid.preferredTraitTags), as: UTF8.self)
+            let rewardIDsJSON = String(decoding: try encoder.encode(raid.rewardIDs), as: UTF8.self)
+
+            try database.execute(
+                """
+                INSERT INTO raid_definitions (
+                    raid_id,
+                    title,
+                    target_name,
+                    target_art_key,
+                    raid_field,
+                    availability_kind,
+                    active_start_at,
+                    active_end_at,
+                    settlement_grace_seconds,
+                    max_hp,
+                    axis_weights_json,
+                    preferred_trait_tags_json,
+                    reward_ids_json,
+                    difficulty_tier,
+                    created_at,
+                    updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(raid_id) DO UPDATE SET
+                    title = excluded.title,
+                    target_name = excluded.target_name,
+                    target_art_key = excluded.target_art_key,
+                    raid_field = excluded.raid_field,
+                    availability_kind = excluded.availability_kind,
+                    active_start_at = excluded.active_start_at,
+                    active_end_at = excluded.active_end_at,
+                    settlement_grace_seconds = excluded.settlement_grace_seconds,
+                    max_hp = excluded.max_hp,
+                    axis_weights_json = excluded.axis_weights_json,
+                    preferred_trait_tags_json = excluded.preferred_trait_tags_json,
+                    reward_ids_json = excluded.reward_ids_json,
+                    difficulty_tier = excluded.difficulty_tier,
+                    updated_at = excluded.updated_at;
+                """,
+                bindings: [
+                    .text(raid.raidID),
+                    .text(raid.title),
+                    .text(raid.targetName),
+                    .text(raid.targetArtKey),
+                    .text(raid.raidField.rawValue),
+                    .text(raid.availabilityKind.rawValue),
+                    raid.activeStartAt.map(SQLiteValue.text) ?? .null,
+                    raid.activeEndAt.map(SQLiteValue.text) ?? .null,
+                    .integer(Int64(raid.settlementGraceSeconds)),
+                    .integer(raid.maxHP),
+                    .text(axisWeightsJSON),
+                    .text(preferredTraitsJSON),
+                    .text(rewardIDsJSON),
+                    .text(raid.difficultyTier.rawValue),
+                    .text(now),
+                    .text(now),
+                ]
+            )
+        }
+
+        for reward in RaidCatalog.allRewards {
+            try database.execute(
+                """
+                INSERT INTO raid_reward_definitions (
+                    reward_id,
+                    source_raid_id,
+                    reward_type,
+                    title,
+                    art_key,
+                    grant_rule,
+                    created_at,
+                    updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(reward_id) DO UPDATE SET
+                    source_raid_id = excluded.source_raid_id,
+                    reward_type = excluded.reward_type,
+                    title = excluded.title,
+                    art_key = excluded.art_key,
+                    grant_rule = excluded.grant_rule,
+                    updated_at = excluded.updated_at;
+                """,
+                bindings: [
+                    .text(reward.rewardID),
+                    .text(reward.sourceRaidID),
+                    .text(reward.type.rawValue),
+                    .text(reward.title),
+                    .text(reward.artKey),
+                    .text(reward.grantRule.rawValue),
+                    .text(now),
+                    .text(now),
+                ]
+            )
+        }
+    }
+
     private func speciesTraitsJSON(_ traits: [String]) -> String {
         guard let data = try? JSONEncoder().encode(traits),
               let string = String(data: data, encoding: .utf8) else {
@@ -2152,6 +2255,101 @@ public final class TokenmonDatabaseManager {
                 """,
                 "CREATE INDEX IF NOT EXISTS idx_usage_samples_gameplay_balance_bucket ON usage_samples(gameplay_balance_bucket, observed_at DESC);",
                 "CREATE INDEX IF NOT EXISTS idx_gameplay_balance_buckets_provider ON gameplay_balance_buckets(provider_code, updated_at DESC);",
+            ]),
+            SQLiteMigration(version: 13, statements: [
+                """
+                CREATE TABLE IF NOT EXISTS raid_definitions (
+                    raid_id TEXT PRIMARY KEY NOT NULL,
+                    title TEXT NOT NULL,
+                    target_name TEXT NOT NULL,
+                    target_art_key TEXT NOT NULL,
+                    raid_field TEXT NOT NULL,
+                    availability_kind TEXT NOT NULL,
+                    active_start_at TEXT,
+                    active_end_at TEXT,
+                    settlement_grace_seconds INTEGER NOT NULL CHECK(settlement_grace_seconds >= 0),
+                    max_hp INTEGER NOT NULL CHECK(max_hp > 0),
+                    axis_weights_json TEXT NOT NULL,
+                    preferred_trait_tags_json TEXT NOT NULL,
+                    reward_ids_json TEXT NOT NULL,
+                    difficulty_tier TEXT NOT NULL,
+                    created_at TEXT NOT NULL,
+                    updated_at TEXT NOT NULL
+                );
+                """,
+                """
+                CREATE TABLE IF NOT EXISTS raid_reward_definitions (
+                    reward_id TEXT PRIMARY KEY NOT NULL,
+                    source_raid_id TEXT NOT NULL REFERENCES raid_definitions(raid_id) ON DELETE CASCADE,
+                    reward_type TEXT NOT NULL,
+                    title TEXT NOT NULL,
+                    art_key TEXT NOT NULL,
+                    grant_rule TEXT NOT NULL,
+                    created_at TEXT NOT NULL,
+                    updated_at TEXT NOT NULL
+                );
+                """,
+                """
+                CREATE TABLE IF NOT EXISTS raid_instances (
+                    raid_instance_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    raid_id TEXT NOT NULL UNIQUE REFERENCES raid_definitions(raid_id) ON DELETE CASCADE,
+                    status TEXT NOT NULL,
+                    current_hp INTEGER NOT NULL CHECK(current_hp >= 0),
+                    total_attacks INTEGER NOT NULL DEFAULT 0 CHECK(total_attacks >= 0),
+                    total_damage INTEGER NOT NULL DEFAULT 0 CHECK(total_damage >= 0),
+                    first_seen_at TEXT NOT NULL,
+                    started_at TEXT,
+                    cleared_at TEXT,
+                    expired_at TEXT,
+                    updated_at TEXT NOT NULL
+                );
+                """,
+                """
+                CREATE TABLE IF NOT EXISTS raid_attacks (
+                    raid_attack_row_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    raid_instance_id INTEGER NOT NULL REFERENCES raid_instances(raid_instance_id) ON DELETE CASCADE,
+                    raid_id TEXT NOT NULL REFERENCES raid_definitions(raid_id) ON DELETE CASCADE,
+                    usage_sample_id INTEGER NOT NULL REFERENCES usage_samples(usage_sample_id),
+                    occurred_at TEXT NOT NULL,
+                    party_snapshot_json TEXT NOT NULL,
+                    party_size INTEGER NOT NULL CHECK(party_size >= 0),
+                    total_damage INTEGER NOT NULL CHECK(total_damage >= 0),
+                    created_at TEXT NOT NULL,
+                    UNIQUE(raid_instance_id, usage_sample_id)
+                );
+                """,
+                """
+                CREATE TABLE IF NOT EXISTS raid_member_hits (
+                    raid_member_hit_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    raid_attack_row_id INTEGER NOT NULL REFERENCES raid_attacks(raid_attack_row_id) ON DELETE CASCADE,
+                    species_id TEXT NOT NULL REFERENCES species(species_id),
+                    slot_order INTEGER NOT NULL,
+                    field_code TEXT NOT NULL,
+                    rarity_tier TEXT NOT NULL,
+                    axis_score REAL NOT NULL,
+                    role_fit_bonus INTEGER NOT NULL,
+                    field_fit_bonus INTEGER NOT NULL,
+                    trait_fit_bonus INTEGER NOT NULL,
+                    capture_bond_bonus INTEGER NOT NULL,
+                    hit_power INTEGER NOT NULL CHECK(hit_power >= 0),
+                    stats_json TEXT NOT NULL
+                );
+                """,
+                """
+                CREATE TABLE IF NOT EXISTS reward_archive_entries (
+                    reward_id TEXT PRIMARY KEY NOT NULL REFERENCES raid_reward_definitions(reward_id) ON DELETE CASCADE,
+                    source_raid_id TEXT NOT NULL REFERENCES raid_definitions(raid_id) ON DELETE CASCADE,
+                    status TEXT NOT NULL,
+                    acquired_at TEXT,
+                    missed_at TEXT,
+                    updated_at TEXT NOT NULL
+                );
+                """,
+                "CREATE INDEX IF NOT EXISTS idx_raid_definitions_availability ON raid_definitions(availability_kind, active_start_at, active_end_at);",
+                "CREATE INDEX IF NOT EXISTS idx_raid_instances_status ON raid_instances(status, updated_at DESC);",
+                "CREATE INDEX IF NOT EXISTS idx_raid_attacks_usage_sample ON raid_attacks(usage_sample_id);",
+                "CREATE INDEX IF NOT EXISTS idx_raid_member_hits_attack ON raid_member_hits(raid_attack_row_id);",
+                "CREATE INDEX IF NOT EXISTS idx_reward_archive_status ON reward_archive_entries(status, updated_at DESC);",
             ]),
         ]
     }

@@ -131,6 +131,7 @@ final class TokenmonAppController {
     }()
 
     private var dexWindowController: TokenmonHostingWindowController?
+    private var rewardArchiveWindowController: TokenmonHostingWindowController?
     private var settingsWindowController: TokenmonHostingWindowController?
     private var onboardingWindowController: TokenmonHostingWindowController?
     private var onboardingWindowCloseObserver: NSObjectProtocol?
@@ -450,8 +451,10 @@ final class TokenmonAppController {
             || Self.environmentFlag("TOKENMON_OPEN_ONBOARDING_ON_LAUNCH", environment: environment)
         let shouldOpenPopover = arguments.contains("--tokenmon-open-popover-on-launch")
             || Self.environmentFlag("TOKENMON_OPEN_POPOVER_ON_LAUNCH", environment: environment)
+        let shouldOpenRewardArchive = arguments.contains("--tokenmon-open-reward-archive-on-launch")
+            || Self.environmentFlag("TOKENMON_OPEN_REWARD_ARCHIVE_ON_LAUNCH", environment: environment)
 
-        guard shouldOpenSettings || shouldOpenDeveloper || shouldOpenOnboarding || shouldOpenPopover else {
+        guard shouldOpenSettings || shouldOpenDeveloper || shouldOpenOnboarding || shouldOpenPopover || shouldOpenRewardArchive else {
             return
         }
 
@@ -472,6 +475,9 @@ final class TokenmonAppController {
             }
             if shouldOpenPopover {
                 self.showPopover()
+            }
+            if shouldOpenRewardArchive {
+                self.showRewardArchiveWindow()
             }
         }
     }
@@ -526,6 +532,19 @@ final class TokenmonAppController {
             )
         }
         dexWindowController?.show()
+    }
+
+    func showRewardArchiveWindow() {
+        if rewardArchiveWindowController == nil {
+            rewardArchiveWindowController = TokenmonHostingWindowController(
+                title: TokenmonL10n.string("window.title.reward_archive"),
+                defaultSize: NSSize(width: 1120, height: 720),
+                minSize: NSSize(width: 820, height: 560),
+                autosaveName: "TokenmonRewardArchiveWindow",
+                rootView: AnyView(TokenmonRewardArchivePanel(model: menuModel))
+            )
+        }
+        rewardArchiveWindowController?.show()
     }
 
     func showSettings(pane: TokenmonSettingsPane) {
@@ -705,6 +724,10 @@ final class TokenmonAppController {
                         controller?.closePopover()
                         TokenmonAppController.shared.showDexWindow()
                     },
+                    openRewardArchive: { [weak controller] in
+                        controller?.closePopover()
+                        TokenmonAppController.shared.showRewardArchiveWindow()
+                    },
                     openSettings: { [weak controller] pane in
                         controller?.closePopover()
                         TokenmonAppController.shared.showSettings(pane: pane)
@@ -743,6 +766,7 @@ enum TokenmonStatusItemShortcutMenuItem: Equatable {
     ) -> [TokenmonStatusItemShortcutMenuItem] {
         var items: [TokenmonStatusItemShortcutMenuItem] = [
             .popover(.now),
+            .popover(.raid),
             .popover(.tokens),
             .popover(.stats),
             .separator,
@@ -766,6 +790,8 @@ enum TokenmonStatusItemShortcutMenuItem: Equatable {
         switch self {
         case .popover(.now):
             return TokenmonL10n.string("popover.tab.now")
+        case .popover(.raid):
+            return TokenmonL10n.string("popover.tab.raid")
         case .popover(.tokens):
             return TokenmonL10n.string("popover.tab.tokens")
         case .popover(.stats):
@@ -942,6 +968,10 @@ final class TokenmonStatusItemController: NSObject {
         TokenmonAppController.shared.showPopover(initialActiveTab: .now)
     }
 
+    @objc private func openRaidShortcut(_ sender: Any?) {
+        TokenmonAppController.shared.showPopover(initialActiveTab: .raid)
+    }
+
     @objc private func openTokensShortcut(_ sender: Any?) {
         TokenmonAppController.shared.showPopover(initialActiveTab: .tokens)
     }
@@ -1044,6 +1074,8 @@ final class TokenmonStatusItemController: NSObject {
         switch item {
         case .popover(.now):
             return #selector(openNowShortcut(_:))
+        case .popover(.raid):
+            return #selector(openRaidShortcut(_:))
         case .popover(.tokens):
             return #selector(openTokensShortcut(_:))
         case .popover(.stats):
@@ -1149,6 +1181,8 @@ final class TokenmonStatusItemController: NSObject {
 
 @MainActor
 final class TokenmonHostingWindowController: NSWindowController {
+    private let preferredMinimumSize: NSSize
+
     init(
         title: String,
         defaultSize: NSSize,
@@ -1156,12 +1190,14 @@ final class TokenmonHostingWindowController: NSWindowController {
         autosaveName: String,
         rootView: AnyView
     ) {
+        self.preferredMinimumSize = minSize ?? defaultSize
         let hostingController = NSHostingController(rootView: rootView)
         let window = NSWindow(contentViewController: hostingController)
         window.title = title
         window.styleMask = [.titled, .closable, .miniaturizable, .resizable]
-        window.setContentSize(defaultSize)
-        window.minSize = minSize ?? defaultSize
+        let visibleFrame = NSScreen.main?.visibleFrame
+        window.setContentSize(Self.fittedSize(defaultSize, visibleFrame: visibleFrame))
+        window.minSize = Self.fittedSize(self.preferredMinimumSize, visibleFrame: visibleFrame)
         window.isReleasedWhenClosed = false
         window.tabbingMode = .disallowed
         window.setFrameAutosaveName(autosaveName)
@@ -1178,8 +1214,82 @@ final class TokenmonHostingWindowController: NSWindowController {
         TokenmonAppAppearanceController.syncHostWindow(window)
         showWindow(nil)
         TokenmonAppAppearanceController.syncHostWindow(window)
+        keepWindowInsideVisibleScreen()
         window?.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
+        DispatchQueue.main.async { [weak self] in
+            self?.keepWindowInsideVisibleScreen()
+        }
+    }
+
+    private func keepWindowInsideVisibleScreen() {
+        guard let window else { return }
+        let visibleFrame = bestVisibleFrame(for: window.frame)
+        window.minSize = Self.fittedSize(preferredMinimumSize, visibleFrame: visibleFrame)
+        var frame = window.frame
+        let maximumSize = Self.maximumWindowSize(for: visibleFrame)
+        frame.size.width = min(frame.width, maximumSize.width)
+        frame.size.height = min(frame.height, maximumSize.height)
+
+        if frame.maxX > visibleFrame.maxX {
+            frame.origin.x = visibleFrame.maxX - frame.width
+        }
+        if frame.minX < visibleFrame.minX {
+            frame.origin.x = visibleFrame.minX
+        }
+        if frame.maxY > visibleFrame.maxY {
+            frame.origin.y = visibleFrame.maxY - frame.height
+        }
+        if frame.minY < visibleFrame.minY {
+            frame.origin.y = visibleFrame.minY
+        }
+
+        if frame != window.frame {
+            window.setFrame(frame, display: true)
+        }
+    }
+
+    private static func fittedSize(_ size: NSSize, visibleFrame: NSRect?) -> NSSize {
+        guard let visibleFrame else { return size }
+        let maximumSize = maximumWindowSize(for: visibleFrame)
+        return NSSize(
+            width: min(size.width, maximumSize.width),
+            height: min(size.height, maximumSize.height)
+        )
+    }
+
+    private static func maximumWindowSize(for visibleFrame: NSRect) -> NSSize {
+        NSSize(
+            width: max(320, visibleFrame.width),
+            height: max(320, visibleFrame.height)
+        )
+    }
+
+    private func bestVisibleFrame(for frame: NSRect) -> NSRect {
+        let screens = NSScreen.screens
+        if let screen = screens.first(where: { $0.visibleFrame.intersects(frame) }) {
+            return screen.visibleFrame
+        }
+        let frameCenter = NSPoint(x: frame.midX, y: frame.midY)
+        if let nearest = screens.min(by: { lhs, rhs in
+            squaredDistance(from: frameCenter, to: lhs.visibleFrame.center) <
+                squaredDistance(from: frameCenter, to: rhs.visibleFrame.center)
+        }) {
+            return nearest.visibleFrame
+        }
+        return NSScreen.main?.visibleFrame ?? frame
+    }
+
+    private func squaredDistance(from point: NSPoint, to other: NSPoint) -> CGFloat {
+        let dx = point.x - other.x
+        let dy = point.y - other.y
+        return (dx * dx) + (dy * dy)
+    }
+}
+
+private extension NSRect {
+    var center: NSPoint {
+        NSPoint(x: midX, y: midY)
     }
 }
 
