@@ -38,33 +38,10 @@ enum TokenmonSpeciesSpriteLoader {
     }
 
     private static func spriteURL(assetKey: String, variant: TokenmonSpeciesSpriteVariant) -> URL? {
-        let relative = "assets/sprites/species/\(assetKey)/\(variant.rawValue)"
-        let fm = FileManager.default
-
-        let cwdURL = URL(fileURLWithPath: fm.currentDirectoryPath)
-            .appendingPathComponent(relative)
-        if fm.fileExists(atPath: cwdURL.path) {
-            return cwdURL
-        }
-
-        if let executableURL = Bundle.main.executableURL {
-            var candidate = executableURL.deletingLastPathComponent()
-            for _ in 0..<8 {
-                let url = candidate.appendingPathComponent(relative)
-                if fm.fileExists(atPath: url.path) {
-                    return url
-                }
-                candidate.deleteLastPathComponent()
-            }
-        }
-
-        if let bundled = TokenmonAppResourceLocator.resourceURL(
-            relativePath: "sprites/species/\(assetKey)/\(variant.rawValue)"
-        ) {
-            return bundled
-        }
-
-        return nil
+        TokenmonAppAssetResolver.url(
+            sourceRelativePath: "assets/sprites/species/\(assetKey)/\(variant.rawValue)",
+            bundledRelativePath: "sprites/species/\(assetKey)/\(variant.rawValue)"
+        )
     }
 
     static func image(assetKey: String, variants: [TokenmonSpeciesSpriteVariant]) -> NSImage? {
@@ -124,27 +101,9 @@ enum TokenmonSpeciesSpriteLoader {
     }
 
     private static func approvedPortraitURL(assetKey: String) -> URL? {
-        let relative = "art/source/species/approved-portraits/\(assetKey).png"
-        let fm = FileManager.default
-
-        let cwdURL = URL(fileURLWithPath: fm.currentDirectoryPath)
-            .appendingPathComponent(relative)
-        if fm.fileExists(atPath: cwdURL.path) {
-            return cwdURL
-        }
-
-        if let executableURL = Bundle.main.executableURL {
-            var candidate = executableURL.deletingLastPathComponent()
-            for _ in 0..<8 {
-                let url = candidate.appendingPathComponent(relative)
-                if fm.fileExists(atPath: url.path) {
-                    return url
-                }
-                candidate.deleteLastPathComponent()
-            }
-        }
-
-        return nil
+        TokenmonAppAssetResolver.url(
+            sourceRelativePath: "art/source/species/approved-portraits/\(assetKey).png"
+        )
     }
 
     private static func trimmedImage(_ image: NSImage) -> NSImage? {

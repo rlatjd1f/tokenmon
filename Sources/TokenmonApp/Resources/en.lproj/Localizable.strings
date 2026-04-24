@@ -29,15 +29,13 @@
 "settings.appearance.option.dark" = "Dark";
 "settings.general.section.updates" = "Updates";
 "settings.updates.action.check_now" = "Check for Updates…";
-"settings.updates.toggle.automatically_check" = "Automatically check for updates";
-"settings.updates.toggle.automatically_download" = "Download updates in the background";
 "settings.updates.toggle.notify_when_ready" = "Notify when an update is ready";
 "settings.updates.feed" = "Update feed: %1$@";
 "settings.updates.feed_source" = "Feed source: %1$@";
 "settings.updates.public_key_source" = "Signing key source: %1$@";
 "settings.updates.override_file" = "Local override file: %1$@";
 "settings.updates.override_active" = "A non-default Sparkle update configuration is active for this app.";
-"settings.updates.note" = "Tokenmon uses Sparkle to check a signed release feed and propose notarized app updates. By default it checks roughly once per hour. If you enable update-ready alerts, Tokenmon can show a macOS notification whenever Sparkle discovers a newer version, using the same permission as capture alerts. Opening the alert brings up the native update prompt.";
+"settings.updates.note" = "Tokenmon checks the signed release feed at launch and then roughly once per hour. It does not install updates in the background; when a newer version is available, the native update prompt lets you choose when to install. If you enable update-ready alerts, automatic checks can also send a macOS notification.";
 "settings.updates.source.bundle_metadata" = "Bundled release metadata";
 "settings.updates.source.local_override_file" = "Local override file";
 "settings.updates.source.process_environment" = "Process environment";

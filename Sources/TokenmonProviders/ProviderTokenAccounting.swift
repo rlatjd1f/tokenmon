@@ -1,11 +1,11 @@
 import Foundation
 
-enum ProviderAccountingConfidence: String, Sendable {
+public enum ProviderAccountingConfidence: String, Sendable {
     case providerReportedTotal = "provider_reported_total"
     case componentDerivedTotal = "component_derived_total"
 }
 
-enum ProviderAccountingSemantics: String, Sendable {
+public enum ProviderAccountingSemantics: String, Sendable {
     case claudeOtelApiRequest = "claude_otel_api_request"
     case claudeStatusLineCumulativeTotals = "claude_statusline_cumulative_totals"
     case claudeTranscriptComponentTotals = "claude_transcript_component_totals"
@@ -16,19 +16,19 @@ enum ProviderAccountingSemantics: String, Sendable {
     case cursorComponentFallback = "cursor_component_fallback"
 }
 
-struct ProviderAccountingSample: Sendable {
-    let totalInputTokens: Int64
-    let totalOutputTokens: Int64
-    let totalCachedInputTokens: Int64
-    let normalizedTotalTokens: Int64
-    let currentInputTokens: Int64?
-    let currentOutputTokens: Int64?
-    let confidence: ProviderAccountingConfidence
-    let semantics: ProviderAccountingSemantics
+public struct ProviderAccountingSample: Sendable {
+    public let totalInputTokens: Int64
+    public let totalOutputTokens: Int64
+    public let totalCachedInputTokens: Int64
+    public let normalizedTotalTokens: Int64
+    public let currentInputTokens: Int64?
+    public let currentOutputTokens: Int64?
+    public let confidence: ProviderAccountingConfidence
+    public let semantics: ProviderAccountingSemantics
 }
 
-enum ProviderTokenAccounting {
-    static func claudeOtel(
+public enum ProviderTokenAccounting {
+    public static func claudeOtel(
         totalInputTokens: Int64,
         totalOutputTokens: Int64,
         totalCachedInputTokens: Int64,
@@ -48,7 +48,7 @@ enum ProviderTokenAccounting {
         )
     }
 
-    static func claudeStatusLine(
+    public static func claudeStatusLine(
         totalInputTokens: Int64,
         totalOutputTokens: Int64,
         currentInputTokens: Int64?,
@@ -66,7 +66,7 @@ enum ProviderTokenAccounting {
         )
     }
 
-    static func claudeTranscript(
+    public static func claudeTranscript(
         totalInputTokens: Int64,
         totalOutputTokens: Int64,
         totalCachedInputTokens: Int64,
@@ -85,7 +85,7 @@ enum ProviderTokenAccounting {
         )
     }
 
-    static func codex(
+    public static func codex(
         totalInputTokens: Int64,
         totalOutputTokens: Int64,
         totalCachedInputTokens: Int64,
@@ -106,7 +106,7 @@ enum ProviderTokenAccounting {
         )
     }
 
-    static func gemini(
+    public static func gemini(
         totalInputTokens: Int64,
         totalOutputTokens: Int64,
         totalCachedInputTokens: Int64,
@@ -126,7 +126,7 @@ enum ProviderTokenAccounting {
         )
     }
 
-    static func cursor(
+    public static func cursor(
         totalInputTokens: Int64,
         totalOutputTokens: Int64,
         totalCachedInputTokens: Int64,

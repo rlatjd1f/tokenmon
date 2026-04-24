@@ -106,29 +106,10 @@ enum TokenmonFieldSpriteLoader {
     }
 
     private static func resourceURL(relative: String, bundledRelative: String) -> URL? {
-        let fm = FileManager.default
-
-        let cwdURL = URL(fileURLWithPath: fm.currentDirectoryPath).appendingPathComponent(relative)
-        if fm.fileExists(atPath: cwdURL.path) {
-            return cwdURL
-        }
-
-        if let executableURL = Bundle.main.executableURL {
-            var candidate = executableURL.deletingLastPathComponent()
-            for _ in 0..<8 {
-                let url = candidate.appendingPathComponent(relative)
-                if fm.fileExists(atPath: url.path) {
-                    return url
-                }
-                candidate.deleteLastPathComponent()
-            }
-        }
-
-        if let bundled = TokenmonAppResourceLocator.resourceURL(relativePath: bundledRelative) {
-            return bundled
-        }
-
-        return nil
+        TokenmonAppAssetResolver.url(
+            sourceRelativePath: relative,
+            bundledRelativePath: bundledRelative
+        )
     }
 
     private static func trimmedImage(_ image: NSImage) -> NSImage? {

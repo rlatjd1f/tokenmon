@@ -198,8 +198,8 @@ public final class TokenmonDatabaseManager {
         )
     }
 
-    public func summary() throws -> TokenmonDatabaseSummary {
-        let database = try open()
+    public func summary(database providedDatabase: SQLiteDatabase? = nil) throws -> TokenmonDatabaseSummary {
+        let database = try providedDatabase ?? open()
         let explorationState = try currentExplorationState(database: database)
         return TokenmonDatabaseSummary(
             providers: try countRows(in: "providers", database: database),
@@ -599,8 +599,8 @@ public final class TokenmonDatabaseManager {
         return try currentExplorationState(database: database)
     }
 
-    public func recentDomainEvents(limit: Int = 20) throws -> [PersistedDomainEventRecord] {
-        let database = try open()
+    public func recentDomainEvents(limit: Int = 20, database providedDatabase: SQLiteDatabase? = nil) throws -> [PersistedDomainEventRecord] {
+        let database = try providedDatabase ?? open()
         return try database.fetchAll(
             """
             SELECT event_id,
@@ -1317,7 +1317,7 @@ public final class TokenmonDatabaseManager {
         return now
     }
 
-    private func liveGameplayStartedAt(database: SQLiteDatabase) throws -> String? {
+    func liveGameplayStartedAt(database: SQLiteDatabase) throws -> String? {
         try stringSetting(key: "live_gameplay_started_at", database: database)
     }
 

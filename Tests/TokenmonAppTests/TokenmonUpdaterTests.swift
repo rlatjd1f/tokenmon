@@ -160,24 +160,29 @@ struct TokenmonUpdaterTests {
 
     @Test
     @MainActor
-    func updateNotificationBridgeAlertsWhenUpdatesAreFoundAndDeduplicatesVersions() {
+    func updateNotificationBridgeAlertsForAutomaticChecksAndDeduplicatesVersions() {
         let coordinator = UpdateNotificationCoordinatorSpy()
         let bridge = TokenmonAppUpdateNotificationBridge(
             settingsProvider: { AppSettings(updateNotificationsEnabled: true) },
             notificationCoordinator: coordinator
         )
 
+        bridge.handleUpdateAvailable(version: "0.1.11")
+        #expect(coordinator.updateNotificationVersions == ["0.1.11"])
+
         bridge.beginUpdateCheck(.updates)
         bridge.handleUpdateAvailable(version: "0.1.12")
+        #expect(coordinator.updateNotificationVersions == ["0.1.11"])
 
         bridge.beginUpdateCheck(.updatesInBackground)
         bridge.handleUpdateAvailable(version: "0.1.12")
         bridge.handleUpdateAvailable(version: "0.1.12")
-        #expect(coordinator.updateNotificationVersions == ["0.1.12"])
+        #expect(coordinator.updateNotificationVersions == ["0.1.11", "0.1.12"])
 
         bridge.finishUpdateCheck()
+        bridge.beginUpdateCheck(.updatesInBackground)
         bridge.handleUpdateAvailable(version: "0.1.13")
-        #expect(coordinator.updateNotificationVersions == ["0.1.12", "0.1.13"])
+        #expect(coordinator.updateNotificationVersions == ["0.1.11", "0.1.12", "0.1.13"])
     }
 
     @Test
@@ -193,6 +198,42 @@ struct TokenmonUpdaterTests {
         bridge.handleUpdateAvailable(version: "0.1.12")
 
         #expect(coordinator.updateNotificationVersions.isEmpty)
+    }
+
+    @Test
+    @MainActor
+    func startupBackgroundCheckEnablesAutomaticChecksDisablesBackgroundDownloadsAndSkipsBusySession() {
+        let enabledUpdater = StartupSparkleUpdaterSpy(automaticallyChecksForUpdates: true)
+        let enabledResult = TokenmonAppUpdater.performStartupBackgroundCheckIfNeeded(updater: enabledUpdater)
+        #expect(enabledResult)
+        #expect(enabledUpdater.backgroundCheckCount == 1)
+        #expect(enabledUpdater.automaticallyChecksForUpdates)
+        #expect(enabledUpdater.automaticallyDownloadsUpdates == false)
+
+        let disabledUpdater = StartupSparkleUpdaterSpy(automaticallyChecksForUpdates: false)
+        let disabledResult = TokenmonAppUpdater.performStartupBackgroundCheckIfNeeded(updater: disabledUpdater)
+        #expect(disabledResult)
+        #expect(disabledUpdater.automaticallyChecksForUpdates)
+        #expect(disabledUpdater.backgroundCheckCount == 1)
+
+        let downloadUpdater = StartupSparkleUpdaterSpy(
+            automaticallyChecksForUpdates: true,
+            automaticallyDownloadsUpdates: true
+        )
+        let downloadResult = TokenmonAppUpdater.performStartupBackgroundCheckIfNeeded(updater: downloadUpdater)
+        #expect(downloadResult)
+        #expect(downloadUpdater.automaticallyDownloadsUpdates == false)
+        #expect(downloadUpdater.backgroundCheckCount == 1)
+
+        let busyUpdater = StartupSparkleUpdaterSpy(
+            automaticallyChecksForUpdates: true,
+            automaticallyDownloadsUpdates: true,
+            sessionInProgress: true
+        )
+        let busyResult = TokenmonAppUpdater.performStartupBackgroundCheckIfNeeded(updater: busyUpdater)
+        #expect(busyResult == false)
+        #expect(busyUpdater.automaticallyDownloadsUpdates == false)
+        #expect(busyUpdater.backgroundCheckCount == 0)
     }
 
     @Test
@@ -214,6 +255,28 @@ struct TokenmonUpdaterTests {
         let directory = FileManager.default.temporaryDirectory
             .appendingPathComponent("TokenmonUpdaterTests-\(UUID().uuidString)", isDirectory: true)
         return directory.appendingPathComponent("tokenmon.sqlite").path
+    }
+
+    @MainActor
+    private final class StartupSparkleUpdaterSpy: TokenmonSparkleUpdaterScheduling {
+        var automaticallyChecksForUpdates: Bool
+        var automaticallyDownloadsUpdates: Bool
+        let sessionInProgress: Bool
+        private(set) var backgroundCheckCount = 0
+
+        init(
+            automaticallyChecksForUpdates: Bool,
+            automaticallyDownloadsUpdates: Bool = false,
+            sessionInProgress: Bool = false
+        ) {
+            self.automaticallyChecksForUpdates = automaticallyChecksForUpdates
+            self.automaticallyDownloadsUpdates = automaticallyDownloadsUpdates
+            self.sessionInProgress = sessionInProgress
+        }
+
+        func checkForUpdatesInBackground() {
+            backgroundCheckCount += 1
+        }
     }
 
     @MainActor

@@ -156,9 +156,18 @@ copy_screenshot_assets() {
   local source_dir="$1"
   local destination_dir="$2"
   local asset
+  local source_path
   mkdir -p "$destination_dir"
   for asset in "${screenshot_assets[@]}"; do
-    cp "$source_dir/$asset" "$destination_dir/$asset"
+    source_path="$source_dir/$asset"
+    if [[ -f "$source_path" ]]; then
+      cp "$source_path" "$destination_dir/$asset"
+    elif [[ "$asset" == "menu-hero.gif" && "$allow_menu_bar_skip" == "1" ]]; then
+      rm -f "$destination_dir/$asset"
+    else
+      printf 'Missing screenshot asset: %s\n' "$source_path" >&2
+      exit 1
+    fi
   done
 }
 

@@ -348,6 +348,16 @@ protocol TokenmonAppUpdaterStarting: AnyObject {
 }
 
 @MainActor
+protocol TokenmonSparkleUpdaterScheduling: AnyObject {
+    var automaticallyChecksForUpdates: Bool { get set }
+    var automaticallyDownloadsUpdates: Bool { get set }
+    var sessionInProgress: Bool { get }
+    func checkForUpdatesInBackground()
+}
+
+extension SPUUpdater: TokenmonSparkleUpdaterScheduling {}
+
+@MainActor
 final class TokenmonAppUpdater: NSObject, ObservableObject, TokenmonAppUpdaterStarting {
     @Published private(set) var canCheckForUpdates = false
 
@@ -359,6 +369,7 @@ final class TokenmonAppUpdater: NSObject, ObservableObject, TokenmonAppUpdaterSt
     private var updaterController: SPUStandardUpdaterController?
     private var canCheckObservation: NSKeyValueObservation?
     private var updaterStarted = false
+    private var startupBackgroundCheckAttempted = false
 
     init(
         settingsProvider: @escaping @MainActor () -> AppSettings = { AppSettings() },
@@ -401,6 +412,10 @@ final class TokenmonAppUpdater: NSObject, ObservableObject, TokenmonAppUpdaterSt
                 }
             }
         }
+
+        if startImmediately {
+            performStartupBackgroundCheckIfNeeded()
+        }
     }
 
     deinit {
@@ -415,6 +430,7 @@ final class TokenmonAppUpdater: NSObject, ObservableObject, TokenmonAppUpdaterSt
         updaterController.startUpdater()
         updaterStarted = true
         canCheckForUpdates = updaterController.updater.canCheckForUpdates
+        performStartupBackgroundCheckIfNeeded()
     }
 
     var isAvailable: Bool {
@@ -453,14 +469,6 @@ final class TokenmonAppUpdater: NSObject, ObservableObject, TokenmonAppUpdaterSt
         diagnosticsSnapshot.hasNonBundledConfiguration
     }
 
-    var automaticallyChecksForUpdates: Bool {
-        updaterController?.updater.automaticallyChecksForUpdates ?? false
-    }
-
-    var automaticallyDownloadsUpdates: Bool {
-        updaterController?.updater.automaticallyDownloadsUpdates ?? false
-    }
-
     var unavailabilityReasonKey: StaticString? {
         guard case .unavailable(let reason) = availability else {
             return nil
@@ -472,25 +480,37 @@ final class TokenmonAppUpdater: NSObject, ObservableObject, TokenmonAppUpdaterSt
         updaterController?.checkForUpdates(nil)
     }
 
-    func setAutomaticallyChecksForUpdates(_ newValue: Bool) {
-        guard let updater = updaterController?.updater else {
-            return
+    @discardableResult
+    private func performStartupBackgroundCheckIfNeeded() -> Bool {
+        guard startupBackgroundCheckAttempted == false,
+              let updater = updaterController?.updater
+        else {
+            return false
         }
 
-        updater.automaticallyChecksForUpdates = newValue
-        if newValue == false && updater.automaticallyDownloadsUpdates {
-            updater.automaticallyDownloadsUpdates = false
-        }
-        objectWillChange.send()
+        startupBackgroundCheckAttempted = true
+        return Self.performStartupBackgroundCheckIfNeeded(updater: updater)
     }
 
-    func setAutomaticallyDownloadsUpdates(_ newValue: Bool) {
-        guard let updater = updaterController?.updater else {
-            return
+    static func normalizeAutomaticUpdatePreferences(updater: TokenmonSparkleUpdaterScheduling) {
+        if updater.automaticallyChecksForUpdates == false {
+            updater.automaticallyChecksForUpdates = true
         }
 
-        updater.automaticallyDownloadsUpdates = newValue
-        objectWillChange.send()
+        if updater.automaticallyDownloadsUpdates {
+            updater.automaticallyDownloadsUpdates = false
+        }
+    }
+
+    @discardableResult
+    static func performStartupBackgroundCheckIfNeeded(updater: TokenmonSparkleUpdaterScheduling) -> Bool {
+        normalizeAutomaticUpdatePreferences(updater: updater)
+        guard updater.automaticallyChecksForUpdates, updater.sessionInProgress == false else {
+            return false
+        }
+
+        updater.checkForUpdatesInBackground()
+        return true
     }
 }
 
@@ -578,6 +598,7 @@ final class TokenmonAppUpdateNotificationBridge {
     private let settingsProvider: () -> AppSettings
     private let notificationCoordinator: TokenmonCaptureNotificationCoordinating
     private var lastNotifiedVersion: String?
+    private var shouldNotifyForCurrentCheck = true
 
     init(
         settingsProvider: @escaping () -> AppSettings,
@@ -588,10 +609,14 @@ final class TokenmonAppUpdateNotificationBridge {
     }
 
     func beginUpdateCheck(_ updateCheck: SPUUpdateCheck) {
-        _ = updateCheck
+        shouldNotifyForCurrentCheck = updateCheck != .updates
     }
 
     func handleUpdateAvailable(version: String?) {
+        guard shouldNotifyForCurrentCheck else {
+            return
+        }
+
         let settings = settingsProvider()
         guard settings.updateNotificationsEnabled else {
             return
@@ -615,6 +640,7 @@ final class TokenmonAppUpdateNotificationBridge {
     }
 
     func finishUpdateCheck() {
+        shouldNotifyForCurrentCheck = true
     }
 }
 

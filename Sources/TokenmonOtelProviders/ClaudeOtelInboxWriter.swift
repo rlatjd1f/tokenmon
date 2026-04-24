@@ -1,11 +1,8 @@
 import Foundation
 import TokenmonDomain
+import TokenmonProviders
 
-/// Appends one ProviderUsageSampleEvent JSON line per Gemini api_response
-/// to the gemini.ndjson inbox file. The cumulative token totals are passed
-/// in by the caller (the receiver maintains them per session in memory and
-/// seeds them from the database on startup).
-public final class GeminiOtelInboxWriter {
+public final class ClaudeOtelInboxWriter {
     private let inboxPath: String
     private let encoder: JSONEncoder
     private let timestampFormatter: ISO8601DateFormatter
@@ -21,15 +18,14 @@ public final class GeminiOtelInboxWriter {
     }
 
     public func append(
-        event: GeminiSampleEvent,
+        event: ClaudeOtelSampleEvent,
         cumulativeInputTokens: Int64,
         cumulativeOutputTokens: Int64,
         cumulativeCachedInputTokens: Int64,
         cumulativeNormalizedTotalTokens: Int64
     ) throws {
         let observedAtString = timestampFormatter.string(from: event.observedAt)
-        let fingerprint = "gemini-otel:\(event.sessionID):\(observedAtString):\(event.totalTokens)"
-        let accounting = ProviderTokenAccounting.gemini(
+        let accounting = ProviderTokenAccounting.claudeOtel(
             totalInputTokens: cumulativeInputTokens,
             totalOutputTokens: cumulativeOutputTokens,
             totalCachedInputTokens: cumulativeCachedInputTokens,
@@ -37,11 +33,10 @@ public final class GeminiOtelInboxWriter {
             currentInputTokens: event.inputTokens,
             currentOutputTokens: event.outputTokens
         )
-
         let payload = ProviderUsageSampleEvent(
             eventType: "provider_usage_sample",
-            provider: .gemini,
-            sourceMode: "otel-inprocess",
+            provider: .claude,
+            sourceMode: "claude_otel_api_request_live",
             providerSessionID: event.sessionID,
             observedAt: observedAtString,
             workspaceDir: nil,
@@ -51,19 +46,20 @@ public final class GeminiOtelInboxWriter {
             totalOutputTokens: accounting.totalOutputTokens,
             totalCachedInputTokens: accounting.totalCachedInputTokens,
             normalizedTotalTokens: accounting.normalizedTotalTokens,
-            providerEventFingerprint: fingerprint,
+            providerEventFingerprint: fingerprint(for: event, observedAtString: observedAtString),
             rawReference: ProviderRawReference(
-                kind: "gemini-otel",
+                kind: "claude-otel",
                 offset: nil,
-                eventName: "gemini_cli.api_response"
+                eventName: "claude_code.api_request"
             ),
             currentInputTokens: accounting.currentInputTokens,
-            currentOutputTokens: accounting.currentOutputTokens
+            currentOutputTokens: accounting.currentOutputTokens,
+            sessionOriginHint: .startedDuringLiveRuntime
         )
 
         let jsonData = try encoder.encode(payload)
         var line = jsonData
-        line.append(0x0A) // newline
+        line.append(0x0A)
 
         let directory = (inboxPath as NSString).deletingLastPathComponent
         try FileManager.default.createDirectory(
@@ -79,5 +75,14 @@ public final class GeminiOtelInboxWriter {
         defer { try? handle.close() }
         try handle.seekToEnd()
         try handle.write(contentsOf: line)
+    }
+
+    private func fingerprint(for event: ClaudeOtelSampleEvent, observedAtString: String) -> String {
+        if let requestID = event.requestID, requestID.isEmpty == false {
+            return "claude-otel:\(event.sessionID):\(requestID)"
+        }
+
+        let sequence = event.eventSequence ?? "no-sequence"
+        return "claude-otel:\(event.sessionID):\(sequence):\(observedAtString):\(event.model):\(event.totalTokens)"
     }
 }

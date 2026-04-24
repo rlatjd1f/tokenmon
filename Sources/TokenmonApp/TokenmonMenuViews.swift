@@ -2,6 +2,7 @@ import AppKit
 import SwiftUI
 import UniformTypeIdentifiers
 import TokenmonDomain
+import TokenmonOtelProviders
 import TokenmonPersistence
 import TokenmonProviders
 
@@ -864,8 +865,6 @@ private struct TokenmonAppUpdateSettingsView: View {
     let notificationAuthorizationState: TokenmonNotificationAuthorizationState
     let onUpdateUpdateNotificationsEnabled: (Bool) -> Void
     let onOpenSystemNotificationSettings: () -> Void
-    @State private var automaticallyChecksForUpdates: Bool
-    @State private var automaticallyDownloadsUpdates: Bool
 
     init(
         appUpdater: TokenmonAppUpdater,
@@ -879,8 +878,6 @@ private struct TokenmonAppUpdateSettingsView: View {
         self.notificationAuthorizationState = notificationAuthorizationState
         self.onUpdateUpdateNotificationsEnabled = onUpdateUpdateNotificationsEnabled
         self.onOpenSystemNotificationSettings = onOpenSystemNotificationSettings
-        _automaticallyChecksForUpdates = State(initialValue: appUpdater.automaticallyChecksForUpdates)
-        _automaticallyDownloadsUpdates = State(initialValue: appUpdater.automaticallyDownloadsUpdates)
     }
 
     var body: some View {
@@ -891,26 +888,6 @@ private struct TokenmonAppUpdateSettingsView: View {
                 }
                 .tokenmonAdaptiveButtonStyle()
                 .disabled(appUpdater.canCheckForUpdates == false)
-
-                Toggle(
-                    TokenmonL10n.string("settings.updates.toggle.automatically_check"),
-                    isOn: $automaticallyChecksForUpdates
-                )
-                .onChange(of: automaticallyChecksForUpdates) { _, newValue in
-                    appUpdater.setAutomaticallyChecksForUpdates(newValue)
-                    if newValue == false {
-                        automaticallyDownloadsUpdates = false
-                    }
-                }
-
-                Toggle(
-                    TokenmonL10n.string("settings.updates.toggle.automatically_download"),
-                    isOn: $automaticallyDownloadsUpdates
-                )
-                .disabled(automaticallyChecksForUpdates == false)
-                .onChange(of: automaticallyDownloadsUpdates) { _, newValue in
-                    appUpdater.setAutomaticallyDownloadsUpdates(newValue)
-                }
 
                 Toggle(
                     TokenmonL10n.string("settings.updates.toggle.notify_when_ready"),
@@ -944,7 +921,7 @@ private struct TokenmonAppUpdateSettingsView: View {
                 )
             }
 
-            if let configuredFeedURL = appUpdater.configuredFeedURL {
+            if appUpdater.hasNonBundledConfiguration, let configuredFeedURL = appUpdater.configuredFeedURL {
                 TokenmonSettingsStatusRow(
                     text: TokenmonL10n.format("settings.updates.feed", configuredFeedURL.absoluteString),
                     systemImage: appUpdater.isAvailable ? "checkmark.circle.fill" : "info.circle.fill",
@@ -952,7 +929,7 @@ private struct TokenmonAppUpdateSettingsView: View {
                 )
             }
 
-            if let feedURLSource = appUpdater.feedURLSource {
+            if appUpdater.hasNonBundledConfiguration, let feedURLSource = appUpdater.feedURLSource {
                 TokenmonSettingsStatusRow(
                     text: TokenmonL10n.format(
                         "settings.updates.feed_source",
@@ -963,7 +940,7 @@ private struct TokenmonAppUpdateSettingsView: View {
                 )
             }
 
-            if let publicEDKeySource = appUpdater.publicEDKeySource {
+            if appUpdater.hasNonBundledConfiguration, let publicEDKeySource = appUpdater.publicEDKeySource {
                 TokenmonSettingsStatusRow(
                     text: TokenmonL10n.format(
                         "settings.updates.public_key_source",
@@ -998,12 +975,6 @@ private struct TokenmonAppUpdateSettingsView: View {
             .font(.caption)
             .foregroundStyle(.secondary)
         }
-        .onAppear(perform: refreshFromUpdater)
-    }
-
-    private func refreshFromUpdater() {
-        automaticallyChecksForUpdates = appUpdater.automaticallyChecksForUpdates
-        automaticallyDownloadsUpdates = appUpdater.automaticallyDownloadsUpdates
     }
 }
 

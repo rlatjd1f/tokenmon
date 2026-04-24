@@ -205,8 +205,8 @@ private struct RaidInstanceRecord: Equatable {
 }
 
 public extension TokenmonDatabaseManager {
-    func raidDashboardSummary(asOf reference: Date = Date()) throws -> RaidDashboardSummary {
-        let database = try open()
+    func raidDashboardSummary(asOf reference: Date = Date(), database providedDatabase: SQLiteDatabase? = nil) throws -> RaidDashboardSummary {
+        let database = try providedDatabase ?? open()
         try settleExpiredRaids(database: database, asOf: reference)
 
         let partyMembers = try partyMembers(database: database)

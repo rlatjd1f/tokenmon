@@ -379,8 +379,8 @@ public enum BackfillRunStore {
 }
 
 public extension TokenmonDatabaseManager {
-    func recentBackfillRunSummaries(limit: Int = 20) throws -> [BackfillRunSummary] {
-        let database = try open()
+    func recentBackfillRunSummaries(limit: Int = 20, database providedDatabase: SQLiteDatabase? = nil) throws -> [BackfillRunSummary] {
+        let database = try providedDatabase ?? open()
         return try BackfillRunStore.recentBackfillRunSummaries(database: database, limit: limit)
     }
 }

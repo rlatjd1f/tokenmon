@@ -1,4 +1,4 @@
-// Sources/TokenmonProviders/GeminiOtel/GeminiSettingsMerger.swift
+// Sources/TokenmonOtelProviders/GeminiSettingsMerger.swift
 import Foundation
 
 public enum GeminiSettingsMerger {

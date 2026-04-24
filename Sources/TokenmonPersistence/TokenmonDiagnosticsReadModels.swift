@@ -20,9 +20,9 @@ public struct ProviderHealthSummary: Equatable, Sendable {
 }
 
 public extension TokenmonDatabaseManager {
-    func providerHealthSummaries() throws -> [ProviderHealthSummary] {
-        let database = try open()
-        let hasLiveGameplayBoundary = try liveGameplayStartedAt() != nil
+    func providerHealthSummaries(database providedDatabase: SQLiteDatabase? = nil) throws -> [ProviderHealthSummary] {
+        let database = try providedDatabase ?? open()
+        let hasLiveGameplayBoundary = try liveGameplayStartedAt(database: database) != nil
 
         return try ProviderCode.allCases.map { provider in
             let resolvedSourceMode = try latestSourceMode(for: provider, database: database)

@@ -1,6 +1,7 @@
 import Foundation
 import Testing
 @testable import TokenmonGameEngine
+@testable import TokenmonOtelProviders
 @testable import TokenmonPersistence
 import TokenmonDomain
 @testable import TokenmonProviders
@@ -37,6 +38,36 @@ struct TokenmonDataContractTests {
         #expect(FieldType.allCases == [.grassland, .ice, .coast, .sky])
         #expect(FieldType(rawValue: "ice") == .ice)
         #expect(FieldType(rawValue: "underground") == nil)
+    }
+
+    @Test
+    func sqliteFetchOneMapsOnlyFirstRow() throws {
+        let dbPath = FileManager.default.temporaryDirectory
+            .appendingPathComponent("tokenmon-fetch-one-\(UUID().uuidString).sqlite")
+            .path
+        defer { try? FileManager.default.removeItem(atPath: dbPath) }
+
+        let database = try SQLiteDatabase(path: dbPath)
+        try database.execute("CREATE TABLE values_table(value INTEGER NOT NULL);")
+        try database.execute("INSERT INTO values_table(value) VALUES (1), (2), (3);")
+
+        var mappedRows = 0
+        let value = try database.fetchOne(
+            "SELECT value FROM values_table ORDER BY value ASC;"
+        ) { statement in
+            mappedRows += 1
+            return SQLiteDatabase.columnInt64(statement, index: 0)
+        }
+
+        #expect(value == 1)
+        #expect(mappedRows == 1)
+
+        let readTransactionValue = try database.inReadTransaction {
+            try database.fetchOne("SELECT COUNT(*) FROM values_table;") { statement in
+                SQLiteDatabase.columnInt64(statement, index: 0)
+            }
+        }
+        #expect(readTransactionValue == 3)
     }
 
     @Test

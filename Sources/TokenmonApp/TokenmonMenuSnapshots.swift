@@ -181,6 +181,7 @@ enum TokenmonMenuSnapshotLoader {
         try Task.checkCancellation()
 
         let manager = TokenmonDatabaseManager(path: databasePath)
+        let database = try manager.open()
         let supportDirectoryPath = TokenmonDatabaseManager.supportDirectory(forDatabasePath: databasePath)
         let loadStartedAt = Date()
         var runtime: TokenmonRuntimeSnapshot?
@@ -209,7 +210,7 @@ enum TokenmonMenuSnapshotLoader {
 
         let needsProviderHealth = scopes.contains(.runtime) || scopes.contains(.diagnostics)
         let providerHealthStartedAt = Date()
-        let providerHealth = try (needsProviderHealth ? manager.providerHealthSummaries() : [])
+        let providerHealth = try (needsProviderHealth ? manager.providerHealthSummaries(database: database) : [])
         if needsProviderHealth {
             logSection(
                 "provider_health",
@@ -220,18 +221,18 @@ enum TokenmonMenuSnapshotLoader {
 
         if scopes.contains(.runtime) {
             let runtimeStartedAt = Date()
-            let summary = try manager.currentRunSummary()
-            let recentEncounterFeed = try manager.recentEncounterSummaries(limit: 5)
-            let ambientRoster = try manager.ambientCompanionRoster()
+            let summary = try manager.currentRunSummary(database: database)
+            let recentEncounterFeed = try manager.recentEncounterSummaries(limit: 5, database: database)
+            let ambientRoster = try manager.ambientCompanionRoster(database: database)
             runtime = TokenmonRuntimeSnapshot(
                 isLoaded: true,
                 summary: summary,
                 latestEncounter: recentEncounterFeed.first,
                 recentEncounterFeed: recentEncounterFeed,
-                todayActivity: try manager.todayActivitySummary(),
+                todayActivity: try manager.todayActivitySummary(database: database),
                 providerHealthSummaries: providerHealth,
                 ambientCompanionRoster: ambientRoster,
-                raidDashboard: try manager.raidDashboardSummary()
+                raidDashboard: try manager.raidDashboardSummary(database: database)
             )
             let rosterMetric: String = {
                 switch ambientRoster {
@@ -252,9 +253,9 @@ enum TokenmonMenuSnapshotLoader {
 
         if scopes.contains(.insights) {
             let insightsStartedAt = Date()
-            let dexEntries = try manager.dexEntrySummaries()
-            let recentDomainEvents = try manager.recentDomainEvents(limit: 24)
-            let partyMembers = try manager.partyMemberSummaries()
+            let dexEntries = try manager.dexEntrySummaries(database: database)
+            let recentDomainEvents = try manager.recentDomainEvents(limit: 24, database: database)
+            let partyMembers = try manager.partyMemberSummaries(database: database)
             let partySpeciesIDs = Set(partyMembers.map(\.speciesID))
             insights = TokenmonInsightsSnapshot(
                 isLoaded: true,
@@ -265,13 +266,13 @@ enum TokenmonMenuSnapshotLoader {
                         .sorted { ($0.lastCapturedAt ?? "") > ($1.lastCapturedAt ?? "") }
                         .prefix(16)
                 ),
-                fieldDistribution: try manager.encounterFieldDistribution(),
-                dailyTrend: try manager.encounterDailyTrend(days: 7),
-                tokenTotals: try manager.tokenUsageTotals(),
-                tokenUsageSourceSummary: try manager.tokenUsageSourceSummary(),
-                tokenByProviderToday: try manager.tokenByProviderToday(),
-                tokenHourlyRolling: try manager.tokenHourlyRolling24(),
-                recentSessions: try manager.recentProviderSessions(limit: 30),
+                fieldDistribution: try manager.encounterFieldDistribution(database: database),
+                dailyTrend: try manager.encounterDailyTrend(days: 7, database: database),
+                tokenTotals: try manager.tokenUsageTotals(database: database),
+                tokenUsageSourceSummary: try manager.tokenUsageSourceSummary(database: database),
+                tokenByProviderToday: try manager.tokenByProviderToday(database: database),
+                tokenHourlyRolling: try manager.tokenHourlyRolling24(database: database),
+                recentSessions: try manager.recentProviderSessions(limit: 30, database: database),
                 recentDomainEventRecords: recentDomainEvents,
                 partyMembers: partyMembers,
                 partySpeciesIDs: partySpeciesIDs
@@ -289,22 +290,22 @@ enum TokenmonMenuSnapshotLoader {
 
         if scopes.contains(.diagnostics) {
             let diagnosticsStartedAt = Date()
-            let preferences = try manager.providerInstallationPreferences()
+            let preferences = try manager.providerInstallationPreferences(database: database)
             diagnostics = TokenmonDiagnosticsSnapshot(
                 isLoaded: true,
-                databaseSummary: try manager.summary(),
+                databaseSummary: try manager.summary(database: database),
                 appUpdaterDiagnostics: TokenmonAppUpdaterDiagnosticsSnapshot.resolve(databasePath: databasePath),
                 recentAppLogEntries: TokenmonAppBehaviorLogger.recentEntries(
                     supportDirectoryPath: supportDirectoryPath
                 ),
-                providerHealthSummaries: providerHealth.isEmpty ? try manager.providerHealthSummaries() : providerHealth,
-                recentDomainEventRecords: try manager.recentDomainEvents(limit: 24),
-                recentProviderSessionSummaries: try manager.recentProviderSessionSummaries(limit: 16),
-                recentProviderIngestEventSummaries: try manager.recentProviderIngestEventSummaries(limit: 24),
-                recentBackfillRunSummaries: try manager.recentBackfillRunSummaries(limit: 12),
+                providerHealthSummaries: providerHealth.isEmpty ? try manager.providerHealthSummaries(database: database) : providerHealth,
+                recentDomainEventRecords: try manager.recentDomainEvents(limit: 24, database: database),
+                recentProviderSessionSummaries: try manager.recentProviderSessionSummaries(limit: 16, database: database),
+                recentProviderIngestEventSummaries: try manager.recentProviderIngestEventSummaries(limit: 24, database: database),
+                recentBackfillRunSummaries: try manager.recentBackfillRunSummaries(limit: 12, database: database),
                 onboardingStatuses: providerInspector(databasePath, executablePath, preferences),
                 providerInstallationPreferences: preferences,
-                appSettings: try manager.appSettings(),
+                appSettings: try manager.appSettings(database: database),
                 launchAtLoginState: launchAtLoginState ?? .unsupported(
                     reason: "Launch at login is available only from an installed app bundle."
                 )

@@ -61,8 +61,8 @@ public struct AppSettings: Equatable, Sendable {
 }
 
 public extension TokenmonDatabaseManager {
-    func appSettings() throws -> AppSettings {
-        let database = try open()
+    func appSettings(database providedDatabase: SQLiteDatabase? = nil) throws -> AppSettings {
+        let database = try providedDatabase ?? open()
         let settingsRows = try database.fetchAll(
             """
             SELECT setting_key, setting_value_json

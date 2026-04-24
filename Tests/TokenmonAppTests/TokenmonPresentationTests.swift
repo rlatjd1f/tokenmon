@@ -2,6 +2,7 @@ import Foundation
 import Testing
 @testable import TokenmonApp
 @testable import TokenmonGameEngine
+@testable import TokenmonOtelProviders
 @testable import TokenmonPersistence
 @testable import TokenmonProviders
 import TokenmonDomain
@@ -2692,6 +2693,65 @@ struct TokenmonPresentationTests {
 
         #expect(firstImage != nil)
         #expect(firstImage === secondImage)
+    }
+
+    @Test
+    func statusItemRenderGateSkipsUnchangedContextTickAndTooltip() {
+        let context = TokenmonSceneContext(
+            sceneState: .exploring,
+            fieldKind: .grassland,
+            fieldState: .exploring,
+            effectState: .none,
+            wildState: .hidden
+        )
+        let key = TokenmonStatusItemRenderUpdateKey(
+            context: context,
+            tick: 12,
+            tooltip: "Exploring",
+            buttonBounds: NSRect(x: 0, y: 0, width: 56, height: 22),
+            scaleFactor: 2,
+            debugOffset: .zero
+        )
+        var gate = TokenmonStatusItemRenderUpdateGate()
+
+        let firstApply = gate.shouldApply(key)
+        let secondApply = gate.shouldApply(key)
+        #expect(firstApply)
+        #expect(secondApply == false)
+
+        let changedTooltip = TokenmonStatusItemRenderUpdateKey(
+            context: context,
+            tick: 12,
+            tooltip: "Captured Mossbun",
+            buttonBounds: NSRect(x: 0, y: 0, width: 56, height: 22),
+            scaleFactor: 2,
+            debugOffset: .zero
+        )
+        let tooltipApply = gate.shouldApply(changedTooltip)
+        #expect(tooltipApply)
+    }
+
+    @Test
+    func asyncProcessRunnerDrainsLargeStdoutAndStderr() async throws {
+        let script = """
+        python3 - <<'PY'
+        import sys
+        sys.stdout.write("o" * 200000)
+        sys.stderr.write("e" * 200000)
+        PY
+        """
+
+        let result = try await TokenmonAsyncProcessRunner.run(
+            TokenmonAsyncProcessRequest(
+                executableURL: URL(fileURLWithPath: "/bin/sh"),
+                arguments: ["-c", script],
+                timeout: 5
+            )
+        )
+
+        #expect(result.terminationStatus == 0)
+        #expect(result.stdout.count == 200_000)
+        #expect(result.stderr.count == 200_000)
     }
 
     @Test

@@ -97,8 +97,8 @@ public struct ProviderInstallationPreferences: Equatable, Codable, Sendable {
 }
 
 public extension TokenmonDatabaseManager {
-    func providerInstallationPreferences() throws -> ProviderInstallationPreferences {
-        let database = try open()
+    func providerInstallationPreferences(database providedDatabase: SQLiteDatabase? = nil) throws -> ProviderInstallationPreferences {
+        let database = try providedDatabase ?? open()
         let decoder = JSONDecoder()
 
         guard let rawJSON = try database.fetchOne(

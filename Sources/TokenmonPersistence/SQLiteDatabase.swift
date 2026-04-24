@@ -69,7 +69,20 @@ public final class SQLiteDatabase {
     }
 
     public func fetchOne<T>(_ sql: String, bindings: [SQLiteValue] = [], map: (OpaquePointer) throws -> T) throws -> T? {
-        try fetchAll(sql, bindings: bindings, map: map).first
+        let statement = try prepare(sql: sql)
+        defer { sqlite3_finalize(statement) }
+
+        try bind(bindings, to: statement)
+
+        let result = sqlite3_step(statement)
+        if result == SQLITE_ROW {
+            return try map(statement)
+        }
+        if result == SQLITE_DONE {
+            return nil
+        }
+
+        throw SQLiteError.statementFailed(message: errorMessage, sql: sql)
     }
 
     public func changes() -> Int {
@@ -85,6 +98,18 @@ public final class SQLiteDatabase {
         do {
             try body()
             try execute("COMMIT;")
+        } catch {
+            try? execute("ROLLBACK;")
+            throw error
+        }
+    }
+
+    public func inReadTransaction<T>(_ body: () throws -> T) throws -> T {
+        try execute("BEGIN DEFERRED TRANSACTION;")
+        do {
+            let value = try body()
+            try execute("COMMIT;")
+            return value
         } catch {
             try? execute("ROLLBACK;")
             throw error

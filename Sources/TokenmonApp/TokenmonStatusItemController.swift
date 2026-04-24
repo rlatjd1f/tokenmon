@@ -3,6 +3,7 @@ import Foundation
 import ScreenCaptureKit
 import SwiftUI
 import TokenmonDomain
+import TokenmonOtelProviders
 import TokenmonPersistence
 import TokenmonProviders
 
@@ -810,6 +811,55 @@ enum TokenmonStatusItemShortcutMenuItem: Equatable {
     }
 }
 
+struct TokenmonStatusItemRenderUpdateKey: Equatable {
+    let context: TokenmonSceneContext
+    let tick: Int
+    let tooltip: String
+    let width: Int
+    let height: Int
+    let scale: Int
+    let debugOffsetX: Int
+    let debugOffsetY: Int
+
+    init(
+        context: TokenmonSceneContext,
+        tick: Int,
+        tooltip: String,
+        buttonBounds: NSRect,
+        scaleFactor: CGFloat,
+        debugOffset: CGSize
+    ) {
+        self.context = context
+        self.tick = tick
+        self.tooltip = tooltip
+        self.width = Int(buttonBounds.width.rounded())
+        self.height = Int(buttonBounds.height.rounded())
+        self.scale = Int((scaleFactor * 100).rounded())
+        self.debugOffsetX = Int((debugOffset.width * 100).rounded())
+        self.debugOffsetY = Int((debugOffset.height * 100).rounded())
+    }
+}
+
+struct TokenmonStatusItemRenderUpdateGate {
+    private var lastAppliedKey: TokenmonStatusItemRenderUpdateKey?
+
+    mutating func shouldApply(_ key: TokenmonStatusItemRenderUpdateKey, force: Bool = false) -> Bool {
+        if force {
+            lastAppliedKey = key
+            return true
+        }
+        guard lastAppliedKey != key else {
+            return false
+        }
+        lastAppliedKey = key
+        return true
+    }
+
+    mutating func reset() {
+        lastAppliedKey = nil
+    }
+}
+
 @MainActor
 final class TokenmonStatusItemController: NSObject {
     private let model: TokenmonMenuModel
@@ -819,6 +869,7 @@ final class TokenmonStatusItemController: NSObject {
     private let playbackController = TokenmonScenePlaybackController()
     private var timer: Timer?
     private var currentRenderInterval: TimeInterval?
+    private var renderUpdateGate = TokenmonStatusItemRenderUpdateGate()
 
     init(model: TokenmonMenuModel, debugController: TokenmonSceneDebugController) {
         self.model = model
@@ -852,7 +903,7 @@ final class TokenmonStatusItemController: NSObject {
             button.appearsDisabled = false
         }
 
-        renderStatusItem()
+        renderStatusItem(force: true)
         updateTimerIfNeeded(for: model.restingSceneContext.sceneState)
 
         NSWorkspace.shared.notificationCenter.addObserver(
@@ -868,6 +919,7 @@ final class TokenmonStatusItemController: NSObject {
         timer?.invalidate()
         timer = nil
         currentRenderInterval = nil
+        renderUpdateGate.reset()
         popover.performClose(nil)
         NSStatusBar.system.removeStatusItem(statusItem)
     }
@@ -910,10 +962,10 @@ final class TokenmonStatusItemController: NSObject {
     }
 
     func refreshForAutomation() {
-        renderStatusItem()
+        renderStatusItem(force: true)
     }
 
-    func captureStatusItemButtonImage() -> CGImage? {
+    func captureStatusItemButtonImage() async -> CGImage? {
         guard let button = statusItem.button,
               let window = button.window,
               let screen = window.screen else {
@@ -923,28 +975,30 @@ final class TokenmonStatusItemController: NSObject {
         let buttonFrameInWindow = button.convert(button.bounds, to: nil)
         let buttonFrameOnScreen = window.convertToScreen(buttonFrameInWindow)
 
-        let semaphore = DispatchSemaphore(value: 0)
-        var capturedImage: CGImage?
-
-        Task {
-            capturedImage = await Self.captureStatusItemRegion(
-                buttonFrameOnScreen,
-                screen: screen
-            )
-            semaphore.signal()
-        }
-
-        _ = semaphore.wait(timeout: .now() + 2.0)
-        if let capturedImage {
+        if let capturedImage = await Self.captureStatusItemRegion(buttonFrameOnScreen, screen: screen) {
             return capturedImage
         }
-
         button.displayIfNeeded()
         return Self.captureStatusItemButtonViewImage(button)
     }
 
+    func captureStatusItemButtonImageForAutomation(timeout: TimeInterval = 2.0) -> CGImage? {
+        var capturedImage: CGImage?
+        var isComplete = false
+        Task { @MainActor in
+            capturedImage = await captureStatusItemButtonImage()
+            isComplete = true
+        }
+
+        let deadline = Date().addingTimeInterval(timeout)
+        while isComplete == false && Date() < deadline {
+            RunLoop.current.run(mode: .default, before: Date().addingTimeInterval(0.01))
+        }
+        return capturedImage
+    }
+
     @objc private func handleSystemWake() {
-        renderStatusItem()
+        renderStatusItem(force: true)
     }
 
     @objc private func handleStatusItemClick(_ sender: Any?) {
@@ -996,7 +1050,7 @@ final class TokenmonStatusItemController: NSObject {
         NSApp.terminate(nil)
     }
 
-    private func renderStatusItem() {
+    private func renderStatusItem(force: Bool = false) {
         let now = Date()
 
         playbackController.updateRestingContext(model.restingSceneContext)
@@ -1012,6 +1066,20 @@ final class TokenmonStatusItemController: NSObject {
             return
         }
 
+        let tooltip = model.menuPresentation.headline
+        let debugOffset = debugController.statusOffset(for: context.fieldKind)
+        let updateKey = TokenmonStatusItemRenderUpdateKey(
+            context: context,
+            tick: TokenmonSceneTiming.tick(for: context, at: now),
+            tooltip: tooltip,
+            buttonBounds: button.bounds,
+            scaleFactor: NSScreen.main?.backingScaleFactor ?? 2,
+            debugOffset: debugOffset
+        )
+        guard renderUpdateGate.shouldApply(updateKey, force: force) else {
+            return
+        }
+
         if let image = TokenmonStatusItemImageRenderer.render(
             context: context,
             at: now,
@@ -1021,8 +1089,8 @@ final class TokenmonStatusItemController: NSObject {
             button.image = image
             statusItem.length = image.size.width
         }
-        button.toolTip = model.menuPresentation.headline
-        button.setAccessibilityLabel(model.menuPresentation.headline)
+        button.toolTip = tooltip
+        button.setAccessibilityLabel(tooltip)
     }
 
     private func isSecondaryClick(_ event: NSEvent?) -> Bool {

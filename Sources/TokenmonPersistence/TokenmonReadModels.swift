@@ -228,8 +228,15 @@ public struct ProviderIngestEventSummary: Equatable, Sendable {
 
 
 public extension TokenmonDatabaseManager {
-    func currentRunSummary() throws -> CurrentRunSummary {
-        let database = try open()
+    private func readModelDatabase(_ providedDatabase: SQLiteDatabase?) throws -> SQLiteDatabase {
+        if let providedDatabase {
+            return providedDatabase
+        }
+        return try open()
+    }
+
+    func currentRunSummary(database providedDatabase: SQLiteDatabase? = nil) throws -> CurrentRunSummary {
+        let database = try readModelDatabase(providedDatabase)
 
         guard let summary = try database.fetchOne(
             """
@@ -289,12 +296,12 @@ public extension TokenmonDatabaseManager {
         return summary
     }
 
-    func recentEncounterSummaries(limit: Int = 5) throws -> [RecentEncounterSummary] {
+    func recentEncounterSummaries(limit: Int = 5, database providedDatabase: SQLiteDatabase? = nil) throws -> [RecentEncounterSummary] {
         guard limit > 0 else {
             return []
         }
 
-        let database = try open()
+        let database = try readModelDatabase(providedDatabase)
         let sql = """
         SELECT encounters.encounter_id,
                encounters.encounter_sequence,
@@ -346,8 +353,8 @@ public extension TokenmonDatabaseManager {
         }
     }
 
-    func dexSeenSummaries() throws -> [DexSeenSummaryEntry] {
-        let database = try open()
+    func dexSeenSummaries(database providedDatabase: SQLiteDatabase? = nil) throws -> [DexSeenSummaryEntry] {
+        let database = try readModelDatabase(providedDatabase)
         let sql = """
         SELECT dex_seen.species_id,
                species.name,
@@ -384,8 +391,8 @@ public extension TokenmonDatabaseManager {
         }
     }
 
-    func dexCapturedSummaries() throws -> [DexCapturedSummaryEntry] {
-        let database = try open()
+    func dexCapturedSummaries(database providedDatabase: SQLiteDatabase? = nil) throws -> [DexCapturedSummaryEntry] {
+        let database = try readModelDatabase(providedDatabase)
         let sql = """
         SELECT dex_captured.species_id,
                species.name,
@@ -419,8 +426,8 @@ public extension TokenmonDatabaseManager {
         }
     }
 
-    func dexEntrySummaries() throws -> [DexEntrySummary] {
-        let database = try open()
+    func dexEntrySummaries(database providedDatabase: SQLiteDatabase? = nil) throws -> [DexEntrySummary] {
+        let database = try readModelDatabase(providedDatabase)
         let sql = """
         SELECT species.species_id,
                species.name,
@@ -503,8 +510,8 @@ public extension TokenmonDatabaseManager {
         }
     }
 
-    func encounterFieldDistribution() throws -> [FieldType: Int] {
-        let database = try open()
+    func encounterFieldDistribution(database providedDatabase: SQLiteDatabase? = nil) throws -> [FieldType: Int] {
+        let database = try readModelDatabase(providedDatabase)
         let sql = """
         SELECT field_code, COUNT(*)
         FROM encounters
@@ -528,8 +535,8 @@ public extension TokenmonDatabaseManager {
         return result
     }
 
-    func todayActivitySummary() throws -> TodayActivitySummary {
-        let database = try open()
+    func todayActivitySummary(database providedDatabase: SQLiteDatabase? = nil) throws -> TodayActivitySummary {
+        let database = try readModelDatabase(providedDatabase)
         let sql = """
         SELECT outcome, COUNT(*)
         FROM encounters
@@ -554,8 +561,8 @@ public extension TokenmonDatabaseManager {
         return TodayActivitySummary(encounterCount: encounterCount, captureCount: captureCount)
     }
 
-    func tokenUsageTotals() throws -> TokenUsageTotals {
-        let database = try open()
+    func tokenUsageTotals(database providedDatabase: SQLiteDatabase? = nil) throws -> TokenUsageTotals {
+        let database = try readModelDatabase(providedDatabase)
         let sql = """
         WITH account_days AS (
             SELECT provider_code,
@@ -599,8 +606,8 @@ public extension TokenmonDatabaseManager {
         return totals
     }
 
-    func tokenByProviderToday() throws -> [ProviderCode: Int64] {
-        let database = try open()
+    func tokenByProviderToday(database providedDatabase: SQLiteDatabase? = nil) throws -> [ProviderCode: Int64] {
+        let database = try readModelDatabase(providedDatabase)
         let sql = """
         WITH account_today AS (
             SELECT provider_code, SUM(normalized_delta_tokens) AS tokens
@@ -637,8 +644,8 @@ public extension TokenmonDatabaseManager {
         return result
     }
 
-    func tokenHourlyRolling24() throws -> [HourTokenBucket] {
-        let database = try open()
+    func tokenHourlyRolling24(database providedDatabase: SQLiteDatabase? = nil) throws -> [HourTokenBucket] {
+        let database = try readModelDatabase(providedDatabase)
         let sql = """
         WITH account_days AS (
             SELECT DISTINCT provider_code,
@@ -718,8 +725,8 @@ public extension TokenmonDatabaseManager {
         return buckets
     }
 
-    func tokenUsageSourceSummary() throws -> TokenUsageSourceSummary {
-        let database = try open()
+    func tokenUsageSourceSummary(database providedDatabase: SQLiteDatabase? = nil) throws -> TokenUsageSourceSummary {
+        let database = try readModelDatabase(providedDatabase)
         let hasAccountUsage = try database.fetchOne(
             "SELECT 1 FROM account_usage_samples LIMIT 1;"
         ) { _ in true } ?? false
@@ -759,11 +766,11 @@ public extension TokenmonDatabaseManager {
         )
     }
 
-    func recentProviderSessions(limit: Int = 10) throws -> [ProviderSessionTokens] {
+    func recentProviderSessions(limit: Int = 10, database providedDatabase: SQLiteDatabase? = nil) throws -> [ProviderSessionTokens] {
         guard limit > 0 else {
             return []
         }
-        let database = try open()
+        let database = try readModelDatabase(providedDatabase)
         let sql = """
         SELECT ps.provider_session_row_id,
                ps.provider_code,
@@ -803,8 +810,8 @@ public extension TokenmonDatabaseManager {
         return rows.compactMap(ProviderCode.init(rawValue:))
     }
 
-    func ambientCompanionRoster(limit: Int = 24) throws -> AmbientCompanionRoster {
-        let database = try open()
+    func ambientCompanionRoster(limit: Int = 24, database providedDatabase: SQLiteDatabase? = nil) throws -> AmbientCompanionRoster {
+        let database = try readModelDatabase(providedDatabase)
 
         let partyCount = try database.fetchOne("SELECT COUNT(*) FROM party_members;") { statement in
             SQLiteDatabase.columnInt64(statement, index: 0)
@@ -857,12 +864,12 @@ public extension TokenmonDatabaseManager {
         return .byField(summariesByField)
     }
 
-    func recentProviderSessionSummaries(limit: Int = 20) throws -> [ProviderSessionSummary] {
+    func recentProviderSessionSummaries(limit: Int = 20, database providedDatabase: SQLiteDatabase? = nil) throws -> [ProviderSessionSummary] {
         guard limit > 0 else {
             return []
         }
 
-        let database = try open()
+        let database = try readModelDatabase(providedDatabase)
         let sql = """
         SELECT provider_session_row_id,
                provider_code,
@@ -899,12 +906,12 @@ public extension TokenmonDatabaseManager {
         }
     }
 
-    func recentProviderIngestEventSummaries(limit: Int = 40) throws -> [ProviderIngestEventSummary] {
+    func recentProviderIngestEventSummaries(limit: Int = 40, database providedDatabase: SQLiteDatabase? = nil) throws -> [ProviderIngestEventSummary] {
         guard limit > 0 else {
             return []
         }
 
-        let database = try open()
+        let database = try readModelDatabase(providedDatabase)
         let sql = """
         SELECT provider_ingest_events.provider_ingest_event_id,
                provider_ingest_events.provider_code,
@@ -957,10 +964,10 @@ public extension TokenmonDatabaseManager {
         }
     }
 
-    func encounterDailyTrend(days: Int = 7) throws -> [DailyEncounterBucket] {
+    func encounterDailyTrend(days: Int = 7, database providedDatabase: SQLiteDatabase? = nil) throws -> [DailyEncounterBucket] {
         precondition(days > 0, "days must be positive")
 
-        let database = try open()
+        let database = try readModelDatabase(providedDatabase)
         let sql = """
         SELECT date(occurred_at, 'localtime') AS day, outcome, COUNT(*)
         FROM encounters
@@ -1145,8 +1152,8 @@ public extension TokenmonDatabaseManager {
         }
     }
 
-    func partyMemberSummaries() throws -> [PartyMemberSummary] {
-        let database = try open()
+    func partyMemberSummaries(database providedDatabase: SQLiteDatabase? = nil) throws -> [PartyMemberSummary] {
+        let database = try readModelDatabase(providedDatabase)
         let sql = """
         SELECT party_members.species_id,
                species.asset_key,

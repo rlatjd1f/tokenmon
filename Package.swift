@@ -11,6 +11,7 @@ let package = Package(
         .library(name: "TokenmonDomain", targets: ["TokenmonDomain"]),
         .library(name: "TokenmonGameEngine", targets: ["TokenmonGameEngine"]),
         .library(name: "TokenmonProviders", targets: ["TokenmonProviders"]),
+        .library(name: "TokenmonOtelProviders", targets: ["TokenmonOtelProviders"]),
         .library(name: "TokenmonPersistence", targets: ["TokenmonPersistence"]),
         .executable(name: "TokenmonApp", targets: ["TokenmonApp"]),
     ],
@@ -46,6 +47,13 @@ let package = Package(
             name: "TokenmonProviders",
             dependencies: [
                 "TokenmonDomain",
+            ]
+        ),
+        .target(
+            name: "TokenmonOtelProviders",
+            dependencies: [
+                "TokenmonDomain",
+                "TokenmonProviders",
                 .product(name: "GRPC", package: "grpc-swift"),
             ]
         ),
@@ -64,6 +72,7 @@ let package = Package(
                 .product(name: "Sparkle", package: "Sparkle"),
                 "TokenmonDomain",
                 "TokenmonGameEngine",
+                "TokenmonOtelProviders",
                 "TokenmonProviders",
                 "TokenmonPersistence",
             ],
@@ -86,7 +95,9 @@ let package = Package(
                 .product(name: "Testing", package: "swift-testing"),
                 "TokenmonApp",
                 "TokenmonGameEngine",
+                "TokenmonOtelProviders",
                 "TokenmonPersistence",
+                "TokenmonProviders",
                 "TokenmonDomain",
             ]
         ),

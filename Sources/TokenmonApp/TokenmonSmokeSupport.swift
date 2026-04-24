@@ -897,7 +897,7 @@ enum TokenmonReadmeScreenshotRenderer {
             statusController.refreshForAutomation()
             pumpRunLoop(for: 0.08)
 
-            guard let cgImage = statusController.captureStatusItemButtonImage() else {
+            guard let cgImage = statusController.captureStatusItemButtonImageForAutomation() else {
                 if allowSkip {
                     try? FileManager.default.removeItem(at: url)
                     return .skipped("actual status-item capture unavailable in this session")
@@ -1025,17 +1025,14 @@ private enum ScreenshotRenderError: Error, LocalizedError {
 
 @MainActor
 private func waitForInitialRefresh(of model: TokenmonMenuModel, timeout: TimeInterval = 2.0) {
-    let semaphore = DispatchSemaphore(value: 0)
+    var isComplete = false
     Task { @MainActor in
         await model.waitForRefreshToFinish()
-        semaphore.signal()
+        isComplete = true
     }
 
     let deadline = Date().addingTimeInterval(timeout)
-    while Date() < deadline {
-        if semaphore.wait(timeout: .now()) == .success {
-            return
-        }
+    while isComplete == false && Date() < deadline {
         RunLoop.current.run(mode: .default, before: Date().addingTimeInterval(0.01))
     }
 }
@@ -1470,7 +1467,7 @@ private func waitForStatusItemWindow(
     let deadline = Date().addingTimeInterval(timeout)
     while Date() < deadline {
         controller.refreshForAutomation()
-        if controller.captureStatusItemButtonImage() != nil {
+        if controller.captureStatusItemButtonImageForAutomation() != nil {
             return true
         }
         pumpRunLoop(for: 0.05)
@@ -1504,17 +1501,21 @@ private func captureScreenRegion(_ region: CGRect, screen: NSScreen) -> CGImage?
         return nil
     }
 
-    let semaphore = DispatchSemaphore(value: 0)
     var capturedImage: CGImage?
+    var isComplete = false
     Task {
         capturedImage = await captureScreenRegionAsync(
             region,
             displayID: CGDirectDisplayID(displayNumber.uint32Value),
             scaleFactor: screen.backingScaleFactor
         )
-        semaphore.signal()
+        isComplete = true
     }
-    _ = semaphore.wait(timeout: .now() + 2.0)
+
+    let deadline = Date().addingTimeInterval(2)
+    while isComplete == false && Date() < deadline {
+        pumpRunLoop(for: 0.01)
+    }
     return capturedImage
 }
 

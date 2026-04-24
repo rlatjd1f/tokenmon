@@ -1,5 +1,6 @@
 import Foundation
 import TokenmonDomain
+import TokenmonOtelProviders
 import TokenmonPersistence
 import TokenmonProviders
 
