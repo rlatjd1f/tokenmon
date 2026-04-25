@@ -31,21 +31,26 @@ public enum GeminiSettingsMerger {
             root = parsed
         }
 
-        if let existing = root["telemetry"] as? [String: Any],
-           let currentEndpoint = existing["otlpEndpoint"] as? String {
+        var telemetry = root["telemetry"] as? [String: Any] ?? [:]
+
+        if let currentEndpoint = telemetry["otlpEndpoint"] as? String {
             if currentEndpoint == endpoint {
-                return .alreadyConfigured
-            }
-            if allowOverride == false {
+                let promptLoggingDisabled = (telemetry["logPrompts"] as? Bool) == false
+                let telemetryEnabled = (telemetry["enabled"] as? Bool) == true
+                let targetLocal = (telemetry["target"] as? String) == "local"
+                if promptLoggingDisabled && telemetryEnabled && targetLocal {
+                    return .alreadyConfigured
+                }
+            } else if allowOverride == false {
                 return .conflict(existingEndpoint: currentEndpoint)
             }
         }
 
-        root["telemetry"] = [
-            "enabled": true,
-            "target": "local",
-            "otlpEndpoint": endpoint
-        ]
+        telemetry["enabled"] = true
+        telemetry["target"] = "local"
+        telemetry["otlpEndpoint"] = endpoint
+        telemetry["logPrompts"] = false
+        root["telemetry"] = telemetry
 
         let mergedData = try JSONSerialization.data(
             withJSONObject: root,
@@ -55,6 +60,18 @@ public enum GeminiSettingsMerger {
             throw MergerError.invalidJSON
         }
         return .merged(updatedJSON: mergedString)
+    }
+
+    public static func promptLoggingDisabled(existingJSON: String) -> Bool {
+        guard existingJSON.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false,
+              let data = existingJSON.data(using: .utf8),
+              let root = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let telemetry = root["telemetry"] as? [String: Any],
+              let logPrompts = telemetry["logPrompts"] as? Bool
+        else {
+            return false
+        }
+        return logPrompts == false
     }
 
     public enum MergerError: Swift.Error {

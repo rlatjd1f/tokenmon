@@ -6,9 +6,11 @@ public struct ProviderHealthSummary: Equatable, Sendable {
     public let sourceMode: String?
     public let healthState: String
     public let supportLevel: String
+    public let reliabilityLabel: String
     public let message: String
     public let offlineDashboardRecovery: String
     public let liveGameplayArmed: Bool
+    public let diagnosticFacts: [String: String]
     public let lastSuccessAt: String?
     public let lastErrorAt: String?
     public let lastErrorSummary: String?
@@ -52,6 +54,11 @@ public extension TokenmonDatabaseManager {
                 sourceMode: resolvedSourceMode ?? inferred.sourceMode,
                 healthState: inferred.healthState,
                 supportLevel: provider.defaultSupportLevel,
+                reliabilityLabel: reliabilityLabel(
+                    provider: provider,
+                    sourceMode: resolvedSourceMode ?? inferred.sourceMode,
+                    healthState: inferred.healthState
+                ),
                 message: inferred.message,
                 offlineDashboardRecovery: offlineDashboardRecoveryPolicy(for: provider),
                 liveGameplayArmed: liveGameplayArmed(
@@ -59,6 +66,10 @@ public extension TokenmonDatabaseManager {
                     sourceMode: resolvedSourceMode ?? inferred.sourceMode,
                     healthState: inferred.healthState,
                     hasLiveGameplayBoundary: hasLiveGameplayBoundary
+                ),
+                diagnosticFacts: try providerDiagnosticFacts(
+                    provider: provider,
+                    database: database
                 ),
                 lastSuccessAt: persistedRow?.lastSuccessAt ?? observedAt,
                 lastErrorAt: persistedRow?.lastErrorAt,
@@ -138,6 +149,43 @@ public extension TokenmonDatabaseManager {
         sourceMode: String?,
         database: SQLiteDatabase
     ) throws -> String? {
+        if provider == .cursor {
+            if let sourceMode {
+                let observedAtForSource = try database.fetchOne(
+                    """
+                    SELECT observed_at
+                    FROM account_usage_samples
+                    WHERE provider_code = ? AND source_mode = ?
+                    ORDER BY observed_at DESC, account_usage_sample_id DESC
+                    LIMIT 1;
+                    """,
+                    bindings: [.text(provider.rawValue), .text(sourceMode)]
+                ) { statement in
+                    SQLiteDatabase.columnText(statement, index: 0)
+                }
+                if let observedAtForSource {
+                    return observedAtForSource
+                }
+            }
+
+            let latestAccountObservedAt = try database.fetchOne(
+                """
+                SELECT observed_at
+                FROM account_usage_samples
+                WHERE provider_code = ?
+                ORDER BY observed_at DESC, account_usage_sample_id DESC
+                LIMIT 1;
+                """,
+                bindings: [.text(provider.rawValue)]
+            ) { statement in
+                SQLiteDatabase.columnText(statement, index: 0)
+            }
+            if let latestAccountObservedAt {
+                return latestAccountObservedAt
+            }
+            return nil
+        }
+
         if let sourceMode {
             return try database.fetchOne(
                 """
@@ -173,6 +221,23 @@ public extension TokenmonDatabaseManager {
     ) throws -> String? {
         if provider == .codex {
             return try preferredCodexSourceMode(database: database)
+        }
+        if provider == .cursor {
+            let accountSourceMode = try database.fetchOne(
+                """
+                SELECT source_mode
+                FROM account_usage_samples
+                WHERE provider_code = 'cursor'
+                ORDER BY observed_at DESC, account_usage_sample_id DESC
+                LIMIT 1;
+                """
+            ) { statement in
+                SQLiteDatabase.columnText(statement, index: 0)
+            }
+            if let accountSourceMode {
+                return accountSourceMode
+            }
+            return nil
         }
 
         return try database.fetchOne(
@@ -217,9 +282,9 @@ public extension TokenmonDatabaseManager {
         )
         ORDER BY
             CASE source_mode
-                WHEN 'codex_session_store_live' THEN 0
-                WHEN 'codex_session_store_recovery' THEN 1
-                WHEN 'codex_exec_json' THEN 2
+                WHEN 'codex_exec_json' THEN 0
+                WHEN 'codex_session_store_live' THEN 1
+                WHEN 'codex_session_store_recovery' THEN 2
                 WHEN 'codex_interactive_hook_assisted' THEN 3
                 WHEN 'codex_transcript_backfill' THEN 4
                 WHEN 'codex_interactive_observer' THEN 5
@@ -278,6 +343,18 @@ public extension TokenmonDatabaseManager {
                 sourceMode,
                 "active",
                 "Claude ingest active via OTel api_request at \(lastObservedAt)"
+            )
+        }
+
+        if provider == .cursor,
+           let sourceMode,
+           let lastObservedAt,
+           sourceMode.hasPrefix("cursor_")
+        {
+            return (
+                sourceMode,
+                "connected",
+                "Cursor stats-only accounting imported at \(lastObservedAt); Cursor usage never drives gameplay"
             )
         }
 
@@ -366,7 +443,71 @@ public extension TokenmonDatabaseManager {
         case .gemini:
             return healthState != "missing_configuration" && healthState != "unsupported"
         case .cursor:
-            return healthState != "missing_configuration" && healthState != "unsupported"
+            return false
+        }
+    }
+
+    private func reliabilityLabel(
+        provider: ProviderCode,
+        sourceMode: String?,
+        healthState: String
+    ) -> String {
+        if healthState == "degraded" || healthState == "unsupported" {
+            return "degraded"
+        }
+
+        switch provider {
+        case .claude, .gemini:
+            return "first_class"
+        case .codex:
+            return sourceMode == "codex_exec_json" ? "managed_first_class" : "best_effort"
+        case .cursor:
+            return "stats_only"
+        }
+    }
+
+    private func providerDiagnosticFacts(
+        provider: ProviderCode,
+        database: SQLiteDatabase
+    ) throws -> [String: String] {
+        switch provider {
+        case .cursor:
+            let accountUsageSamples = try database.fetchOne(
+                "SELECT COUNT(*) FROM account_usage_samples WHERE provider_code = 'cursor';"
+            ) { statement in
+                SQLiteDatabase.columnInt64(statement, index: 0)
+            } ?? 0
+            let legacyUsageSamples = try database.fetchOne(
+                "SELECT COUNT(*) FROM usage_samples WHERE provider_code = 'cursor';"
+            ) { statement in
+                SQLiteDatabase.columnInt64(statement, index: 0)
+            } ?? 0
+            let legacyGameplayDeltaTokens = try database.fetchOne(
+                "SELECT COALESCE(SUM(gameplay_delta_tokens), 0) FROM usage_samples WHERE provider_code = 'cursor';"
+            ) { statement in
+                SQLiteDatabase.columnInt64(statement, index: 0)
+            } ?? 0
+            let legacyCursorEncounters = try database.fetchOne(
+                """
+                SELECT COUNT(*)
+                FROM encounters e
+                INNER JOIN usage_samples us
+                    ON us.usage_sample_id = e.usage_sample_id
+                WHERE us.provider_code = 'cursor';
+                """
+            ) { statement in
+                SQLiteDatabase.columnInt64(statement, index: 0)
+            } ?? 0
+
+            return [
+                "account_usage_samples": "\(accountUsageSamples)",
+                "legacy_usage_samples": "\(legacyUsageSamples)",
+                "legacy_gameplay_delta_tokens": "\(legacyGameplayDeltaTokens)",
+                "legacy_cursor_encounters": "\(legacyCursorEncounters)",
+                "legacy_cursor_gameplay_history_detected": legacyCursorEncounters > 0 ? "yes" : "no",
+            ]
+        case .claude, .codex, .gemini:
+            return [:]
         }
     }
 }

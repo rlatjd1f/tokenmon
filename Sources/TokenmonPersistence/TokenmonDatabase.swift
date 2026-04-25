@@ -2351,6 +2351,160 @@ public final class TokenmonDatabaseManager {
                 "CREATE INDEX IF NOT EXISTS idx_raid_member_hits_attack ON raid_member_hits(raid_attack_row_id);",
                 "CREATE INDEX IF NOT EXISTS idx_reward_archive_status ON reward_archive_entries(status, updated_at DESC);",
             ]),
+            SQLiteMigration(version: 14, statements: [
+                """
+                INSERT INTO providers (
+                    provider_code,
+                    display_name,
+                    default_support_level,
+                    is_enabled,
+                    created_at,
+                    updated_at
+                ) VALUES (
+                    'cursor',
+                    'Cursor',
+                    'managed_only',
+                    1,
+                    strftime('%Y-%m-%dT%H:%M:%fZ', 'now'),
+                    strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+                )
+                ON CONFLICT(provider_code) DO UPDATE SET
+                    display_name = excluded.display_name,
+                    default_support_level = excluded.default_support_level,
+                    is_enabled = 1,
+                    updated_at = excluded.updated_at;
+                """,
+                """
+                INSERT OR IGNORE INTO account_usage_samples (
+                    provider_code,
+                    source_mode,
+                    observed_at,
+                    model_slug,
+                    usage_kind,
+                    input_tokens,
+                    output_tokens,
+                    cached_input_tokens,
+                    normalized_delta_tokens,
+                    provider_event_fingerprint,
+                    raw_reference_kind,
+                    raw_reference_event_name,
+                    raw_reference_offset,
+                    payload_json,
+                    created_at
+                )
+                WITH cursor_ordered AS (
+                    SELECT
+                        us.usage_sample_id,
+                        us.observed_at,
+                        us.total_input_tokens,
+                        us.total_output_tokens,
+                        us.total_cached_input_tokens,
+                        us.normalized_delta_tokens,
+                        us.created_at,
+                        ps.model_slug,
+                        LAG(us.total_input_tokens, 1, 0) OVER (
+                            PARTITION BY us.provider_session_row_id
+                            ORDER BY us.observed_at, us.usage_sample_id
+                        ) AS previous_input_tokens,
+                        LAG(us.total_output_tokens, 1, 0) OVER (
+                            PARTITION BY us.provider_session_row_id
+                            ORDER BY us.observed_at, us.usage_sample_id
+                        ) AS previous_output_tokens,
+                        LAG(us.total_cached_input_tokens, 1, 0) OVER (
+                            PARTITION BY us.provider_session_row_id
+                            ORDER BY us.observed_at, us.usage_sample_id
+                        ) AS previous_cached_input_tokens
+                    FROM usage_samples us
+                    LEFT JOIN provider_sessions ps
+                        ON ps.provider_session_row_id = us.provider_session_row_id
+                    WHERE us.provider_code = 'cursor'
+                ),
+                cursor_account_rows AS (
+                    SELECT
+                        usage_sample_id,
+                        observed_at,
+                        model_slug,
+                        CASE
+                            WHEN total_input_tokens >= previous_input_tokens
+                            THEN total_input_tokens - previous_input_tokens
+                            ELSE 0
+                        END AS input_delta_tokens,
+                        CASE
+                            WHEN total_output_tokens >= previous_output_tokens
+                            THEN total_output_tokens - previous_output_tokens
+                            ELSE 0
+                        END AS output_delta_tokens,
+                        CASE
+                            WHEN total_cached_input_tokens >= previous_cached_input_tokens
+                            THEN total_cached_input_tokens - previous_cached_input_tokens
+                            ELSE 0
+                        END AS cached_input_delta_tokens,
+                        normalized_delta_tokens,
+                        created_at
+                    FROM cursor_ordered
+                )
+                SELECT
+                    'cursor',
+                    'cursor_legacy_usage_sample',
+                    observed_at,
+                    model_slug,
+                    'legacy_usage_sample',
+                    input_delta_tokens,
+                    output_delta_tokens,
+                    cached_input_delta_tokens,
+                    normalized_delta_tokens,
+                    'cursor:legacy-usage-sample:' || usage_sample_id,
+                    'legacy_usage_sample',
+                    'legacy_usage_sample',
+                    CAST(usage_sample_id AS TEXT),
+                    json_object(
+                        'event_type', 'account_usage_sample',
+                        'provider', 'cursor',
+                        'source_mode', 'cursor_legacy_usage_sample',
+                        'observed_at', observed_at,
+                        'model_slug', model_slug,
+                        'usage_kind', 'legacy_usage_sample',
+                        'input_tokens', input_delta_tokens,
+                        'output_tokens', output_delta_tokens,
+                        'cached_input_tokens', cached_input_delta_tokens,
+                        'normalized_delta_tokens', normalized_delta_tokens,
+                        'provider_event_fingerprint', 'cursor:legacy-usage-sample:' || usage_sample_id,
+                        'raw_reference', json_object(
+                            'kind', 'legacy_usage_sample',
+                            'event_name', 'legacy_usage_sample',
+                            'offset', CAST(usage_sample_id AS TEXT)
+                        )
+                    ),
+                    created_at
+                FROM cursor_account_rows;
+                """,
+                """
+                UPDATE usage_samples
+                SET gameplay_eligibility = 'recovery_only',
+                    gameplay_delta_tokens = 0,
+                    gameplay_balance_bucket = NULL,
+                    gameplay_balance_weight = NULL,
+                    gameplay_balance_policy = NULL
+                WHERE provider_code = 'cursor';
+                """,
+                """
+                UPDATE domain_events
+                SET payload_json = json_set(
+                    payload_json,
+                    '$.gameplay_eligibility',
+                    'recovery_only',
+                    '$.gameplay_delta_tokens',
+                    0
+                )
+                WHERE event_type = 'usage_sample_recorded'
+                  AND json_valid(payload_json)
+                  AND json_extract(payload_json, '$.usage_sample_id') IN (
+                      SELECT usage_sample_id
+                      FROM usage_samples
+                      WHERE provider_code = 'cursor'
+                  );
+                """,
+            ]),
         ]
     }
 }

@@ -543,8 +543,36 @@ struct TokenmonPresentationTests {
         )
 
         #expect(metadata.contains("Support: Best-effort"))
+        #expect(metadata.contains("Reliability: Degraded"))
         #expect(metadata.contains("Mode: Interactive observer"))
         #expect(metadata.contains("Automatic local follow"))
+    }
+
+    @Test
+    func settingsPresentationFormatsCursorAsStatsOnlyNoGameplay() {
+        let status = makeOnboardingStatus(
+            provider: .cursor,
+            cliInstalled: true,
+            isConnected: true,
+            isPartial: true,
+            title: "Cursor synced"
+        )
+        let health = makeHealthSummary(
+            provider: .cursor,
+            sourceMode: "cursor_usage_export_api",
+            healthState: "connected",
+            supportLevel: "managed_only"
+        )
+
+        let metadata = TokenmonSettingsPresentationBuilder.providerMetadataLine(
+            status: status,
+            healthSummary: health
+        )
+
+        #expect(metadata.contains("Support: Managed-only"))
+        #expect(metadata.contains("Reliability: Stats-only"))
+        #expect(metadata.contains("Mode: Usage export sync"))
+        #expect(metadata.contains("Stats-only; gameplay disabled"))
     }
 
     @Test
@@ -4178,9 +4206,11 @@ struct TokenmonPresentationTests {
             sourceMode: provider == .claude ? "claude_statusline_live" : "codex_exec_json",
             healthState: healthState,
             supportLevel: provider.defaultSupportLevel,
+            reliabilityLabel: provider == .codex ? "managed_first_class" : "first_class",
             message: message,
             offlineDashboardRecovery: provider == .codex ? "automatic_supported" : provider == .claude ? "known_transcript_only" : "unavailable",
             liveGameplayArmed: provider != .gemini,
+            diagnosticFacts: [:],
             lastSuccessAt: nil,
             lastErrorAt: nil,
             lastErrorSummary: nil,
@@ -4537,9 +4567,11 @@ struct TokenmonPresentationTests {
             sourceMode: sourceMode,
             healthState: healthState,
             supportLevel: supportLevel,
+            reliabilityLabel: healthState == "degraded" ? "degraded" : provider == .cursor ? "stats_only" : provider == .codex && sourceMode == "codex_exec_json" ? "managed_first_class" : supportLevel,
             message: "\(provider.displayName) health message",
             offlineDashboardRecovery: provider == .codex ? "automatic_supported" : provider == .claude ? "known_transcript_only" : "unavailable",
             liveGameplayArmed: provider == .codex,
+            diagnosticFacts: [:],
             lastSuccessAt: nil,
             lastErrorAt: nil,
             lastErrorSummary: nil,

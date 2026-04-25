@@ -303,7 +303,7 @@
 "provider.codex.path_missing.detail" = "사용자 지정 Codex 설정 경로가 존재하지 않습니다. 수정하거나 자동 감지로 되돌리세요.";
 "provider.codex.path_missing.action" = "Codex 경로 수정";
 "provider.codex.ready.title" = "Codex 준비됨";
-"provider.codex.ready.detail" = "Tokenmon이 로컬 Codex 세션을 자동으로 감시합니다. 다운타임 복구는 대시보드만 갱신하며 게임플레이는 라이브 관찰만 반영합니다.";
+"provider.codex.ready.detail" = "Tokenmon이 로컬 Codex 세션을 best-effort로 자동 감시합니다. managed codex exec --json이 가장 신뢰도 높은 Codex 수집 모드입니다.";
 
 "provider.gemini.connected.title" = "Gemini 연결됨";
 "provider.gemini.connected.detail" = "Gemini 텔레메트리가 Tokenmon으로 전달되고 있습니다. 게임플레이는 라이브 관찰만 반영하며 오프라인 대시보드 복구는 지원되지 않습니다.";
@@ -479,12 +479,19 @@
 "settings.providers.overview.providers" = "프로바이더";
 "settings.providers.overview.connected" = "연결됨";
 "settings.providers.overview.needs_attention" = "주의 필요";
-"settings.providers.overview.codex_note" = "Codex 세션 추적은 best-effort입니다.";
+"settings.providers.overview.codex_note" = "Codex 로컬 세션 추적은 best-effort이며, managed codex exec --json이 가장 신뢰도 높은 Codex 경로입니다.";
 "settings.providers.metadata.support" = "지원 수준: %1$@";
+"settings.providers.metadata.reliability" = "신뢰도: %1$@";
 "settings.providers.metadata.mode" = "모드: %1$@";
 "settings.providers.metadata.local_follow" = "자동 로컬 추적";
+"settings.providers.metadata.stats_only_no_gameplay" = "통계 전용; 게임플레이 비활성";
 "settings.providers.support.first_class" = "1급 지원";
 "settings.providers.support.best_effort" = "best-effort";
+"settings.providers.reliability.first_class" = "1급";
+"settings.providers.reliability.managed_first_class" = "managed 1급";
+"settings.providers.reliability.best_effort" = "best-effort";
+"settings.providers.reliability.stats_only" = "통계 전용";
+"settings.providers.reliability.degraded" = "저하됨";
 "settings.providers.codex_mode.auto" = "자동 추적";
 "settings.providers.codex_mode.accurate" = "정확 복구";
 "settings.providers.source_mode.claude_statusline_live" = "상태 줄 라이브";
@@ -494,6 +501,7 @@
 "settings.providers.source_mode.codex_session_store_recovery" = "세션 스토어 복구";
 "settings.providers.source_mode.codex_session_store_live" = "세션 스토어 라이브";
 "settings.providers.source_mode.codex_interactive_observer" = "인터랙티브 옵저버";
+"settings.providers.source_mode.cursor_legacy_usage_sample" = "레거시 통계 복구";
 "settings.providers.troubleshooting" = "문제 해결";
 "settings.providers.path.executable" = "실행 파일";
 "settings.providers.path.config" = "설정";
@@ -664,11 +672,11 @@
 "party.full.toast" = "파티가 가득 찼어요 (10/10). 먼저 제외해주세요.";
 "dex.card.accessibility.party_suffix" = "파티 멤버";
 "provider.cursor.sync.title" = "Cursor 동기화 가능";
-"provider.cursor.sync.detail" = "Tokenmon이 인증된 usage export API에서 Cursor 사용량을 가져와 managed-only 실험적 accounting 데이터로 가져올 수 있습니다.";
+"provider.cursor.sync.detail" = "Tokenmon이 인증된 usage export API에서 Cursor 사용량을 가져와 통계 전용, managed-only 실험적 accounting 데이터로 가져올 수 있습니다.";
 "provider.cursor.sync.action" = "Cursor 사용량 동기화";
 "provider.cursor.sync_again.action" = "Cursor 다시 동기화";
 "provider.cursor.connected.title" = "Cursor 동기화됨";
-"provider.cursor.connected.detail" = "최근 Cursor 사용량이 Tokenmon 통계로 가져와졌습니다. Cursor export row는 accounting-only이며 게임플레이를 진행하지 않습니다.";
+"provider.cursor.connected.detail" = "최근 Cursor 사용량이 Tokenmon 통계로 가져와졌습니다. Cursor row는 통계 전용이며 encounter, raid, Dex 진행을 만들 수 없습니다.";
 "settings.providers.support.managed_only" = "managed-only";
 "settings.providers.source_mode.cursor_usage_export_api" = "Usage export 동기화";
 "settings.providers.next_step.cursor_missing_configuration" = "Tokenmon에서 Cursor usage sync를 실행해 최신 managed-only accounting 데이터를 가져오세요.";

@@ -265,6 +265,7 @@ enum TokenmonAutomationCommand {
         let dbPath = optionValue("--db", in: arguments) ?? TokenmonDatabaseManager.defaultPath()
         let databaseManager = TokenmonDatabaseManager(path: dbPath)
         let providerHealth = try databaseManager.providerHealthSummaries()
+        let preferences = (try? databaseManager.providerInstallationPreferences()) ?? ProviderInstallationPreferences()
         var lines = ["provider diagnose"]
 
         guard providerHealth.isEmpty == false else {
@@ -276,11 +277,20 @@ enum TokenmonAutomationCommand {
             lines.append("")
             lines.append("[\(summary.provider.rawValue)]")
             lines.append("support_level: \(summary.supportLevel)")
+            lines.append("reliability_label: \(summary.reliabilityLabel)")
             lines.append("source_mode: \(summary.sourceMode ?? "unknown")")
             lines.append("health_state: \(summary.healthState)")
             lines.append("message: \(summary.message)")
             lines.append("offline_dashboard_recovery: \(summary.offlineDashboardRecovery)")
             lines.append("live_gameplay_armed: \(summary.liveGameplayArmed ? "yes" : "no")")
+            if summary.provider == .gemini {
+                lines.append(
+                    "prompt_logging_disabled: \(TokenmonProviderOnboarding.geminiPromptLoggingDisabled(preferences: preferences) ? "yes" : "no")"
+                )
+            }
+            for key in summary.diagnosticFacts.keys.sorted() {
+                lines.append("\(key): \(summary.diagnosticFacts[key] ?? "")")
+            }
             lines.append("last_event_time: \(summary.lastObservedAt ?? "none")")
             lines.append("last_success_at: \(summary.lastSuccessAt ?? "none")")
             lines.append("last_error_at: \(summary.lastErrorAt ?? "none")")
@@ -875,7 +885,7 @@ enum TokenmonAutomationCommand {
         lines.append("provider_health:")
         for summary in providerHealth {
             lines.append(
-                "- \(summary.provider.rawValue) | support=\(summary.supportLevel) | mode=\(summary.sourceMode ?? "unknown") | state=\(summary.healthState) | next=\(nextStep(for: summary))"
+                "- \(summary.provider.rawValue) | support=\(summary.supportLevel) | reliability=\(summary.reliabilityLabel) | mode=\(summary.sourceMode ?? "unknown") | state=\(summary.healthState) | next=\(nextStep(for: summary))"
             )
         }
 

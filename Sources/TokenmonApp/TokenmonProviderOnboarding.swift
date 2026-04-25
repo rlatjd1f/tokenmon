@@ -74,6 +74,15 @@ enum TokenmonProviderOnboarding {
         }
     }
 
+    static func geminiPromptLoggingDisabled(preferences: ProviderInstallationPreferences) -> Bool {
+        let discovery = TokenmonProviderDiscovery.discover(provider: .gemini, preferences: preferences)
+        let settingsPath = URL(fileURLWithPath: discovery.configurationPath, isDirectory: true)
+            .appendingPathComponent("settings.json")
+            .path
+        let settingsJSON = (try? String(contentsOfFile: settingsPath, encoding: .utf8)) ?? ""
+        return GeminiSettingsMerger.promptLoggingDisabled(existingJSON: settingsJSON)
+    }
+
     static func install(
         provider: ProviderCode,
         databasePath: String,

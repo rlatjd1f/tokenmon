@@ -1814,11 +1814,21 @@ private struct TokenmonDeveloperDiagnosticCard: View {
                 .foregroundStyle(.secondary)
 
             TokenmonDeveloperInfoRow(title: "Support", value: summary.supportLevel, systemImage: "shield", tint: .secondary)
+            TokenmonDeveloperInfoRow(title: "Reliability", value: summary.reliabilityLabel, systemImage: "checkmark.shield", tint: .secondary)
             TokenmonDeveloperInfoRow(title: "Mode", value: summary.sourceMode ?? "unknown", systemImage: "antenna.radiowaves.left.and.right", tint: .secondary)
             TokenmonDeveloperInfoRow(title: "Offline Recovery", value: summary.offlineDashboardRecovery, systemImage: "arrow.clockwise.circle", tint: .secondary)
             TokenmonDeveloperInfoRow(title: "Gameplay Armed", value: summary.liveGameplayArmed ? "yes" : "no", systemImage: "gamecontroller", tint: summary.liveGameplayArmed ? .green : .secondary)
             TokenmonDeveloperInfoRow(title: "Observed", value: summary.lastObservedAt ?? "none", systemImage: "clock", tint: .secondary)
             TokenmonDeveloperInfoRow(title: "Next", value: nextStep, systemImage: "arrow.turn.down.right", tint: .secondary)
+
+            ForEach(summary.diagnosticFacts.keys.sorted(), id: \.self) { key in
+                TokenmonDeveloperInfoRow(
+                    title: key.replacingOccurrences(of: "_", with: " ").capitalized,
+                    value: summary.diagnosticFacts[key] ?? "",
+                    systemImage: "list.bullet.rectangle",
+                    tint: .secondary
+                )
+            }
 
             if let lastError = summary.lastErrorSummary {
                 TokenmonDeveloperInfoRow(title: "Last Error", value: lastError, systemImage: "exclamationmark.triangle.fill", tint: .orange)
