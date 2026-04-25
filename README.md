@@ -9,6 +9,10 @@ Code and Codex. Keep coding like normal, let exploration build in the
 background, and watch new creatures appear, resolve, and fill your Dex without
 asking for an account or your prompt history.
 
+<p align="center">
+  <img src="assets/marketing/readme-hero-en.jpg" alt="Tokenmon local-first macOS AI coding companion with Dex, Raid, and Reward Archive screenshots" />
+</p>
+
 ![Tokenmon animated menu hero](assets/screenshots/variants/english/dark/menu-hero.gif)
 
 ## Download
@@ -36,7 +40,13 @@ brew install --cask aroido/tokenmon/tokenmon
 
 <p align="center">
   <img src="assets/screenshots/variants/english/dark/menu-overview.png" alt="Tokenmon menu overview" width="31%" />
+  <img src="assets/screenshots/variants/english/dark/raid-tab.png" alt="Tokenmon raid tab" width="31%" />
+  <img src="assets/screenshots/variants/english/dark/dex-tab.png" alt="Tokenmon popover dex tab" width="31%" />
+</p>
+
+<p align="center">
   <img src="assets/screenshots/variants/english/dark/seen-dex.png" alt="Tokenmon seen dex" width="31%" />
+  <img src="assets/screenshots/variants/english/dark/reward-archive.png" alt="Tokenmon reward archive" width="31%" />
   <img src="assets/screenshots/variants/english/dark/settings.png" alt="Tokenmon settings" width="31%" />
 </p>
 

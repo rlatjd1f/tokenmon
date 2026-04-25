@@ -216,6 +216,14 @@ refresh_readme_media() {
 
   TOKENMON_CAPTURE_APP_BUNDLE="$APP_BUNDLE" \
     "$ROOT/scripts/capture-readme-screenshots" "${args[@]}"
+
+  if [[ -n "$README_MEDIA_OUTPUT_DIR" ]]; then
+    "$ROOT/scripts/assemble-readme-marketing-heroes" \
+      --screenshot-root "$README_MEDIA_OUTPUT_DIR/variants" \
+      --output-dir "$README_MEDIA_OUTPUT_DIR/marketing"
+  else
+    "$ROOT/scripts/assemble-readme-marketing-heroes"
+  fi
   record_timing "release_packaging" "refresh_readme_media" "$started_at"
 }
 

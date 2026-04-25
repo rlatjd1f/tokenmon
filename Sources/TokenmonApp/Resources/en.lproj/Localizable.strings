@@ -160,6 +160,9 @@
 "dex.context_menu.add_to_party.disabled_help" = "Capture this species first to add it to the party.";
 "party.full.toast" = "Party is full (10/10). Remove a member first.";
 "dex.card.accessibility.party_suffix" = "Party member";
+"dex.tab.unavailable_title" = "Dex unavailable";
+"dex.tab.unavailable_description" = "Species data will appear here once the local Dex seed is ready.";
+"dex.tab.open_full" = "Open Full Dex";
 "dex.filter.title" = "Filters";
 "dex.search.prompt" = "Search species, field, or rarity";
 "dex.filter.field.all" = "All fields";

@@ -183,47 +183,138 @@ generate_github_notes() {
   GH_PAGER=cat gh api --method POST "repos/$repo/releases/generate-notes" --input "$payload_file"
 }
 
-localize_markdown_to_korean() {
-  local english_input="$1"
-  local korean_output="$2"
+compose_release_notes() {
+  local source_input="$1"
+  local english_output="$2"
+  local korean_output="$3"
 
-  python3 - "$english_input" "$korean_output" <<'PY'
+  python3 - "$source_input" "$english_output" "$korean_output" "$tag" "$previous_tag" "$repo" <<'PY'
 import pathlib
+import re
 import sys
 
-source = pathlib.Path(sys.argv[1]).read_text(encoding="utf-8")
-mapping = {
-    "What's Changed": "변경 사항",
-    "Full Changelog": "전체 변경 로그",
+source_path = pathlib.Path(sys.argv[1])
+english_path = pathlib.Path(sys.argv[2])
+korean_path = pathlib.Path(sys.argv[3])
+tag = sys.argv[4]
+previous_tag = sys.argv[5]
+repo = sys.argv[6]
+
+source = source_path.read_text(encoding="utf-8").replace("\r\n", "\n")
+
+heading_translations = {
     "New Features": "새 기능",
     "Provider and Ingest": "프로바이더 및 수집",
     "UI and UX": "UI 및 UX",
     "Fixes": "수정 사항",
     "Docs and Workflow": "문서 및 워크플로",
     "Everything Else": "기타 변경",
+    "What's Changed": "변경 사항",
 }
 
-lines = []
-inserted_note = False
-for raw_line in source.splitlines():
-    line = raw_line.rstrip("\n")
-    stripped = line.strip()
-    if stripped.startswith("## "):
-        heading = stripped[3:]
-        translated = mapping.get(heading, heading)
-        if not inserted_note:
-            lines.append("> 참고: 세부 항목과 PR 제목은 정확성을 위해 원문 표현을 유지할 수 있습니다.")
-            lines.append("")
-            inserted_note = True
-        lines.append(f"## {translated}")
+compare_url = ""
+for match in re.finditer(r"https://github\.com/[^\s)]+/compare/[^\s)]+", source):
+    compare_url = match.group(0)
+
+if not compare_url and previous_tag:
+    compare_url = f"https://github.com/{repo}/compare/{previous_tag}...{tag}"
+
+detail_lines = []
+skip_full_changelog = False
+for raw in source.splitlines():
+    stripped = raw.strip()
+    if re.match(r"^##+\s+Full Changelog\s*$", stripped, re.IGNORECASE):
+        skip_full_changelog = True
+        continue
+    if skip_full_changelog:
+        if re.match(r"^##+\s+", stripped):
+            skip_full_changelog = False
+        else:
+            continue
+    if re.match(r"^##+\s+What's Changed\s*$", stripped, re.IGNORECASE):
+        continue
+    detail_lines.append(raw.rstrip())
+
+while detail_lines and not detail_lines[0].strip():
+    detail_lines.pop(0)
+while detail_lines and not detail_lines[-1].strip():
+    detail_lines.pop()
+
+normalized_detail = []
+previous_blank = False
+for raw in detail_lines:
+    stripped = raw.strip()
+    if not stripped:
+        if normalized_detail and not previous_blank:
+            normalized_detail.append("")
+        previous_blank = True
+        continue
+    previous_blank = False
+    heading = re.match(r"^(#{2,6})\s+(.+?)\s*$", stripped)
+    if heading:
+        title = heading.group(2)
+        normalized_detail.append(f"### {title}")
     else:
-        lines.append(line)
+        normalized_detail.append(raw)
 
-if not inserted_note:
-    lines.insert(0, "")
-    lines.insert(0, "> 참고: 세부 항목과 PR 제목은 정확성을 위해 원문 표현을 유지할 수 있습니다.")
+if not normalized_detail:
+    normalized_detail = ["- Packaging, metadata, and release automation refresh."]
 
-pathlib.Path(sys.argv[2]).write_text("\n".join(lines).rstrip() + "\n", encoding="utf-8")
+def translate_detail(lines):
+    translated = []
+    for raw in lines:
+        heading = re.match(r"^###\s+(.+?)\s*$", raw.strip())
+        if heading:
+            title = heading.group(1)
+            translated.append(f"### {heading_translations.get(title, title)}")
+        else:
+            translated.append(raw)
+    return translated
+
+english = [
+    "## Highlights",
+    "",
+    "- Tokenmon remains a local-first macOS menu bar companion for AI coding sessions.",
+    "- This release packages the current app, release assets, and update metadata for the public release repo.",
+    "- P0 gameplay still works without an account and without storing prompt or response text for gameplay.",
+    "",
+    "## Update Notes",
+    "",
+    "- Existing users can update through the in-app updater when Sparkle offers this version.",
+    "- New installs can use the GitHub DMG or the Homebrew cask from the public release repo.",
+    "- Tokenmon requires macOS Sequoia or later.",
+    "",
+    "## Detailed Changes",
+    "",
+]
+english.extend(normalized_detail)
+if compare_url:
+    english.extend(["", "## Full Changelog", "", f"- {compare_url}"])
+
+korean = [
+    "## 주요 내용",
+    "",
+    "- Tokenmon은 AI 코딩 세션을 위한 로컬 우선 macOS 메뉴 막대 앱입니다.",
+    "- 이번 릴리즈는 현재 앱, 공개 릴리즈 자산, 업데이트 메타데이터를 함께 묶은 배포 스냅샷입니다.",
+    "- P0 게임플레이는 계정 없이 동작하며, 프롬프트나 응답 텍스트 저장을 요구하지 않습니다.",
+    "",
+    "## 업데이트 안내",
+    "",
+    "- 기존 사용자는 Sparkle이 이 버전을 제공할 때 앱 안에서 업데이트할 수 있습니다.",
+    "- 새 사용자는 공개 릴리즈 레포의 GitHub DMG 또는 Homebrew cask로 설치할 수 있습니다.",
+    "- Tokenmon은 macOS Sequoia 이상이 필요합니다.",
+    "",
+    "## 상세 변경",
+    "",
+    "> 세부 항목과 PR 제목은 정확성을 위해 원문 표현을 유지할 수 있습니다.",
+    "",
+]
+korean.extend(translate_detail(normalized_detail))
+if compare_url:
+    korean.extend(["", "## 전체 변경 로그", "", f"- {compare_url}"])
+
+english_path.write_text("\n".join(english).rstrip() + "\n", encoding="utf-8")
+korean_path.write_text("\n".join(korean).rstrip() + "\n", encoding="utf-8")
 PY
 }
 
@@ -233,9 +324,9 @@ combine_markdown() {
   local combined_output="$3"
 
   {
-    printf '# English\n\n'
+    printf '## English\n\n'
     cat "$english_input"
-    printf '\n---\n\n# 한국어\n\n'
+    printf '\n---\n\n## 한국어\n\n'
     cat "$korean_input"
   } >"$combined_output"
 }
@@ -356,14 +447,19 @@ if command -v gh >/dev/null 2>&1; then
   fi
 fi
 
+raw_english_markdown_output="$(mktemp)"
+
 if [[ "$release_notes_source" == "git_fallback" ]]; then
-  fallback_markdown "$english_markdown_output"
+  fallback_markdown "$raw_english_markdown_output"
+else
+  cp "$english_markdown_output" "$raw_english_markdown_output"
 fi
 
 printf '%s\n' "$release_title" >"$title_output"
 printf '%s\n' "$release_title_ko" >"$korean_title_output"
 
-localize_markdown_to_korean "$english_markdown_output" "$korean_markdown_output"
+compose_release_notes "$raw_english_markdown_output" "$english_markdown_output" "$korean_markdown_output"
+rm -f "$raw_english_markdown_output"
 combine_markdown "$english_markdown_output" "$korean_markdown_output" "$markdown_output"
 
 write_markdown_as_text "$english_markdown_output" "$english_text_output"

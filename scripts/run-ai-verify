@@ -949,6 +949,35 @@ else
   printf 'VERIFY INFO: skipping marketing team harness checks because marketing tooling is absent\n'
 fi
 
+if have_repo_paths \
+  "scripts/assemble-readme-marketing-heroes" \
+  "scripts/update-readme-marketing-assets" \
+  "assets/screenshots/variants/english/dark/menu-overview.png" \
+  "assets/screenshots/variants/english/dark/raid-tab.png" \
+  "assets/screenshots/variants/english/dark/reward-archive.png" \
+  "assets/screenshots/variants/english/dark/seen-dex.png" \
+  "assets/screenshots/variants/korean/dark/menu-overview.png" \
+  "assets/screenshots/variants/korean/dark/raid-tab.png" \
+  "assets/screenshots/variants/korean/dark/reward-archive.png" \
+  "assets/screenshots/variants/korean/dark/seen-dex.png"
+then
+  readme_marketing_started_at="$(timing_now)"
+  readme_marketing_dir="$tmpdir/readme-marketing"
+  readme_marketing_output="$("$ROOT/scripts/assemble-readme-marketing-heroes" --output-dir "$readme_marketing_dir" 2>&1)"
+  require_contains "$readme_marketing_output" "readme_hero_en=$readme_marketing_dir/readme-hero-en.jpg"
+  require_contains "$readme_marketing_output" "readme_hero_ko=$readme_marketing_dir/readme-hero-ko.jpg"
+  [[ -s "$readme_marketing_dir/readme-hero-en.jpg" ]] || { printf 'VERIFY FAIL: missing generated English README marketing hero\n' >&2; exit 1; }
+  [[ -s "$readme_marketing_dir/readme-hero-ko.jpg" ]] || { printf 'VERIFY FAIL: missing generated Korean README marketing hero\n' >&2; exit 1; }
+
+  readme_marketing_wrapper_dir="$tmpdir/readme-marketing-wrapper"
+  readme_marketing_wrapper_output="$("$ROOT/scripts/update-readme-marketing-assets" --skip-capture --skip-export-audit --output-dir "$readme_marketing_wrapper_dir" 2>&1)"
+  require_contains "$readme_marketing_wrapper_output" "readme_marketing_output=$readme_marketing_wrapper_dir"
+  [[ -s "$readme_marketing_wrapper_dir/readme-hero-en.jpg" ]] || { printf 'VERIFY FAIL: wrapper missing English README marketing hero\n' >&2; exit 1; }
+  [[ -s "$readme_marketing_wrapper_dir/readme-hero-ko.jpg" ]] || { printf 'VERIFY FAIL: wrapper missing Korean README marketing hero\n' >&2; exit 1; }
+  printf 'VERIFY PASS: README marketing hero assembly helpers\n'
+  record_timing "marketing_assets" "readme_marketing_heroes" "$readme_marketing_started_at"
+fi
+
 dot_asset_path="$tmpdir/generated-dots.svg"
 dot_asset_output="$("$ROOT/scripts/generate-dot-asset" --size 16 --count 3 --gap 4 --color "#4B9B6B" --output "$dot_asset_path" 2>&1)"
 require_contains "$dot_asset_output" "dot_asset_output=$dot_asset_path"
@@ -984,6 +1013,11 @@ if [[ "$has_public_export_tooling" == "1" ]]; then
   require_contains "$public_export_output" "public_export_output=$public_export_dir"
   require_contains "$public_export_output" "audit_result=pass"
   [[ -f "$public_export_dir/README.md" ]] || { printf 'VERIFY FAIL: public export should contain README.md\n' >&2; exit 1; }
+  [[ -f "$public_export_dir/README.ko.md" ]] || { printf 'VERIFY FAIL: public export should contain README.ko.md\n' >&2; exit 1; }
+  [[ -f "$public_export_dir/assets/marketing/readme-hero-en.jpg" ]] || { printf 'VERIFY FAIL: public export should contain English README marketing hero\n' >&2; exit 1; }
+  [[ -f "$public_export_dir/assets/marketing/readme-hero-ko.jpg" ]] || { printf 'VERIFY FAIL: public export should contain Korean README marketing hero\n' >&2; exit 1; }
+  require_contains "$(cat "$public_export_dir/README.md")" "assets/marketing/readme-hero-en.jpg"
+  require_contains "$(cat "$public_export_dir/README.ko.md")" "assets/marketing/readme-hero-ko.jpg"
   [[ -f "$public_export_dir/docs/architecture/public-source-overview.md" ]] || { printf 'VERIFY FAIL: public export should contain public source overview doc\n' >&2; exit 1; }
   [[ ! -e "$public_export_dir/.codex" ]] || { printf 'VERIFY FAIL: public export must not contain .codex\n' >&2; exit 1; }
   printf 'VERIFY PASS: sanitized public repo export and audit\n'
@@ -1686,11 +1720,14 @@ if [[ "$include_release_tooling" == "1" ]]; then
   [[ -f "$generated_notes_dir/RELEASE_TITLE" ]] || { printf 'VERIFY FAIL: missing generated release title file\n' >&2; exit 1; }
   [[ -f "$generated_notes_dir/RELEASE_TITLE.ko" ]] || { printf 'VERIFY FAIL: missing generated korean release title file\n' >&2; exit 1; }
   generated_markdown_release_notes="$(cat "$generated_notes_dir/RELEASE_NOTES.md")"
-  require_contains "$generated_markdown_release_notes" "# English"
-  require_contains "$generated_markdown_release_notes" "# 한국어"
-  require_contains "$generated_markdown_release_notes" "## What's Changed"
+  require_contains "$generated_markdown_release_notes" "## English"
+  require_contains "$generated_markdown_release_notes" "## 한국어"
+  require_contains "$generated_markdown_release_notes" "## Highlights"
+  require_contains "$generated_markdown_release_notes" "## Detailed Changes"
+  require_contains "$generated_markdown_release_notes" "## 주요 내용"
   generated_text_release_notes="$(cat "$generated_notes_dir/RELEASE_NOTES.txt")"
-  require_contains "$generated_text_release_notes" "What's Changed"
+  require_contains "$generated_text_release_notes" "Highlights"
+  require_contains "$generated_text_release_notes" "Detailed Changes"
   require_contains "$generated_text_release_notes" "한국어"
 
   release_dmg_sha="$(shasum -a 256 "$release_archive_dir/Tokenmon-$release_version.dmg" | awk '{print $1}')"
@@ -1748,10 +1785,12 @@ if [[ "$include_readme_screenshots" == "1" ]]; then
   readme_screenshot_output="$(TOKENMON_APP_BIN="$tokenmon_app_bin" "$ROOT/scripts/capture-readme-screenshots" --allow-menu-bar-skip --output-dir "$readme_screenshot_dir" 2>&1)"
   require_contains "$readme_screenshot_output" "screenshots_output=$readme_screenshot_dir"
   require_contains "$readme_screenshot_output" "variant_screenshots_root=$readme_variant_dir"
-  require_contains "$readme_screenshot_output" "now_tab: $readme_screenshot_dir/now-tab.png"
+  require_contains "$readme_screenshot_output" "dex_tab: $readme_screenshot_dir/dex-tab.png"
   require_contains "$readme_screenshot_output" "tokens_tab: $readme_screenshot_dir/tokens-tab.png"
   require_contains "$readme_screenshot_output" "stats_tab: $readme_screenshot_dir/stats-tab.png"
+  require_contains "$readme_screenshot_output" "raid_tab: $readme_screenshot_dir/raid-tab.png"
   require_contains "$readme_screenshot_output" "dex_capture_mode: actual_window"
+  require_contains "$readme_screenshot_output" "reward_archive_capture_mode: actual_window"
   require_contains "$readme_screenshot_output" "settings_capture_mode: actual_window"
   if printf '%s' "$readme_screenshot_output" | grep -Fq "popover_capture_mode: hosted_borderless_window"; then
     :
@@ -1762,19 +1801,31 @@ if [[ "$include_readme_screenshots" == "1" ]]; then
     exit 1
   fi
   [[ -f "$readme_screenshot_dir/menu-overview.png" ]] || { printf 'VERIFY FAIL: missing menu screenshot\n' >&2; exit 1; }
-  [[ -f "$readme_screenshot_dir/now-tab.png" ]] || { printf 'VERIFY FAIL: missing now-tab screenshot\n' >&2; exit 1; }
+  [[ -f "$readme_screenshot_dir/dex-tab.png" ]] || { printf 'VERIFY FAIL: missing dex-tab screenshot\n' >&2; exit 1; }
   [[ -f "$readme_screenshot_dir/tokens-tab.png" ]] || { printf 'VERIFY FAIL: missing tokens-tab screenshot\n' >&2; exit 1; }
   [[ -f "$readme_screenshot_dir/stats-tab.png" ]] || { printf 'VERIFY FAIL: missing stats-tab screenshot\n' >&2; exit 1; }
+  [[ -f "$readme_screenshot_dir/raid-tab.png" ]] || { printf 'VERIFY FAIL: missing raid-tab screenshot\n' >&2; exit 1; }
   [[ -f "$readme_screenshot_dir/seen-dex.png" ]] || { printf 'VERIFY FAIL: missing seen dex screenshot\n' >&2; exit 1; }
+  [[ -f "$readme_screenshot_dir/reward-archive.png" ]] || { printf 'VERIFY FAIL: missing reward archive screenshot\n' >&2; exit 1; }
   [[ -f "$readme_screenshot_dir/settings.png" ]] || { printf 'VERIFY FAIL: missing settings screenshot\n' >&2; exit 1; }
+  readme_hero_required=1
+  if printf '%s' "$readme_screenshot_output" | grep -Fq "menu_bar_capture_status: skipped"; then
+    readme_hero_required=0
+  fi
   for language in english korean; do
     for appearance in dark light; do
-      for asset in menu-hero.gif menu-overview.png now-tab.png tokens-tab.png stats-tab.png seen-dex.png settings.png; do
+      for asset in menu-overview.png dex-tab.png tokens-tab.png stats-tab.png raid-tab.png seen-dex.png reward-archive.png settings.png; do
         [[ -f "$readme_variant_dir/$language/$appearance/$asset" ]] || {
           printf 'VERIFY FAIL: missing readme screenshot variant %s/%s/%s\n' "$language" "$appearance" "$asset" >&2
           exit 1
         }
       done
+      if [[ "$readme_hero_required" == "1" ]]; then
+        [[ -f "$readme_variant_dir/$language/$appearance/menu-hero.gif" ]] || {
+          printf 'VERIFY FAIL: missing readme screenshot variant %s/%s/menu-hero.gif\n' "$language" "$appearance" >&2
+          exit 1
+        }
+      fi
     done
   done
   grep -Fq "assets/screenshots/variants/english/dark/menu-hero.gif" README.md || {
@@ -1785,12 +1836,36 @@ if [[ "$include_readme_screenshots" == "1" ]]; then
     printf 'VERIFY FAIL: README.md missing english menu screenshot path\n' >&2
     exit 1
   }
+  grep -Fq "assets/screenshots/variants/english/dark/raid-tab.png" README.md || {
+    printf 'VERIFY FAIL: README.md missing english raid screenshot path\n' >&2
+    exit 1
+  }
+  grep -Fq "assets/screenshots/variants/english/dark/dex-tab.png" README.md || {
+    printf 'VERIFY FAIL: README.md missing english popover dex screenshot path\n' >&2
+    exit 1
+  }
+  grep -Fq "assets/screenshots/variants/english/dark/reward-archive.png" README.md || {
+    printf 'VERIFY FAIL: README.md missing english reward archive screenshot path\n' >&2
+    exit 1
+  }
   grep -Fq "assets/screenshots/variants/korean/dark/menu-hero.gif" README.ko.md || {
     printf 'VERIFY FAIL: README.ko.md missing korean screenshot path\n' >&2
     exit 1
   }
   grep -Fq "assets/screenshots/variants/korean/dark/menu-overview.png" README.ko.md || {
     printf 'VERIFY FAIL: README.ko.md missing korean menu screenshot path\n' >&2
+    exit 1
+  }
+  grep -Fq "assets/screenshots/variants/korean/dark/raid-tab.png" README.ko.md || {
+    printf 'VERIFY FAIL: README.ko.md missing korean raid screenshot path\n' >&2
+    exit 1
+  }
+  grep -Fq "assets/screenshots/variants/korean/dark/dex-tab.png" README.ko.md || {
+    printf 'VERIFY FAIL: README.ko.md missing korean popover dex screenshot path\n' >&2
+    exit 1
+  }
+  grep -Fq "assets/screenshots/variants/korean/dark/reward-archive.png" README.ko.md || {
+    printf 'VERIFY FAIL: README.ko.md missing korean reward archive screenshot path\n' >&2
     exit 1
   }
   if printf '%s' "$readme_screenshot_output" | grep -Fq "menu_bar_capture_status: skipped"; then

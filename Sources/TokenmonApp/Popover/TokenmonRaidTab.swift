@@ -746,15 +746,20 @@ struct TokenmonRewardArchivePanel: View {
     }
 
     var body: some View {
-        NavigationSplitView {
+        HStack(spacing: 0) {
             rewardSidebar
-        } content: {
+                .frame(width: 196, alignment: .topLeading)
+                .frame(maxHeight: .infinity, alignment: .topLeading)
+
+            Divider()
+
             rewardBrowser
-        } detail: {
+                .frame(minWidth: 360, maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+
+            Divider()
+
             TokenmonRewardArchiveDetail(entry: selectedEntry)
-                .navigationSplitViewColumnWidth(ideal: tokenmonDexSupportingWidth + 24, max: tokenmonDexSupportingWidth + 24)
         }
-        .navigationSplitViewStyle(.balanced)
         .frame(
             minWidth: Self.minimumWindowSize.width,
             idealWidth: Self.idealWindowSize.width,
@@ -774,39 +779,66 @@ struct TokenmonRewardArchivePanel: View {
     }
 
     private var rewardSidebar: some View {
-        List(selection: $sidebarSelection) {
-            Section(TokenmonL10n.string("raid.archive.title")) {
-                RewardArchiveSidebarRow(
-                    title: TokenmonL10n.string("raid.archive.sidebar.all"),
-                    systemImage: "shippingbox.fill",
-                    count: entries.count
-                )
-                .tag(RewardArchiveSidebarSelection.all)
+        VStack(alignment: .leading, spacing: 14) {
+            Text(TokenmonL10n.string("window.title.reward_archive"))
+                .font(.headline)
+                .foregroundStyle(.primary)
 
-                RewardArchiveSidebarRow(
-                    title: TokenmonL10n.string("raid.archive.metric.available"),
-                    systemImage: "sparkles",
-                    count: availableCount
-                )
-                .tag(RewardArchiveSidebarSelection.available)
-
-                RewardArchiveSidebarRow(
-                    title: TokenmonL10n.string("raid.archive.metric.acquired"),
-                    systemImage: "checkmark.seal.fill",
-                    count: acquiredCount
-                )
-                .tag(RewardArchiveSidebarSelection.acquired)
-
-                RewardArchiveSidebarRow(
-                    title: TokenmonL10n.string("raid.reward.status.missed"),
-                    systemImage: "clock.badge.xmark",
-                    count: entries.filter { $0.status == .missed }.count
-                )
-                .tag(RewardArchiveSidebarSelection.missed)
+            VStack(alignment: .leading, spacing: 6) {
+                ForEach(rewardSidebarItems, id: \.selection) { item in
+                    Button {
+                        sidebarSelection = item.selection
+                    } label: {
+                        RewardArchiveSidebarRow(
+                            title: item.title,
+                            systemImage: item.systemImage,
+                            count: item.count
+                        )
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 8)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .background(
+                            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                                .fill(item.selection == sidebarSelection ? Color.accentColor.opacity(0.16) : Color.clear)
+                        )
+                    }
+                    .buttonStyle(.plain)
+                }
             }
+
+            Spacer(minLength: 0)
         }
-        .listStyle(.sidebar)
-        .navigationTitle(TokenmonL10n.string("window.title.reward_archive"))
+        .padding(16)
+        .background(Color(nsColor: .windowBackgroundColor))
+    }
+
+    private var rewardSidebarItems: [(selection: RewardArchiveSidebarSelection, title: String, systemImage: String, count: Int)] {
+        [
+            (
+                .all,
+                TokenmonL10n.string("raid.archive.sidebar.all"),
+                "shippingbox.fill",
+                entries.count
+            ),
+            (
+                .available,
+                TokenmonL10n.string("raid.archive.metric.available"),
+                "sparkles",
+                availableCount
+            ),
+            (
+                .acquired,
+                TokenmonL10n.string("raid.archive.metric.acquired"),
+                "checkmark.seal.fill",
+                acquiredCount
+            ),
+            (
+                .missed,
+                TokenmonL10n.string("raid.reward.status.missed"),
+                "clock.badge.xmark",
+                entries.filter { $0.status == .missed }.count
+            ),
+        ]
     }
 
     private var rewardBrowser: some View {

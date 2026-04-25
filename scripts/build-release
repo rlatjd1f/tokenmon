@@ -22,6 +22,7 @@ git_branch="$(git rev-parse --abbrev-ref HEAD 2>/dev/null || true)"
 git_commit_short="$(git rev-parse --short HEAD 2>/dev/null || true)"
 git_dirty="false"
 clean_release="false"
+include_developer_tools="false"
 cert_path=""
 keychain_path=""
 keychain_password=""
@@ -313,14 +314,21 @@ while [[ $# -gt 0 ]]; do
     --clean)
       clean_release="true"
       ;;
+    --include-developer-tools)
+      include_developer_tools="true"
+      ;;
     *)
       printf 'Unsupported argument: %s\n' "$1" >&2
-      printf 'Usage: ./scripts/build-release [--output <path>] [--scratch-path <path>] [--clean]\n' >&2
+      printf 'Usage: ./scripts/build-release [--output <path>] [--scratch-path <path>] [--clean] [--include-developer-tools]\n' >&2
       exit 2
       ;;
   esac
   shift || true
 done
+
+if [[ "$include_developer_tools" == "true" ]]; then
+  printf 'NOTE: --include-developer-tools is accepted for release-script compatibility; TokenmonApp owns its automation entrypoints.\n' >&2
+fi
 
 rm -rf "$output_path"
 mkdir -p "$output_path"
