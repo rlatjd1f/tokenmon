@@ -529,16 +529,13 @@ struct TokenmonSettingsShell<GeneralContent: View, ProviderContent: View>: View 
     @ViewBuilder let providers: () -> ProviderContent
 
     var body: some View {
-        NavigationSplitView {
-            List(selection: $selection) {
-                ForEach(TokenmonSettingsPane.allCases, id: \.self) { pane in
-                    TokenmonSettingsSidebarRow(pane: pane)
-                        .tag(pane)
-                }
-            }
-            .listStyle(.sidebar)
-            .frame(minWidth: 176, idealWidth: 184)
-        } detail: {
+        HStack(spacing: 0) {
+            TokenmonSettingsSidebarColumn(selection: $selection)
+                .frame(width: 184, alignment: .topLeading)
+                .frame(maxHeight: .infinity, alignment: .topLeading)
+
+            Divider()
+
             Group {
                 switch selection {
                 case .general:
@@ -549,7 +546,41 @@ struct TokenmonSettingsShell<GeneralContent: View, ProviderContent: View>: View 
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         }
-        .navigationSplitViewStyle(.balanced)
+        .background(Color(nsColor: .windowBackgroundColor))
+    }
+}
+
+private struct TokenmonSettingsSidebarColumn: View {
+    @Binding var selection: TokenmonSettingsPane
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            Text(TokenmonL10n.string("window.title.settings"))
+                .font(.headline)
+                .foregroundStyle(.primary)
+
+            VStack(alignment: .leading, spacing: 6) {
+                ForEach(TokenmonSettingsPane.allCases, id: \.self) { pane in
+                    Button {
+                        selection = pane
+                    } label: {
+                        TokenmonSettingsSidebarRow(pane: pane)
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 8)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .background(
+                                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                                    .fill(pane == selection ? Color.accentColor.opacity(0.16) : Color.clear)
+                            )
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+
+            Spacer(minLength: 0)
+        }
+        .padding(16)
+        .background(Color(nsColor: .windowBackgroundColor))
     }
 }
 
@@ -1960,13 +1991,77 @@ struct TokenmonDexPanel: View {
     }
 
     var body: some View {
-        NavigationSplitView {
+        dexContent
+            .background(Color(nsColor: .windowBackgroundColor))
+            .environmentObject(cardTuning)
+            .overlay(alignment: .bottomLeading) {
+                if TokenmonDexCardTuningGate.isEnabled && cardTuning.panelVisible {
+                    TokenmonDexCardTuningPanel(store: cardTuning)
+                        .padding(16)
+                        .transition(.move(edge: .leading).combined(with: .opacity))
+                }
+            }
+            .background {
+                if TokenmonDexCardTuningGate.isEnabled {
+                    Button("") { cardTuning.panelVisible.toggle() }
+                        .keyboardShortcut("t", modifiers: [.command, .option])
+                        .hidden()
+                }
+            }
+            .animation(.easeOut(duration: 0.2), value: cardTuning.panelVisible)
+            .toolbar {
+                dexToolbarContent
+            }
+            .onAppear {
+                model.surfaceOpened(.dex, entrypoint: "window_content", emitAnalytics: false)
+                normalizeSelection()
+                applyPendingDexNavigationRequest()
+            }
+            .onChange(of: model.dexEntries) { _, _ in
+                normalizeSelection()
+            }
+            .onChange(of: model.dexNavigationRequest) { _, _ in
+                applyPendingDexNavigationRequest()
+            }
+            .onChange(of: sidebarSelection) { _, _ in
+                normalizeSelection()
+            }
+            .onChange(of: fieldFilter) { _, _ in
+                normalizeSelection()
+            }
+            .onChange(of: rarityFilter) { _, _ in
+                normalizeSelection()
+            }
+            .onChange(of: searchQuery) { _, _ in
+                normalizeSelection()
+            }
+    }
+
+    private var dexContent: some View {
+        HStack(spacing: 0) {
+            dexSidebarPane
+
+            Divider()
+
+            dexBrowserPane
+
+            Divider()
+
+            dexDetailPane
+        }
+    }
+
+    private var dexSidebarPane: some View {
             TokenmonDexSidebarList(
                 selection: $sidebarSelection,
                 dexEntries: model.dexEntries,
                 partyMembers: model.partyMembers
             )
-        } content: {
+            .frame(width: 220, alignment: .topLeading)
+            .frame(maxHeight: .infinity, alignment: .topLeading)
+    }
+
+    private var dexBrowserPane: some View {
             TokenmonDexBrowserPane(
                 model: model,
                 title: sidebarSelection.title,
@@ -1985,53 +2080,11 @@ struct TokenmonDexPanel: View {
                 sortMode: $sortMode,
                 onRefresh: { model.refresh(reason: .manual) }
             )
-        } detail: {
+            .frame(minWidth: 480, maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+    }
+
+    private var dexDetailPane: some View {
             TokenmonDexDetailPane(entry: selectedEntry)
-                .navigationSplitViewColumnWidth(ideal: tokenmonDexSupportingWidth + 24, max: tokenmonDexSupportingWidth + 24)
-        }
-        .navigationSplitViewStyle(.balanced)
-        .environmentObject(cardTuning)
-        .overlay(alignment: .bottomLeading) {
-            if TokenmonDexCardTuningGate.isEnabled && cardTuning.panelVisible {
-                TokenmonDexCardTuningPanel(store: cardTuning)
-                    .padding(16)
-                    .transition(.move(edge: .leading).combined(with: .opacity))
-            }
-        }
-        .background {
-            if TokenmonDexCardTuningGate.isEnabled {
-                Button("") { cardTuning.panelVisible.toggle() }
-                    .keyboardShortcut("t", modifiers: [.command, .option])
-                    .hidden()
-            }
-        }
-        .animation(.easeOut(duration: 0.2), value: cardTuning.panelVisible)
-        .toolbar {
-            dexToolbarContent
-        }
-        .onAppear {
-            model.surfaceOpened(.dex, entrypoint: "window_content", emitAnalytics: false)
-            normalizeSelection()
-            applyPendingDexNavigationRequest()
-        }
-        .onChange(of: model.dexEntries) { _, _ in
-            normalizeSelection()
-        }
-        .onChange(of: model.dexNavigationRequest) { _, _ in
-            applyPendingDexNavigationRequest()
-        }
-        .onChange(of: sidebarSelection) { _, _ in
-            normalizeSelection()
-        }
-        .onChange(of: fieldFilter) { _, _ in
-            normalizeSelection()
-        }
-        .onChange(of: rarityFilter) { _, _ in
-            normalizeSelection()
-        }
-        .onChange(of: searchQuery) { _, _ in
-            normalizeSelection()
-        }
     }
 
     @ToolbarContentBuilder
@@ -2077,49 +2130,38 @@ private struct TokenmonDexSidebarList: View {
     let partyMembers: [PartyMemberSummary]
 
     var body: some View {
-        List(selection: $selection) {
-            Section(TokenmonL10n.string("dex.section.collection")) {
-                TokenmonDexSidebarRow(
-                    title: TokenmonDexSidebarSelection.all.title,
-                    systemImage: TokenmonDexSidebarSelection.all.systemImage,
-                    count: dexEntries.count
-                )
-                .tag(TokenmonDexSidebarSelection.all)
+        VStack(alignment: .leading, spacing: 14) {
+            Text(TokenmonL10n.string("window.title.dex"))
+                .font(.headline)
+                .foregroundStyle(.primary)
 
-                TokenmonDexSidebarRow(
-                    title: TokenmonDexSidebarSelection.captured.title,
-                    systemImage: TokenmonDexSidebarSelection.captured.systemImage,
-                    count: dexEntries.filter { $0.status == .captured }.count
-                )
-                .tag(TokenmonDexSidebarSelection.captured)
-
-                TokenmonDexSidebarRow(
-                    title: TokenmonDexSidebarSelection.seenUncaptured.title,
-                    systemImage: TokenmonDexSidebarSelection.seenUncaptured.systemImage,
-                    count: dexEntries.filter { $0.status == .seenUncaptured }.count
-                )
-                .tag(TokenmonDexSidebarSelection.seenUncaptured)
-
-                TokenmonDexSidebarRow(
-                    title: TokenmonDexSidebarSelection.unknown.title,
-                    systemImage: TokenmonDexSidebarSelection.unknown.systemImage,
-                    count: dexEntries.filter { $0.status == .unknown }.count
-                )
-                .tag(TokenmonDexSidebarSelection.unknown)
+            VStack(alignment: .leading, spacing: 6) {
+                ForEach(sidebarRows, id: \.selection) { row in
+                    Button {
+                        selection = row.selection
+                    } label: {
+                        TokenmonDexSidebarRow(
+                            title: row.selection.title,
+                            systemImage: row.selection.systemImage,
+                            count: row.count,
+                            countText: row.countText
+                        )
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 8)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .background(
+                            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                                .fill(row.selection == selection ? Color.accentColor.opacity(0.16) : Color.clear)
+                        )
+                    }
+                    .buttonStyle(.plain)
+                }
             }
 
-            Section {
-                TokenmonDexSidebarRow(
-                    title: TokenmonDexSidebarSelection.party.title,
-                    systemImage: TokenmonDexSidebarSelection.party.systemImage,
-                    count: partyMembers.count,
-                    countText: partyCountText
-                )
-                .tag(TokenmonDexSidebarSelection.party)
-            }
+            Spacer(minLength: 0)
         }
-        .listStyle(.sidebar)
-        .navigationTitle(TokenmonL10n.string("window.title.dex"))
+        .padding(16)
+        .background(Color(nsColor: .windowBackgroundColor))
     }
 
     private var partyCountText: String {
@@ -2127,6 +2169,16 @@ private struct TokenmonDexSidebarList: View {
             format: TokenmonL10n.string("dex.sidebar.party.counter_format"),
             Int64(partyMembers.count)
         )
+    }
+
+    private var sidebarRows: [(selection: TokenmonDexSidebarSelection, count: Int, countText: String?)] {
+        [
+            (.all, dexEntries.count, nil),
+            (.captured, dexEntries.filter { $0.status == .captured }.count, nil),
+            (.seenUncaptured, dexEntries.filter { $0.status == .seenUncaptured }.count, nil),
+            (.unknown, dexEntries.filter { $0.status == .unknown }.count, nil),
+            (.party, partyMembers.count, partyCountText),
+        ]
     }
 }
 

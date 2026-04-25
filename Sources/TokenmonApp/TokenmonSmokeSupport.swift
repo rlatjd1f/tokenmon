@@ -684,7 +684,10 @@ enum TokenmonRewardArchiveScreenshotRenderer {
 
         let outputURL = URL(fileURLWithPath: outputDirectory).appendingPathComponent(fileName)
         try captureHostedWindowRootView(
-            AnyView(TokenmonRewardArchivePanel(model: model)),
+            AnyView(
+                TokenmonRewardArchivePanel(model: model)
+                    .tokenmonPreferredColorScheme(model.appSettings.appearancePreference)
+            ),
             size: NSSize(width: 920, height: 620),
             captureWholeWindow: true,
             to: outputURL
@@ -750,19 +753,22 @@ enum TokenmonReadmeScreenshotRenderer {
 
         let heroURL = URL(fileURLWithPath: outputDirectory).appendingPathComponent("menu-hero.gif")
         let menuURL = URL(fileURLWithPath: outputDirectory).appendingPathComponent("menu-overview.png")
-        let nowTabURL = URL(fileURLWithPath: outputDirectory).appendingPathComponent("now-tab.png")
+        let dexTabURL = URL(fileURLWithPath: outputDirectory).appendingPathComponent("dex-tab.png")
         let tokensTabURL = URL(fileURLWithPath: outputDirectory).appendingPathComponent("tokens-tab.png")
         let statsTabURL = URL(fileURLWithPath: outputDirectory).appendingPathComponent("stats-tab.png")
+        let raidTabURL = URL(fileURLWithPath: outputDirectory).appendingPathComponent("raid-tab.png")
         let dexURL = URL(fileURLWithPath: outputDirectory).appendingPathComponent("seen-dex.png")
+        let rewardArchiveURL = URL(fileURLWithPath: outputDirectory).appendingPathComponent("reward-archive.png")
         let settingsURL = URL(fileURLWithPath: outputDirectory).appendingPathComponent("settings.png")
 
         let popoverCaptureMode = try captureReadmePopoverScreenshots(
             model: model,
             outputs: [
                 (.now, menuURL),
-                (.now, nowTabURL),
+                (.dex, dexTabURL),
                 (.tokens, tokensTabURL),
                 (.stats, statsTabURL),
+                (.raid, raidTabURL),
             ],
             allowHostedFallback: allowMenuBarSkip
         )
@@ -775,6 +781,17 @@ enum TokenmonReadmeScreenshotRenderer {
             size: NSSize(width: 1120, height: 980),
             captureWholeWindow: true,
             to: dexURL
+        )
+        model.surfaceOpened(.raid, entrypoint: "readme_capture", refresh: true, emitAnalytics: false)
+        waitForInitialRefresh(of: model)
+        try captureHostedWindowRootView(
+            AnyView(
+                TokenmonRewardArchivePanel(model: model)
+                    .tokenmonPreferredColorScheme(model.appSettings.appearancePreference)
+            ),
+            size: NSSize(width: 920, height: 620),
+            captureWholeWindow: true,
+            to: rewardArchiveURL
         )
         model.surfaceOpened(.settings, entrypoint: "readme_capture", refresh: true, emitAnalytics: false)
         waitForInitialRefresh(of: model)
@@ -817,13 +834,17 @@ enum TokenmonReadmeScreenshotRenderer {
             "now_today_encounters: \(model.todayActivity?.encounterCount ?? -1)",
             "now_today_captures: \(model.todayActivity?.captureCount ?? -1)",
             "now_latest_encounter: \(model.latestEncounter?.speciesName ?? "none")",
-            "now_tab: \(nowTabURL.path)",
+            "dex_tab: \(dexTabURL.path)",
             "tokens_tab: \(tokensTabURL.path)",
             "stats_tab: \(statsTabURL.path)",
+            "raid_tab: \(raidTabURL.path)",
             "dex_capture_mode: actual_window",
+            "reward_archive_capture_mode: actual_window",
             "settings_capture_mode: actual_window",
             "menu_overview: \(menuURL.path)",
+            "popover_dex: \(dexTabURL.path)",
             "seen_dex: \(dexURL.path)",
+            "reward_archive: \(rewardArchiveURL.path)",
             "settings: \(settingsURL.path)",
         ]
 
@@ -1130,7 +1151,10 @@ private func captureHostedWindowRootView(
         backing: .buffered,
         defer: false
     )
+    let resolvedAppearance = NSApp.appearance
+    window.appearance = resolvedAppearance
     let hostingController = NSHostingController(rootView: rootView)
+    hostingController.view.appearance = resolvedAppearance
     window.contentViewController = hostingController
     let isBorderless = styleMask == [.borderless]
     window.backgroundColor = isBorderless ? .clear : NSColor.windowBackgroundColor
@@ -1153,17 +1177,10 @@ private func captureHostedWindowRootView(
         return
     }
 
-    if let screen = window.screen,
-       let contentView = window.contentView {
-        let contentRectInWindow = contentView.convert(contentView.bounds, to: nil)
-        let contentRectOnScreen = window.convertToScreen(contentRectInWindow)
-        if let cgImage = captureScreenRegion(contentRectOnScreen, screen: screen) {
-        let outputImage = cropCGImage(
-            cgImage,
-            cropRectInPoints: cropRectInPoints,
-            logicalSize: size
-        ) ?? cgImage
-        let bitmap = NSBitmapImageRep(cgImage: outputImage)
+    if captureWholeWindow,
+       let screen = window.screen,
+       let cgImage = captureScreenRegion(window.frame, screen: screen) {
+        let bitmap = NSBitmapImageRep(cgImage: cgImage)
         guard let pngData = bitmap.representation(using: .png, properties: [:]) else {
             window.orderOut(nil)
             throw ScreenshotRenderError.renderFailed(url.path)
@@ -1171,6 +1188,26 @@ private func captureHostedWindowRootView(
         try pngData.write(to: url)
         window.orderOut(nil)
         return
+    }
+
+    if let screen = window.screen,
+       let contentView = window.contentView {
+        let contentRectInWindow = contentView.convert(contentView.bounds, to: nil)
+        let contentRectOnScreen = window.convertToScreen(contentRectInWindow)
+        if let cgImage = captureScreenRegion(contentRectOnScreen, screen: screen) {
+            let outputImage = cropCGImage(
+                cgImage,
+                cropRectInPoints: cropRectInPoints,
+                logicalSize: size
+            ) ?? cgImage
+            let bitmap = NSBitmapImageRep(cgImage: outputImage)
+            guard let pngData = bitmap.representation(using: .png, properties: [:]) else {
+                window.orderOut(nil)
+                throw ScreenshotRenderError.renderFailed(url.path)
+            }
+            try pngData.write(to: url)
+            window.orderOut(nil)
+            return
         }
     }
 

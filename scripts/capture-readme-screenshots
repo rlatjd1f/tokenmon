@@ -20,11 +20,17 @@ canonical_appearance="dark"
 screenshot_assets=(
   "menu-hero.gif"
   "menu-overview.png"
-  "now-tab.png"
+  "dex-tab.png"
   "tokens-tab.png"
   "stats-tab.png"
+  "raid-tab.png"
   "seen-dex.png"
+  "reward-archive.png"
   "settings.png"
+)
+
+deprecated_screenshot_assets=(
+  "now-tab.png"
 )
 
 usage() {
@@ -117,6 +123,9 @@ demo_inbox="$tmpdir/readme-demo.ndjson"
 variant_root="$output_dir/variants"
 
 mkdir -p "$output_dir" "$variant_root"
+for deprecated_asset in "${deprecated_screenshot_assets[@]}"; do
+  find "$output_dir" -name "$deprecated_asset" -type f -delete
+done
 
 ensure_installed_app_bin() {
   if [[ -n "$capture_app_bundle" ]]; then
@@ -125,7 +134,7 @@ ensure_installed_app_bin() {
       exit 1
     fi
   else
-    "$ROOT/scripts/build-release" --output "$ROOT/.build/release-install-dev" --include-developer-tools >/dev/null
+    "$ROOT/scripts/build-release" --output "$ROOT/.build/release-install-dev" >/dev/null
     capture_app_bundle="$ROOT/.build/release-install-dev/Tokenmon.app"
   fi
   pkill -x TokenmonApp >/dev/null 2>&1 || true
@@ -163,7 +172,7 @@ copy_screenshot_assets() {
     if [[ -f "$source_path" ]]; then
       cp "$source_path" "$destination_dir/$asset"
     elif [[ "$asset" == "menu-hero.gif" && "$allow_menu_bar_skip" == "1" ]]; then
-      rm -f "$destination_dir/$asset"
+      :
     else
       printf 'Missing screenshot asset: %s\n' "$source_path" >&2
       exit 1
@@ -257,8 +266,8 @@ setup_tokenmon_cmd --tokenmon-ingest-inbox "$demo_inbox" --db "$base_db" >/dev/n
 sqlite3 "$base_db" <<SQL
 INSERT INTO settings (setting_key, setting_value_json, updated_at)
 VALUES
-  ('gameplay_started_at', '\"$demo_started_at\"', '$demo_started_at'),
-  ('live_gameplay_started_at', '\"$demo_started_at\"', '$demo_started_at'),
+  ('gameplay_started_at', '"$demo_started_at"', '$demo_started_at'),
+  ('live_gameplay_started_at', '"$demo_started_at"', '$demo_started_at'),
   ('usage_analytics_prompt_dismissed', 'true', '$demo_started_at'),
   ('usage_analytics_enabled', 'false', '$demo_started_at'),
   ('notifications_enabled', 'true', '$demo_started_at'),
@@ -320,6 +329,56 @@ PY
     --occurred-at "$occurred_at" >/dev/null
   demo_index=$((demo_index + 1))
 done
+
+slot_order=1
+while IFS= read -r party_species_id; do
+  sqlite3 "$base_db" <<SQL
+INSERT OR REPLACE INTO party_members (species_id, slot_order, added_at)
+VALUES ('$party_species_id', $slot_order, '$demo_started_at');
+SQL
+  slot_order=$((slot_order + 1))
+done < <(
+  sqlite3 "$base_db" "
+    SELECT species_id
+    FROM dex_captured
+    ORDER BY last_captured_at DESC, species_id ASC
+    LIMIT 10;
+  "
+)
+
+raid_demo_inbox="$tmpdir/readme-raid-demo.ndjson"
+python3 - <<'PY' > "$raid_demo_inbox"
+import json
+from datetime import datetime, timedelta, timezone
+
+observed_at = (datetime.now(timezone.utc) - timedelta(minutes=25)).isoformat().replace("+00:00", "Z")
+event = {
+    "event_type": "provider_usage_sample",
+    "provider": "codex",
+    "source_mode": "codex_exec_json",
+    "provider_session_id": "codex_readme_raid",
+    "observed_at": observed_at,
+    "workspace_dir": "/tmp/tokenmon-readme-demo",
+    "model_slug": "gpt-5.4",
+    "transcript_path": None,
+    "total_input_tokens": 2_400_000,
+    "total_output_tokens": 900_000,
+    "total_cached_input_tokens": 700_000,
+    "normalized_total_tokens": 4_000_000,
+    "provider_event_fingerprint": "codex:codex_readme_raid:turn_001",
+    "raw_reference": {
+        "kind": "jsonl",
+        "offset": "1",
+        "event_name": "turn.completed"
+    },
+    "current_input_tokens": 2_400_000,
+    "current_output_tokens": 900_000,
+    "session_origin_hint": "started_during_live_runtime"
+}
+print(json.dumps(event, separators=(",", ":")))
+PY
+
+setup_tokenmon_cmd --tokenmon-ingest-inbox "$raid_demo_inbox" --db "$base_db" >/dev/null
 
 variant_combos=()
 language_index=0
@@ -383,6 +442,7 @@ copy_screenshot_assets "$canonical_variant_dir" "$output_dir"
 canonical_popover_capture_mode="$(parse_capture_field "$canonical_render_output" "popover_capture_mode")"
 canonical_dex_capture_mode="$(parse_capture_field "$canonical_render_output" "dex_capture_mode")"
 canonical_settings_capture_mode="$(parse_capture_field "$canonical_render_output" "settings_capture_mode")"
+canonical_reward_archive_capture_mode="$(parse_capture_field "$canonical_render_output" "reward_archive_capture_mode")"
 canonical_menu_bar_capture_mode="$(parse_capture_field "$canonical_render_output" "menu_bar_capture_mode")"
 canonical_menu_bar_capture_status="$(parse_capture_field "$canonical_render_output" "menu_bar_capture_status")"
 canonical_menu_bar_capture_reason="$(parse_capture_field "$canonical_render_output" "menu_bar_capture_reason")"
@@ -393,11 +453,16 @@ printf 'popover_capture_mode: %s\n' "${canonical_popover_capture_mode:-unknown}"
 printf 'dex_capture_mode: %s\n' "${canonical_dex_capture_mode:-unknown}"
 printf 'settings_capture_mode: %s\n' "${canonical_settings_capture_mode:-unknown}"
 printf 'menu_overview: %s\n' "$output_dir/menu-overview.png"
-printf 'now_tab: %s\n' "$output_dir/now-tab.png"
+printf 'dex_tab: %s\n' "$output_dir/dex-tab.png"
 printf 'tokens_tab: %s\n' "$output_dir/tokens-tab.png"
 printf 'stats_tab: %s\n' "$output_dir/stats-tab.png"
+printf 'raid_tab: %s\n' "$output_dir/raid-tab.png"
 printf 'seen_dex: %s\n' "$output_dir/seen-dex.png"
+printf 'reward_archive: %s\n' "$output_dir/reward-archive.png"
 printf 'settings: %s\n' "$output_dir/settings.png"
+if [[ -n "$canonical_reward_archive_capture_mode" ]]; then
+  printf 'reward_archive_capture_mode: %s\n' "$canonical_reward_archive_capture_mode"
+fi
 if [[ -n "$canonical_menu_bar_capture_mode" ]]; then
   printf 'menu_bar_capture_mode: %s\n' "$canonical_menu_bar_capture_mode"
 fi
