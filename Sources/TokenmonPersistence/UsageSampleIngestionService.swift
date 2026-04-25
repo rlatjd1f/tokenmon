@@ -357,6 +357,28 @@ public final class UsageSampleIngestionService {
             return .duplicate
         }
 
+        if event.provider == .cursor {
+            _ = try insertProviderIngestEvent(
+                database: database,
+                event: event,
+                sessionRowID: nil,
+                ingestSourceID: ingestSourceID,
+                rawPayload: rawPayload,
+                acceptanceState: "rejected",
+                rejectionReason: "cursor_stats_only_provider_usage_unsupported"
+            )
+            try updateIngestSource(
+                database: database,
+                sourceID: ingestSourceID,
+                sourceKey: sourceKey,
+                path: sourcePath,
+                offset: nextOffset,
+                lineNumber: lineNumber,
+                fingerprint: event.providerEventFingerprint
+            )
+            return .rejected
+        }
+
         let sessionRowID = try upsertProviderSession(database: database, event: event)
         let previousSample = try previousUsageSample(database: database, sessionRowID: sessionRowID)
         let previousTotal = previousSample?.normalizedTotalTokens

@@ -1134,6 +1134,8 @@ enum TokenmonSettingsPresentationBuilder {
         var pieces: [String] = []
         let supportLevel = healthSummary?.supportLevel ?? status.provider.defaultSupportLevel
         pieces.append(TokenmonL10n.format("settings.providers.metadata.support", formattedSupportLevel(supportLevel)))
+        let reliabilityLabel = healthSummary?.reliabilityLabel ?? defaultReliabilityLabel(for: status.provider)
+        pieces.append(TokenmonL10n.format("settings.providers.metadata.reliability", formattedReliabilityLabel(reliabilityLabel)))
 
         if let sourceMode = healthSummary?.sourceMode {
             pieces.append(TokenmonL10n.format("settings.providers.metadata.mode", formattedSourceMode(sourceMode)))
@@ -1144,8 +1146,22 @@ enum TokenmonSettingsPresentationBuilder {
         if status.provider == .codex {
             pieces.append(TokenmonL10n.string("settings.providers.metadata.local_follow"))
         }
+        if status.provider == .cursor {
+            pieces.append(TokenmonL10n.string("settings.providers.metadata.stats_only_no_gameplay"))
+        }
 
         return pieces.joined(separator: " · ")
+    }
+
+    private static func defaultReliabilityLabel(for provider: ProviderCode) -> String {
+        switch provider {
+        case .claude, .gemini:
+            return "first_class"
+        case .codex:
+            return "best_effort"
+        case .cursor:
+            return "stats_only"
+        }
     }
 
     private static func formattedSupportLevel(_ rawValue: String) -> String {
@@ -1156,6 +1172,25 @@ enum TokenmonSettingsPresentationBuilder {
             return TokenmonL10n.string("settings.providers.support.best_effort")
         case "managed_only":
             return TokenmonL10n.string("settings.providers.support.managed_only")
+        default:
+            return rawValue
+                .replacingOccurrences(of: "_", with: " ")
+                .capitalized
+        }
+    }
+
+    private static func formattedReliabilityLabel(_ rawValue: String) -> String {
+        switch rawValue {
+        case "first_class":
+            return TokenmonL10n.string("settings.providers.reliability.first_class")
+        case "managed_first_class":
+            return TokenmonL10n.string("settings.providers.reliability.managed_first_class")
+        case "best_effort":
+            return TokenmonL10n.string("settings.providers.reliability.best_effort")
+        case "stats_only":
+            return TokenmonL10n.string("settings.providers.reliability.stats_only")
+        case "degraded":
+            return TokenmonL10n.string("settings.providers.reliability.degraded")
         default:
             return rawValue
                 .replacingOccurrences(of: "_", with: " ")
@@ -1192,6 +1227,8 @@ enum TokenmonSettingsPresentationBuilder {
             return TokenmonL10n.string("settings.providers.source_mode.transcript_backfill")
         case "cursor_usage_export_api":
             return TokenmonL10n.string("settings.providers.source_mode.cursor_usage_export_api")
+        case "cursor_legacy_usage_sample":
+            return TokenmonL10n.string("settings.providers.source_mode.cursor_legacy_usage_sample")
         default:
             return rawValue
                 .replacingOccurrences(of: "_", with: " ")

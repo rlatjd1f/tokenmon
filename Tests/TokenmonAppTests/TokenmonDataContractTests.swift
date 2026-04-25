@@ -1374,6 +1374,11 @@ struct TokenmonDataContractTests {
         } ?? 0
     }
 
+    private func jsonObject(_ json: String) throws -> [String: Any] {
+        let data = Data(json.utf8)
+        return try #require(JSONSerialization.jsonObject(with: data) as? [String: Any])
+    }
+
     private func seedDeveloperToolMutationState(database: SQLiteDatabase) throws {
         try database.inTransaction {
             try database.execute(
@@ -1923,6 +1928,255 @@ struct TokenmonDataContractTests {
     }
 
     @Test
+    func migrationVersionFourteenCopiesLegacyCursorUsageToStatsOnlyRowsAndNeutralizesGameplay() throws {
+        let manager = try makeManager(prefix: "tokenmon-mig-v14-cursor-legacy")
+        let database = try manager.open()
+
+        try database.inTransaction {
+            try database.execute(
+                """
+                INSERT INTO provider_sessions (
+                    provider_session_row_id,
+                    provider_code,
+                    provider_session_id,
+                    session_identity_kind,
+                    source_mode,
+                    model_slug,
+                    workspace_dir,
+                    transcript_path,
+                    started_at,
+                    ended_at,
+                    last_seen_at,
+                    session_state,
+                    created_at,
+                    updated_at
+                ) VALUES (
+                    200,
+                    'cursor',
+                    'legacy-cursor-session',
+                    'inferred',
+                    'cursor_legacy_local_usage',
+                    'gpt-5.4',
+                    NULL,
+                    NULL,
+                    '2026-04-18T01:00:00Z',
+                    NULL,
+                    '2026-04-18T01:05:00Z',
+                    'active',
+                    '2026-04-18T01:00:00Z',
+                    '2026-04-18T01:05:00Z'
+                );
+                """
+            )
+            try database.execute(
+                """
+                INSERT INTO provider_ingest_events (
+                    provider_ingest_event_id,
+                    provider_code,
+                    source_mode,
+                    provider_session_row_id,
+                    ingest_source_id,
+                    provider_event_fingerprint,
+                    raw_reference_kind,
+                    raw_reference_event_name,
+                    raw_reference_offset,
+                    observed_at,
+                    payload_json,
+                    acceptance_state,
+                    rejection_reason,
+                    created_at
+                ) VALUES
+                    (2000, 'cursor', 'cursor_legacy_local_usage', 200, NULL, 'legacy-cursor-1', 'legacy_usage_sample', 'token_count', '1', '2026-04-18T01:00:00Z', '{"provider":"cursor","normalized_total_tokens":150}', 'accepted', NULL, '2026-04-18T01:00:00Z'),
+                    (2001, 'cursor', 'cursor_legacy_local_usage', 200, NULL, 'legacy-cursor-2', 'legacy_usage_sample', 'token_count', '2', '2026-04-18T01:05:00Z', '{"provider":"cursor","normalized_total_tokens":245}', 'accepted', NULL, '2026-04-18T01:05:00Z');
+                """
+            )
+            try database.execute(
+                """
+                INSERT INTO usage_samples (
+                    usage_sample_id,
+                    provider_ingest_event_id,
+                    provider_code,
+                    provider_session_row_id,
+                    observed_at,
+                    total_input_tokens,
+                    total_output_tokens,
+                    total_cached_input_tokens,
+                    normalized_total_tokens,
+                    normalized_delta_tokens,
+                    current_input_tokens,
+                    current_output_tokens,
+                    gameplay_eligibility,
+                    gameplay_delta_tokens,
+                    gameplay_balance_bucket,
+                    gameplay_balance_weight,
+                    gameplay_balance_policy,
+                    burst_intensity_band,
+                    created_at
+                ) VALUES
+                    (20000, 2000, 'cursor', 200, '2026-04-18T01:00:00Z', 100, 40, 10, 150, 150, 100, 40, 'eligible_live', 150, 'cursor:gpt-5-4', 1.0, 'legacy', 1, '2026-04-18T01:00:00Z'),
+                    (20001, 2001, 'cursor', 200, '2026-04-18T01:05:00Z', 180, 70, 15, 245, 95, 80, 30, 'eligible_live', 95, 'cursor:gpt-5-4', 1.0, 'legacy', 1, '2026-04-18T01:05:00Z');
+                """
+            )
+            try database.execute(
+                """
+                INSERT INTO encounters (
+                    encounter_id,
+                    encounter_sequence,
+                    provider_code,
+                    provider_session_row_id,
+                    usage_sample_id,
+                    threshold_event_index,
+                    occurred_at,
+                    field_code,
+                    rarity_tier,
+                    species_id,
+                    burst_intensity_band,
+                    capture_probability,
+                    capture_roll,
+                    outcome,
+                    created_at
+                ) VALUES (
+                    'legacy-cursor-encounter',
+                    1,
+                    'cursor',
+                    200,
+                    20001,
+                    1,
+                    '2026-04-18T01:05:00Z',
+                    'grassland',
+                    'common',
+                    'GRS_001',
+                    1,
+                    0.7,
+                    0.1,
+                    'captured',
+                    '2026-04-18T01:05:00Z'
+                );
+                """
+            )
+            try database.execute(
+                """
+                INSERT INTO domain_events (
+                    event_id,
+                    event_type,
+                    occurred_at,
+                    producer,
+                    correlation_id,
+                    causation_id,
+                    aggregate_type,
+                    aggregate_id,
+                    payload_json,
+                    created_at
+                ) VALUES (
+                    'usage_sample_recorded:20001',
+                    'usage_sample_recorded',
+                    '2026-04-18T01:05:00Z',
+                    'tests',
+                    'legacy-cursor-2',
+                    NULL,
+                    'provider_session',
+                    'cursor:legacy-cursor-session',
+                    '{"usage_sample_id":20001,"provider":"cursor","gameplay_eligibility":"eligible_live","gameplay_delta_tokens":95}',
+                    '2026-04-18T01:05:00Z'
+                );
+                """
+            )
+            try database.execute("PRAGMA user_version = 13;")
+        }
+
+        let repairedDatabase = try manager.open()
+
+        let accountRows = try repairedDatabase.fetchAll(
+            """
+            SELECT provider_event_fingerprint,
+                   usage_kind,
+                   input_tokens,
+                   output_tokens,
+                   cached_input_tokens,
+                   normalized_delta_tokens,
+                   raw_reference_kind,
+                   raw_reference_offset
+            FROM account_usage_samples
+            WHERE provider_code = 'cursor'
+            ORDER BY account_usage_sample_id;
+            """
+        ) { statement in
+            (
+                fingerprint: SQLiteDatabase.columnText(statement, index: 0),
+                usageKind: SQLiteDatabase.columnText(statement, index: 1),
+                input: SQLiteDatabase.columnInt64(statement, index: 2),
+                output: SQLiteDatabase.columnInt64(statement, index: 3),
+                cached: SQLiteDatabase.columnInt64(statement, index: 4),
+                normalized: SQLiteDatabase.columnInt64(statement, index: 5),
+                rawKind: SQLiteDatabase.columnText(statement, index: 6),
+                rawOffset: SQLiteDatabase.columnText(statement, index: 7)
+            )
+        }
+
+        #expect(accountRows.map { $0.fingerprint } == [
+            "cursor:legacy-usage-sample:20000",
+            "cursor:legacy-usage-sample:20001",
+        ])
+        #expect(accountRows.map { $0.usageKind } == ["legacy_usage_sample", "legacy_usage_sample"])
+        #expect(accountRows.map { $0.input } == [100, 80])
+        #expect(accountRows.map { $0.output } == [40, 30])
+        #expect(accountRows.map { $0.cached } == [10, 5])
+        #expect(accountRows.map { $0.normalized } == [150, 95])
+        #expect(accountRows.map { $0.rawKind } == ["legacy_usage_sample", "legacy_usage_sample"])
+        #expect(accountRows.map { $0.rawOffset } == ["20000", "20001"])
+
+        let usageRows = try repairedDatabase.fetchAll(
+            """
+            SELECT gameplay_eligibility,
+                   gameplay_delta_tokens,
+                   gameplay_balance_bucket,
+                   gameplay_balance_weight,
+                   gameplay_balance_policy
+            FROM usage_samples
+            WHERE provider_code = 'cursor'
+            ORDER BY usage_sample_id;
+            """
+        ) { statement in
+            (
+                eligibility: SQLiteDatabase.columnText(statement, index: 0),
+                gameplayDelta: SQLiteDatabase.columnInt64(statement, index: 1),
+                bucket: SQLiteDatabase.columnOptionalText(statement, index: 2),
+                weight: SQLiteDatabase.columnOptionalDouble(statement, index: 3),
+                policy: SQLiteDatabase.columnOptionalText(statement, index: 4)
+            )
+        }
+        #expect(usageRows.map { $0.eligibility } == ["recovery_only", "recovery_only"])
+        #expect(usageRows.map { $0.gameplayDelta } == [0, 0])
+        #expect(usageRows.allSatisfy { $0.bucket == nil && $0.weight == nil && $0.policy == nil })
+        #expect(try rowCount(in: "encounters", database: repairedDatabase) == 1)
+
+        let eventPayload = try #require(repairedDatabase.fetchOne(
+            """
+            SELECT payload_json
+            FROM domain_events
+            WHERE event_id = 'usage_sample_recorded:20001';
+            """
+        ) { statement in
+            SQLiteDatabase.columnText(statement, index: 0)
+        })
+        let payload = try jsonObject(eventPayload)
+        #expect(payload["gameplay_eligibility"] as? String == "recovery_only")
+        #expect(payload["gameplay_delta_tokens"] as? Int == 0)
+
+        let cursor = try #require(
+            try manager.providerHealthSummaries(database: repairedDatabase)
+                .first(where: { $0.provider == .cursor })
+        )
+        #expect(cursor.reliabilityLabel == "stats_only")
+        #expect(cursor.liveGameplayArmed == false)
+        #expect(cursor.diagnosticFacts["account_usage_samples"] == "2")
+        #expect(cursor.diagnosticFacts["legacy_usage_samples"] == "2")
+        #expect(cursor.diagnosticFacts["legacy_gameplay_delta_tokens"] == "0")
+        #expect(cursor.diagnosticFacts["legacy_cursor_encounters"] == "1")
+        #expect(cursor.diagnosticFacts["legacy_cursor_gameplay_history_detected"] == "yes")
+    }
+
+    @Test
     func dexEntrySummaryIncludesStatsAndTraits() throws {
         let tempDirectory = FileManager.default.temporaryDirectory
             .appendingPathComponent("tokenmon-dex-stats-\(UUID().uuidString)", isDirectory: true)
@@ -2083,10 +2337,50 @@ struct TokenmonDataContractTests {
 
         #expect(codex.sourceMode == "codex_session_store_live")
         #expect(codex.offlineDashboardRecovery == "automatic_supported")
+        #expect(codex.reliabilityLabel == "best_effort")
         #expect(codex.liveGameplayArmed)
         #expect(claude.offlineDashboardRecovery == "known_transcript_only")
         #expect(claude.liveGameplayArmed == false)
         #expect(gemini.offlineDashboardRecovery == "unavailable")
+        #expect(gemini.reliabilityLabel == "first_class")
+    }
+
+    @Test
+    func providerHealthSummariesLabelCodexExecJSONAsManagedFirstClass() throws {
+        let manager = try makeManager(prefix: "tokenmon-codex-managed-health")
+        try manager.markLiveGameplayStarted(at: "2026-04-10T10:00:00Z")
+        let database = try manager.open()
+        try database.execute(
+            """
+            INSERT INTO provider_health (
+                provider_code,
+                source_mode,
+                health_state,
+                message,
+                last_success_at,
+                last_error_at,
+                last_error_code,
+                last_error_summary,
+                updated_at
+            ) VALUES (
+                'codex',
+                'codex_exec_json',
+                'active',
+                'Codex managed JSON ingest active',
+                '2026-04-10T10:12:00Z',
+                NULL,
+                NULL,
+                NULL,
+                '2026-04-10T10:12:00Z'
+            );
+            """
+        )
+
+        let codex = try #require(try manager.providerHealthSummaries().first(where: { $0.provider == .codex }))
+        #expect(codex.sourceMode == "codex_exec_json")
+        #expect(codex.supportLevel == "best_effort")
+        #expect(codex.reliabilityLabel == "managed_first_class")
+        #expect(codex.liveGameplayArmed)
     }
 
     @Test
@@ -2633,6 +2927,72 @@ struct TokenmonDataContractTests {
     }
 
     @Test
+    func cursorProviderUsageSamplesAreRejectedBeforeGameplayOrLocalUsage() throws {
+        let manager = try makeManager(prefix: "tokenmon-cursor-provider-usage-rejected")
+        let database = try manager.open()
+        try manager.markLiveGameplayStarted(at: "2026-04-24T00:00:00Z")
+
+        let event = ProviderUsageSampleEvent(
+            eventType: "provider_usage_sample",
+            provider: .cursor,
+            sourceMode: "cursor_local_usage_probe",
+            providerSessionID: "cursor-session",
+            observedAt: "2026-04-24T00:05:00Z",
+            workspaceDir: nil,
+            modelSlug: "gpt-5.4",
+            transcriptPath: nil,
+            totalInputTokens: 10_000,
+            totalOutputTokens: 5_000,
+            totalCachedInputTokens: 0,
+            normalizedTotalTokens: 15_000,
+            providerEventFingerprint: "cursor:provider-usage:blocked",
+            rawReference: ProviderRawReference(kind: "cursor_local_probe", offset: "1", eventName: "token_count"),
+            currentInputTokens: 10_000,
+            currentOutputTokens: 5_000,
+            sessionOriginHint: .startedDuringLiveRuntime
+        )
+
+        let result = try UsageSampleIngestionService(databasePath: manager.path).ingestProviderEvents(
+            [event],
+            sourceKey: "cursor-provider-usage-fixture",
+            sourceKind: "ndjson_file"
+        )
+
+        #expect(result.acceptedEvents == 0)
+        #expect(result.rejectedEvents == 1)
+        #expect(result.usageSamplesCreated == 0)
+        #expect(try rowCount(in: "usage_samples", database: database) == 0)
+        #expect(try rowCount(in: "account_usage_samples", database: database) == 0)
+        #expect(try rowCount(in: "encounters", database: database) == 0)
+        #expect(try rowCount(in: "dex_seen", database: database) == 0)
+        #expect(try rowCount(in: "dex_captured", database: database) == 0)
+        #expect(try manager.currentRunSummary().totalNormalizedTokens == 0)
+        #expect(try manager.tokenUsageTotals().allTimeTokens == 0)
+
+        let ingestAudit = try #require(database.fetchOne(
+            """
+            SELECT acceptance_state, rejection_reason
+            FROM provider_ingest_events
+            WHERE provider_event_fingerprint = 'cursor:provider-usage:blocked';
+            """
+        ) { statement in
+            (
+                state: SQLiteDatabase.columnText(statement, index: 0),
+                reason: SQLiteDatabase.columnText(statement, index: 1)
+            )
+        })
+        #expect(ingestAudit.state == "rejected")
+        #expect(ingestAudit.reason == "cursor_stats_only_provider_usage_unsupported")
+
+        let cursor = try #require(try manager.providerHealthSummaries().first(where: { $0.provider == .cursor }))
+        #expect(cursor.healthState == "missing_configuration")
+        #expect(cursor.sourceMode == "cursor_usage_export_api")
+        #expect(cursor.lastObservedAt == nil)
+        #expect(cursor.reliabilityLabel == "stats_only")
+        #expect(cursor.liveGameplayArmed == false)
+    }
+
+    @Test
     func tokenStatsPreferAccountUsageByProviderDayAndFallbackToLocalObservedUsage() throws {
         let manager = try makeManager(prefix: "tokenmon-account-usage-precedence")
         let observedAt = ISO8601DateFormatter().string(from: Date())
@@ -2789,9 +3149,13 @@ struct TokenmonDataContractTests {
 
         switch result {
         case .merged(let updatedJSON):
-            #expect(updatedJSON.contains("\"telemetry\""))
-            #expect(updatedJSON.contains("\"http:\\/\\/127.0.0.1:4317\""))
-            #expect(updatedJSON.contains("\"theme\""))
+            let root = try jsonObject(updatedJSON)
+            let telemetry = try #require(root["telemetry"] as? [String: Any])
+            #expect(telemetry["enabled"] as? Bool == true)
+            #expect(telemetry["target"] as? String == "local")
+            #expect(telemetry["otlpEndpoint"] as? String == "http://127.0.0.1:4317")
+            #expect(telemetry["logPrompts"] as? Bool == false)
+            #expect(root["theme"] as? String == "Xcode")
         case .conflict, .alreadyConfigured:
             Issue.record("Expected merged result, got \(result)")
         }
@@ -2845,10 +3209,57 @@ struct TokenmonDataContractTests {
 
         switch result {
         case .merged(let updatedJSON):
-            #expect(updatedJSON.contains("\"http:\\/\\/127.0.0.1:4317\""))
-            #expect(updatedJSON.contains("\"honeycomb.io:4317\"") == false)
+            let telemetry = try #require(jsonObject(updatedJSON)["telemetry"] as? [String: Any])
+            #expect(telemetry["otlpEndpoint"] as? String == "http://127.0.0.1:4317")
+            #expect(telemetry["logPrompts"] as? Bool == false)
+            #expect(telemetry["target"] as? String == "local")
         case .conflict, .alreadyConfigured:
             Issue.record("Expected merged result with allowOverride, got \(result)")
+        }
+    }
+
+    @Test
+    func geminiSettingsMergerRepairsTokenmonEndpointWhenPromptLoggingIsMissingOrEnabled() throws {
+        let missingPromptLogging = """
+        {
+          "telemetry": {
+            "enabled": true,
+            "target": "local",
+            "otlpEndpoint": "http://127.0.0.1:4317",
+            "exportInterval": 5000
+          }
+        }
+        """
+        let enabledPromptLogging = """
+        {
+          "telemetry": {
+            "enabled": true,
+            "target": "local",
+            "otlpEndpoint": "http://127.0.0.1:4317",
+            "logPrompts": true
+          }
+        }
+        """
+
+        for original in [missingPromptLogging, enabledPromptLogging] {
+            let result = try GeminiSettingsMerger.merge(
+                existingJSON: original,
+                tokenmonHost: "127.0.0.1",
+                tokenmonPort: 4317,
+                allowOverride: false
+            )
+
+            switch result {
+            case .merged(let updatedJSON):
+                let telemetry = try #require(jsonObject(updatedJSON)["telemetry"] as? [String: Any])
+                #expect(telemetry["logPrompts"] as? Bool == false)
+                #expect(telemetry["otlpEndpoint"] as? String == "http://127.0.0.1:4317")
+                if original.contains("exportInterval") {
+                    #expect(telemetry["exportInterval"] as? Int == 5000)
+                }
+            case .alreadyConfigured, .conflict:
+                Issue.record("Expected privacy repair merge, got \(result)")
+            }
         }
     }
 
@@ -2859,7 +3270,8 @@ struct TokenmonDataContractTests {
           "telemetry": {
             "enabled": true,
             "target": "local",
-            "otlpEndpoint": "http://127.0.0.1:4317"
+            "otlpEndpoint": "http://127.0.0.1:4317",
+            "logPrompts": false
           }
         }
         """
@@ -2877,6 +3289,13 @@ struct TokenmonDataContractTests {
         case .merged, .conflict:
             Issue.record("Expected alreadyConfigured, got \(result)")
         }
+    }
+
+    @Test
+    func geminiSettingsMergerPromptLoggingInspectionRequiresExplicitFalse() throws {
+        #expect(GeminiSettingsMerger.promptLoggingDisabled(existingJSON: #"{"telemetry":{"logPrompts":false}}"#))
+        #expect(GeminiSettingsMerger.promptLoggingDisabled(existingJSON: #"{"telemetry":{"logPrompts":true}}"#) == false)
+        #expect(GeminiSettingsMerger.promptLoggingDisabled(existingJSON: #"{"telemetry":{}}"#) == false)
     }
 
     @Test
