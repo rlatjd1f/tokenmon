@@ -1,0 +1,455 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$ROOT"
+
+output_dir="$ROOT/assets/marketing"
+screenshot_root="$ROOT/assets/screenshots/variants"
+appearance="dark"
+
+usage() {
+  cat <<'EOF'
+Usage:
+  ./scripts/assemble-readme-scenario-gifs [--output-dir <path>]
+                                          [--screenshot-root <path>]
+                                          [--appearance dark|light]
+
+Builds bilingual README scenario GIFs from real Tokenmon screenshots:
+usage -> encounter -> Dex -> archive.
+EOF
+}
+
+abspath() {
+  local path="$1"
+  if [[ "$path" == /* ]]; then
+    printf '%s\n' "$path"
+  else
+    printf '%s/%s\n' "$ROOT" "$path"
+  fi
+}
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --output-dir)
+      shift
+      output_dir="$(abspath "${1:-}")"
+      ;;
+    --screenshot-root)
+      shift
+      screenshot_root="$(abspath "${1:-}")"
+      ;;
+    --appearance)
+      shift
+      appearance="${1:-}"
+      ;;
+    --help|-h)
+      usage
+      exit 0
+      ;;
+    *)
+      printf 'Unsupported argument: %s\n' "$1" >&2
+      usage >&2
+      exit 2
+      ;;
+  esac
+  shift || true
+done
+
+case "$appearance" in
+  dark|light)
+    ;;
+  *)
+    printf 'Unsupported appearance: %s\n' "$appearance" >&2
+    usage >&2
+    exit 2
+    ;;
+esac
+
+mkdir -p "$output_dir"
+
+swift - "$output_dir" "$screenshot_root" "$appearance" <<'SWIFT'
+import AppKit
+import Foundation
+import ImageIO
+
+let outputDir = CommandLine.arguments[1]
+let screenshotRoot = CommandLine.arguments[2]
+let appearance = CommandLine.arguments[3]
+let width: CGFloat = 1200
+let height: CGFloat = 675
+let fps = 8
+let sceneFrames = 18
+let sceneCount = 4
+let delay = 1.0 / Double(fps)
+
+func color(_ hex: UInt32, _ alpha: CGFloat = 1) -> NSColor {
+    NSColor(
+        calibratedRed: CGFloat((hex >> 16) & 255) / 255,
+        green: CGFloat((hex >> 8) & 255) / 255,
+        blue: CGFloat(hex & 255) / 255,
+        alpha: alpha
+    )
+}
+
+func load(_ path: String) -> NSImage {
+    guard let image = NSImage(contentsOfFile: path) else {
+        fputs("Missing image: \(path)\n", stderr)
+        exit(1)
+    }
+    return image
+}
+
+struct Sources {
+    let icon: NSImage
+    let tokens: NSImage
+    let menu: NSImage
+    let dex: NSImage
+    let seenDex: NSImage
+    let reward: NSImage
+}
+
+func sources(language: String) -> Sources {
+    let base = "\(screenshotRoot)/\(language)/\(appearance)"
+    return Sources(
+        icon: load("assets/app-icon/tokenmon-icon-1024.png"),
+        tokens: load("\(base)/tokens-tab.png"),
+        menu: load("\(base)/menu-overview.png"),
+        dex: load("\(base)/dex-tab.png"),
+        seenDex: load("\(base)/seen-dex.png"),
+        reward: load("\(base)/reward-archive.png")
+    )
+}
+
+struct SceneCopy {
+    let eyebrow: String
+    let title: String
+    let detail: String
+    let badge: String
+    let rail: [String]
+}
+
+struct LocalizedCopy {
+    let code: String
+    let scenes: [SceneCopy]
+}
+
+let english = LocalizedCopy(
+    code: "en",
+    scenes: [
+        SceneCopy(eyebrow: "01", title: "Usage builds", detail: "Supported AI coding usage becomes Tokenmon exploration progress.", badge: "Tokens", rail: ["Usage", "Encounter", "Dex", "Archive"]),
+        SceneCopy(eyebrow: "02", title: "Encounter appears", detail: "When exploration fills, Tokenmon picks a field, rarity, and creature.", badge: "Encounter", rail: ["Usage", "Encounter", "Dex", "Archive"]),
+        SceneCopy(eyebrow: "03", title: "Dex records it", detail: "Captured or Escaped results update Seen Dex and Captured Dex.", badge: "Dex", rail: ["Usage", "Encounter", "Dex", "Archive"]),
+        SceneCopy(eyebrow: "04", title: "Collection stays local", detail: "Seen Dex and Reward Archive show progress from the same local state.", badge: "Archive", rail: ["Usage", "Encounter", "Dex", "Archive"])
+    ]
+)
+
+let korean = LocalizedCopy(
+    code: "ko",
+    scenes: [
+        SceneCopy(eyebrow: "01", title: "사용량이 쌓입니다", detail: "지원되는 AI 코딩 사용량이 Tokenmon의 탐험 진행도로 들어옵니다.", badge: "Tokens", rail: ["사용량", "조우", "Dex", "아카이브"]),
+        SceneCopy(eyebrow: "02", title: "조우가 자동 발생", detail: "탐험 게이지가 채워지면 필드와 희귀도에 맞는 Tokenmon이 나타납니다.", badge: "Encounter", rail: ["사용량", "조우", "Dex", "아카이브"]),
+        SceneCopy(eyebrow: "03", title: "결과가 Dex에 기록", detail: "포획 또는 도망 결과가 Seen Dex와 Captured Dex 상태로 남습니다.", badge: "Dex", rail: ["사용량", "조우", "Dex", "아카이브"]),
+        SceneCopy(eyebrow: "04", title: "컬렉션을 확인", detail: "Seen Dex와 Reward Archive에서 쌓인 기록을 다시 확인합니다.", badge: "Archive", rail: ["사용량", "조우", "Dex", "아카이브"])
+    ]
+)
+
+final class Renderer {
+    let rep: NSBitmapImageRep
+
+    init() {
+        guard let bitmap = NSBitmapImageRep(
+            bitmapDataPlanes: nil,
+            pixelsWide: Int(width),
+            pixelsHigh: Int(height),
+            bitsPerSample: 8,
+            samplesPerPixel: 4,
+            hasAlpha: true,
+            isPlanar: false,
+            colorSpaceName: .deviceRGB,
+            bytesPerRow: 0,
+            bitsPerPixel: 0
+        ) else {
+            fputs("Could not create bitmap\n", stderr)
+            exit(1)
+        }
+        bitmap.size = NSSize(width: width, height: height)
+        rep = bitmap
+        guard let context = NSGraphicsContext(bitmapImageRep: bitmap) else {
+            fputs("Could not create graphics context\n", stderr)
+            exit(1)
+        }
+        NSGraphicsContext.current = context
+        context.imageInterpolation = .high
+        context.shouldAntialias = true
+    }
+
+    func rect(_ x: CGFloat, _ y: CGFloat, _ w: CGFloat, _ h: CGFloat) -> CGRect {
+        CGRect(x: x, y: height - y - h, width: w, height: h)
+    }
+
+    func fill(_ nsColor: NSColor, _ x: CGFloat, _ y: CGFloat, _ w: CGFloat, _ h: CGFloat) {
+        nsColor.setFill()
+        rect(x, y, w, h).fill()
+    }
+
+    func rounded(_ x: CGFloat, _ y: CGFloat, _ w: CGFloat, _ h: CGFloat, radius: CGFloat, fill: NSColor, stroke: NSColor? = nil, lineWidth: CGFloat = 1) {
+        let path = NSBezierPath(roundedRect: rect(x, y, w, h), xRadius: radius, yRadius: radius)
+        fill.setFill()
+        path.fill()
+        if let stroke {
+            stroke.setStroke()
+            path.lineWidth = lineWidth
+            path.stroke()
+        }
+    }
+
+    func text(_ string: String, _ x: CGFloat, _ y: CGFloat, _ w: CGFloat, _ h: CGFloat, _ size: CGFloat, _ weight: NSFont.Weight, _ nsColor: NSColor, line: CGFloat? = nil, align: NSTextAlignment = .left) {
+        let paragraph = NSMutableParagraphStyle()
+        paragraph.alignment = align
+        paragraph.lineBreakMode = .byWordWrapping
+        if let line {
+            paragraph.minimumLineHeight = line
+            paragraph.maximumLineHeight = line
+        }
+        NSString(string: string).draw(
+            with: rect(x, y, w, h),
+            options: [.usesLineFragmentOrigin, .usesFontLeading],
+            attributes: [
+                .font: NSFont.systemFont(ofSize: size, weight: weight),
+                .foregroundColor: nsColor,
+                .paragraphStyle: paragraph,
+                .kern: 0
+            ]
+        )
+    }
+
+    @discardableResult
+    func imageAspectFit(_ image: NSImage, x: CGFloat, y: CGFloat, w: CGFloat, h: CGFloat, radius: CGFloat, alpha: CGFloat = 1, shadow: Bool = true) -> CGRect {
+        let aspect = image.size.width / max(image.size.height, 1)
+        var targetWidth = w
+        var targetHeight = w / aspect
+        if targetHeight > h {
+            targetHeight = h
+            targetWidth = h * aspect
+        }
+        let targetX = x + (w - targetWidth) / 2
+        let targetY = y + (h - targetHeight) / 2
+        let target = rect(targetX, targetY, targetWidth, targetHeight)
+        let path = NSBezierPath(roundedRect: target, xRadius: radius, yRadius: radius)
+
+        if shadow {
+            let nsShadow = NSShadow()
+            nsShadow.shadowColor = NSColor.black.withAlphaComponent(0.44 * alpha)
+            nsShadow.shadowOffset = NSSize(width: 0, height: -18)
+            nsShadow.shadowBlurRadius = 32
+            NSGraphicsContext.saveGraphicsState()
+            nsShadow.set()
+            color(0x071018, 0.96 * alpha).setFill()
+            path.fill()
+            NSGraphicsContext.restoreGraphicsState()
+        }
+
+        NSGraphicsContext.saveGraphicsState()
+        path.addClip()
+        image.draw(in: target, from: CGRect(origin: .zero, size: image.size), operation: .copy, fraction: alpha, respectFlipped: false, hints: nil)
+        NSGraphicsContext.restoreGraphicsState()
+
+        color(0xffffff, 0.15 * alpha).setStroke()
+        path.lineWidth = 1.2
+        path.stroke()
+        return CGRect(x: targetX, y: targetY, width: targetWidth, height: targetHeight)
+    }
+
+    @discardableResult
+    func imageAspectFill(_ image: NSImage, x: CGFloat, y: CGFloat, w: CGFloat, h: CGFloat, radius: CGFloat, alpha: CGFloat = 1) -> CGRect {
+        let target = rect(x, y, w, h)
+        let path = NSBezierPath(roundedRect: target, xRadius: radius, yRadius: radius)
+        let sourceAspect = image.size.width / max(image.size.height, 1)
+        let targetAspect = w / max(h, 1)
+        var source = CGRect(origin: .zero, size: image.size)
+        if sourceAspect > targetAspect {
+            let newWidth = image.size.height * targetAspect
+            source.origin.x = (image.size.width - newWidth) / 2
+            source.size.width = newWidth
+        } else {
+            let newHeight = image.size.width / targetAspect
+            source.origin.y = (image.size.height - newHeight) / 2
+            source.size.height = newHeight
+        }
+
+        let nsShadow = NSShadow()
+        nsShadow.shadowColor = NSColor.black.withAlphaComponent(0.36 * alpha)
+        nsShadow.shadowOffset = NSSize(width: 0, height: -14)
+        nsShadow.shadowBlurRadius = 24
+        NSGraphicsContext.saveGraphicsState()
+        nsShadow.set()
+        color(0x071018, 0.96 * alpha).setFill()
+        path.fill()
+        NSGraphicsContext.restoreGraphicsState()
+
+        NSGraphicsContext.saveGraphicsState()
+        path.addClip()
+        image.draw(in: target, from: source, operation: .copy, fraction: alpha, respectFlipped: false, hints: nil)
+        NSGraphicsContext.restoreGraphicsState()
+        color(0xffffff, 0.14 * alpha).setStroke()
+        path.lineWidth = 1.1
+        path.stroke()
+        return CGRect(x: x, y: y, width: w, height: h)
+    }
+
+    func highlight(in imageRect: CGRect, x: CGFloat, y: CGFloat, w: CGFloat, h: CGFloat, progress: CGFloat, tint: NSColor = color(0x9cf7b3)) {
+        let pulse = 0.55 + 0.45 * sin(progress * .pi * 2)
+        rounded(
+            imageRect.minX + imageRect.width * x - 6,
+            imageRect.minY + imageRect.height * y - 6,
+            imageRect.width * w + 12,
+            imageRect.height * h + 12,
+            radius: 18,
+            fill: tint.withAlphaComponent(0.10 + 0.06 * pulse),
+            stroke: tint.withAlphaComponent(0.46 + 0.30 * pulse),
+            lineWidth: 3
+        )
+    }
+
+    func backdrop(_ scene: Int) {
+        fill(color(0x07100d), 0, 0, width, height)
+        NSGradient(colors: [
+            color(0x07100d),
+            scene == 1 ? color(0x17251f) : color(0x111d28),
+            scene == 2 ? color(0x22152b) : color(0x111927),
+            scene == 3 ? color(0x251f12) : color(0x0d161c)
+        ])?.draw(in: rect(0, 0, width, height), angle: -18)
+        fill(NSColor.black.withAlphaComponent(0.20), 0, 0, width, height)
+        rounded(54, 56, 360, 230, radius: 34, fill: color(0xffd36b, 0.055), stroke: color(0xffd36b, 0.08))
+        rounded(860, 420, 260, 170, radius: 30, fill: color(0x88b7ff, 0.055), stroke: color(0x88b7ff, 0.08))
+    }
+
+    func brandTopRight(_ icon: NSImage) {
+        let x: CGFloat = 888
+        let y: CGFloat = 38
+        rounded(x, y, 250, 58, radius: 29, fill: color(0x0b141d, 0.88), stroke: color(0xb9e39d, 0.28))
+        imageAspectFit(icon, x: x + 18, y: y + 12, w: 34, h: 34, radius: 8, shadow: false)
+        text("Tokenmon", x + 66, y + 13, 150, 28, 25, .heavy, color(0xf4fbff), line: 30)
+    }
+
+    func sceneRail(_ labels: [String], active: Int) {
+        var x: CGFloat = 640
+        for index in 0..<labels.count {
+            let activeNow = index == active
+            rounded(x, 575, 108, 44, radius: 22, fill: activeNow ? color(0x9cf7b3, 0.92) : color(0x101923, 0.78), stroke: activeNow ? nil : color(0xffffff, 0.14))
+            text(labels[index], x + 10, 586, 88, 22, 18, .bold, activeNow ? color(0x07100d) : color(0xd8e6f0), line: 22, align: .center)
+            x += 124
+        }
+    }
+
+    func copyPanel(_ copy: SceneCopy, active: Int, progress: CGFloat) {
+        rounded(625, 132, 500, 390, radius: 30, fill: color(0x081018, 0.76), stroke: color(0xffffff, 0.11))
+        rounded(662, 174, 66, 66, radius: 33, fill: color(0xffd36b, 0.95))
+        text(copy.eyebrow, 662, 193, 66, 26, 28, .heavy, color(0x07100d), line: 30, align: .center)
+        text(copy.badge, 752, 180, 250, 30, 22, .bold, color(0x9cf7b3), line: 28)
+        text(copy.title, 752, 220, 320, 52, 34, .heavy, color(0xffffff), line: 42)
+        text(copy.detail, 666, 310, 390, 92, 23, .semibold, color(0xd2e1ec), line: 33)
+        let barProgress = min(1, 0.2 + progress * 0.8)
+        rounded(666, 438, 350, 18, radius: 9, fill: color(0x121c25, 0.92), stroke: color(0xffffff, 0.10))
+        rounded(669, 441, 344 * barProgress, 12, radius: 6, fill: color(0x9cf7b3, 0.92), stroke: nil)
+        sceneRail(copy.rail, active: active)
+    }
+
+    func savePNG(_ path: String) {
+        guard let data = rep.representation(using: .png, properties: [:]) else {
+            fputs("Could not encode PNG\n", stderr)
+            exit(1)
+        }
+        do {
+            try data.write(to: URL(fileURLWithPath: path))
+        } catch {
+            fputs("Could not write \(path): \(error)\n", stderr)
+            exit(1)
+        }
+    }
+
+    func cgImage() -> CGImage {
+        guard let image = rep.cgImage else {
+            fputs("Could not create CGImage\n", stderr)
+            exit(1)
+        }
+        return image
+    }
+}
+
+func drawScene(_ scene: Int, frame: Int, copy: LocalizedCopy, sources: Sources) -> Renderer {
+    let renderer = Renderer()
+    let progress = CGFloat(frame) / CGFloat(max(1, sceneFrames - 1))
+    let scalePulse = 1 + 0.018 * sin(progress * .pi)
+    renderer.backdrop(scene)
+
+    switch scene {
+    case 0:
+        let screen = renderer.imageAspectFit(sources.tokens, x: 90, y: 72, w: 455 * scalePulse, h: 555 * scalePulse, radius: 28)
+        renderer.highlight(in: screen, x: 0.05, y: 0.03, w: 0.75, h: 0.12, progress: progress, tint: color(0xffd36b))
+        renderer.highlight(in: screen, x: 0.05, y: 0.27, w: 0.76, h: 0.035, progress: progress, tint: color(0x2cd6df))
+        renderer.highlight(in: screen, x: 0.05, y: 0.71, w: 0.76, h: 0.22, progress: progress, tint: color(0x88b7ff))
+    case 1:
+        let screen = renderer.imageAspectFit(sources.menu, x: 92, y: 70, w: 455 * scalePulse, h: 558 * scalePulse, radius: 28)
+        renderer.highlight(in: screen, x: 0.05, y: 0.33, w: 0.76, h: 0.03, progress: progress, tint: color(0x9cf7b3))
+        renderer.highlight(in: screen, x: 0.05, y: 0.39, w: 0.76, h: 0.20, progress: progress, tint: color(0xffd36b))
+    case 2:
+        let screen = renderer.imageAspectFit(sources.dex, x: 92, y: 70, w: 455 * scalePulse, h: 558 * scalePulse, radius: 28)
+        renderer.highlight(in: screen, x: 0.05, y: 0.02, w: 0.76, h: 0.18, progress: progress, tint: color(0x88b7ff))
+        renderer.highlight(in: screen, x: 0.05, y: 0.27, w: 0.16, h: 0.16, progress: progress, tint: color(0x9cf7b3))
+    default:
+        _ = renderer.imageAspectFill(sources.seenDex, x: 78, y: 110, w: 610, h: 410, radius: 26)
+        _ = renderer.imageAspectFill(sources.reward, x: 302, y: 316, w: 430, h: 260, radius: 24, alpha: 0.96)
+        let pulse = sin(progress * .pi * 2)
+        renderer.rounded(78, 110, 610, 410, radius: 26, fill: color(0xffffff, 0), stroke: color(0x9cf7b3, 0.26 + 0.18 * pulse), lineWidth: 2)
+        renderer.rounded(302, 316, 430, 260, radius: 24, fill: color(0xffffff, 0), stroke: color(0xffd36b, 0.25 + 0.20 * pulse), lineWidth: 2)
+    }
+
+    renderer.copyPanel(copy.scenes[scene], active: scene, progress: progress)
+    renderer.brandTopRight(sources.icon)
+    return renderer
+}
+
+func render(_ copy: LocalizedCopy) {
+    let localizedSources = sources(language: copy.code == "ko" ? "korean" : "english")
+    let gifPath = "\(outputDir)/readme-flow-\(copy.code).gif"
+    let posterPath = "\(outputDir)/readme-flow-\(copy.code)-poster.png"
+    guard let destination = CGImageDestinationCreateWithURL(URL(fileURLWithPath: gifPath) as CFURL, "com.compuserve.gif" as CFString, sceneFrames * sceneCount, nil) else {
+        fputs("Could not create GIF destination\n", stderr)
+        exit(1)
+    }
+    CGImageDestinationSetProperties(destination, [
+        kCGImagePropertyGIFDictionary as String: [
+            kCGImagePropertyGIFLoopCount as String: 0
+        ]
+    ] as CFDictionary)
+
+    for scene in 0..<sceneCount {
+        for frame in 0..<sceneFrames {
+            autoreleasepool {
+                let renderer = drawScene(scene, frame: frame, copy: copy, sources: localizedSources)
+                if scene == 1 && frame == sceneFrames / 2 {
+                    renderer.savePNG(posterPath)
+                }
+                CGImageDestinationAddImage(destination, renderer.cgImage(), [
+                    kCGImagePropertyGIFDictionary as String: [
+                        kCGImagePropertyGIFDelayTime as String: delay
+                    ]
+                ] as CFDictionary)
+                NSGraphicsContext.current = nil
+            }
+        }
+    }
+
+    if !CGImageDestinationFinalize(destination) {
+        fputs("Could not finalize GIF: \(gifPath)\n", stderr)
+        exit(1)
+    }
+    print("readme_flow_gif_\(copy.code)=\(gifPath)")
+    print("readme_flow_poster_\(copy.code)=\(posterPath)")
+}
+
+render(english)
+render(korean)
+SWIFT

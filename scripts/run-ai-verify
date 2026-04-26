@@ -951,12 +951,17 @@ fi
 
 if have_repo_paths \
   "scripts/assemble-readme-marketing-heroes" \
+  "scripts/assemble-readme-scenario-gifs" \
   "scripts/update-readme-marketing-assets" \
   "assets/screenshots/variants/english/dark/menu-overview.png" \
+  "assets/screenshots/variants/english/dark/tokens-tab.png" \
+  "assets/screenshots/variants/english/dark/dex-tab.png" \
   "assets/screenshots/variants/english/dark/raid-tab.png" \
   "assets/screenshots/variants/english/dark/reward-archive.png" \
   "assets/screenshots/variants/english/dark/seen-dex.png" \
   "assets/screenshots/variants/korean/dark/menu-overview.png" \
+  "assets/screenshots/variants/korean/dark/tokens-tab.png" \
+  "assets/screenshots/variants/korean/dark/dex-tab.png" \
   "assets/screenshots/variants/korean/dark/raid-tab.png" \
   "assets/screenshots/variants/korean/dark/reward-archive.png" \
   "assets/screenshots/variants/korean/dark/seen-dex.png"
@@ -966,16 +971,23 @@ then
   readme_marketing_output="$("$ROOT/scripts/assemble-readme-marketing-heroes" --output-dir "$readme_marketing_dir" 2>&1)"
   require_contains "$readme_marketing_output" "readme_hero_en=$readme_marketing_dir/readme-hero-en.jpg"
   require_contains "$readme_marketing_output" "readme_hero_ko=$readme_marketing_dir/readme-hero-ko.jpg"
+  readme_flow_output="$("$ROOT/scripts/assemble-readme-scenario-gifs" --output-dir "$readme_marketing_dir" 2>&1)"
+  require_contains "$readme_flow_output" "readme_flow_gif_en=$readme_marketing_dir/readme-flow-en.gif"
+  require_contains "$readme_flow_output" "readme_flow_gif_ko=$readme_marketing_dir/readme-flow-ko.gif"
   [[ -s "$readme_marketing_dir/readme-hero-en.jpg" ]] || { printf 'VERIFY FAIL: missing generated English README marketing hero\n' >&2; exit 1; }
   [[ -s "$readme_marketing_dir/readme-hero-ko.jpg" ]] || { printf 'VERIFY FAIL: missing generated Korean README marketing hero\n' >&2; exit 1; }
+  [[ -s "$readme_marketing_dir/readme-flow-en.gif" ]] || { printf 'VERIFY FAIL: missing generated English README flow GIF\n' >&2; exit 1; }
+  [[ -s "$readme_marketing_dir/readme-flow-ko.gif" ]] || { printf 'VERIFY FAIL: missing generated Korean README flow GIF\n' >&2; exit 1; }
 
   readme_marketing_wrapper_dir="$tmpdir/readme-marketing-wrapper"
   readme_marketing_wrapper_output="$("$ROOT/scripts/update-readme-marketing-assets" --skip-capture --skip-export-audit --output-dir "$readme_marketing_wrapper_dir" 2>&1)"
   require_contains "$readme_marketing_wrapper_output" "readme_marketing_output=$readme_marketing_wrapper_dir"
   [[ -s "$readme_marketing_wrapper_dir/readme-hero-en.jpg" ]] || { printf 'VERIFY FAIL: wrapper missing English README marketing hero\n' >&2; exit 1; }
   [[ -s "$readme_marketing_wrapper_dir/readme-hero-ko.jpg" ]] || { printf 'VERIFY FAIL: wrapper missing Korean README marketing hero\n' >&2; exit 1; }
-  printf 'VERIFY PASS: README marketing hero assembly helpers\n'
-  record_timing "marketing_assets" "readme_marketing_heroes" "$readme_marketing_started_at"
+  [[ -s "$readme_marketing_wrapper_dir/readme-flow-en.gif" ]] || { printf 'VERIFY FAIL: wrapper missing English README flow GIF\n' >&2; exit 1; }
+  [[ -s "$readme_marketing_wrapper_dir/readme-flow-ko.gif" ]] || { printf 'VERIFY FAIL: wrapper missing Korean README flow GIF\n' >&2; exit 1; }
+  printf 'VERIFY PASS: README marketing hero and flow assembly helpers\n'
+  record_timing "marketing_assets" "readme_marketing_assets" "$readme_marketing_started_at"
 fi
 
 dot_asset_path="$tmpdir/generated-dots.svg"
@@ -1016,8 +1028,12 @@ if [[ "$has_public_export_tooling" == "1" ]]; then
   [[ -f "$public_export_dir/README.ko.md" ]] || { printf 'VERIFY FAIL: public export should contain README.ko.md\n' >&2; exit 1; }
   [[ -f "$public_export_dir/assets/marketing/readme-hero-en.jpg" ]] || { printf 'VERIFY FAIL: public export should contain English README marketing hero\n' >&2; exit 1; }
   [[ -f "$public_export_dir/assets/marketing/readme-hero-ko.jpg" ]] || { printf 'VERIFY FAIL: public export should contain Korean README marketing hero\n' >&2; exit 1; }
+  [[ -f "$public_export_dir/assets/marketing/readme-flow-en.gif" ]] || { printf 'VERIFY FAIL: public export should contain English README flow GIF\n' >&2; exit 1; }
+  [[ -f "$public_export_dir/assets/marketing/readme-flow-ko.gif" ]] || { printf 'VERIFY FAIL: public export should contain Korean README flow GIF\n' >&2; exit 1; }
   require_contains "$(cat "$public_export_dir/README.md")" "assets/marketing/readme-hero-en.jpg"
+  require_contains "$(cat "$public_export_dir/README.md")" "assets/marketing/readme-flow-en.gif"
   require_contains "$(cat "$public_export_dir/README.ko.md")" "assets/marketing/readme-hero-ko.jpg"
+  require_contains "$(cat "$public_export_dir/README.ko.md")" "assets/marketing/readme-flow-ko.gif"
   [[ -f "$public_export_dir/docs/architecture/public-source-overview.md" ]] || { printf 'VERIFY FAIL: public export should contain public source overview doc\n' >&2; exit 1; }
   [[ ! -e "$public_export_dir/.codex" ]] || { printf 'VERIFY FAIL: public export must not contain .codex\n' >&2; exit 1; }
   printf 'VERIFY PASS: sanitized public repo export and audit\n'
@@ -1828,8 +1844,8 @@ if [[ "$include_readme_screenshots" == "1" ]]; then
       fi
     done
   done
-  grep -Fq "assets/screenshots/variants/english/dark/menu-hero.gif" README.md || {
-    printf 'VERIFY FAIL: README.md missing english screenshot path\n' >&2
+  grep -Fq "assets/marketing/readme-flow-en.gif" README.md || {
+    printf 'VERIFY FAIL: README.md missing english README flow GIF path\n' >&2
     exit 1
   }
   grep -Fq "assets/screenshots/variants/english/dark/menu-overview.png" README.md || {
@@ -1848,8 +1864,8 @@ if [[ "$include_readme_screenshots" == "1" ]]; then
     printf 'VERIFY FAIL: README.md missing english reward archive screenshot path\n' >&2
     exit 1
   }
-  grep -Fq "assets/screenshots/variants/korean/dark/menu-hero.gif" README.ko.md || {
-    printf 'VERIFY FAIL: README.ko.md missing korean screenshot path\n' >&2
+  grep -Fq "assets/marketing/readme-flow-ko.gif" README.ko.md || {
+    printf 'VERIFY FAIL: README.ko.md missing korean README flow GIF path\n' >&2
     exit 1
   }
   grep -Fq "assets/screenshots/variants/korean/dark/menu-overview.png" README.ko.md || {

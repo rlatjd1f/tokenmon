@@ -13,7 +13,9 @@ asking for an account or your prompt history.
   <img src="assets/marketing/readme-hero-en.jpg" alt="Tokenmon local-first macOS AI coding companion with Dex, Raid, and Reward Archive screenshots" />
 </p>
 
-![Tokenmon animated menu hero](assets/screenshots/variants/english/dark/menu-hero.gif)
+<p align="center">
+  <img src="assets/marketing/readme-flow-en.gif" alt="Tokenmon screen flow from AI usage to automatic encounter, Dex record, and local archive" />
+</p>
 
 ## Download
 
