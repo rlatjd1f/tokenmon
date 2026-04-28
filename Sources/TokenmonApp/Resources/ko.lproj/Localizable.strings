@@ -273,8 +273,8 @@
 
 "provider.auto_setup.cli_not_found" = "%1$@ CLI를 찾지 못해 자동 설정을 건너뜁니다.";
 "provider.auto_setup.failed" = "자동 설정에 실패했습니다.";
-"provider.install.claude.success" = "Claude OTel 라이브 토큰 수집이 설정되었습니다. 상태 줄은 기존 출력을 보존하는 보조 경로로 유지됩니다.";
-"provider.install.claude.statusline_fallback" = "기존 Claude OTel 설정을 보존했습니다. Tokenmon은 상태 줄 fallback으로 Claude 사용량을 관찰합니다.";
+"provider.install.claude.success" = "Claude 상태 줄 라이브 토큰 수집이 설정되었습니다. Tokenmon은 Claude의 공식 상태 줄 JSON을 사용하고 Claude OTel 설정은 설치하지 않습니다.";
+"provider.install.claude.statusline_fallback" = "기존 Claude OTel 설정을 보존했습니다. Tokenmon은 상태 줄로 Claude 사용량을 관찰합니다.";
 "provider.install.codex.success" = "Codex 관찰은 automatic입니다. Tokenmon이 로컬 Codex 세션 파일을 별도 설치 없이 감시합니다.";
 "provider.install.gemini.success" = "Gemini 텔레메트리가 자동으로 설정되었습니다. Tokenmon이 127.0.0.1:4317에서 라이브 텔레메트리를 받습니다.";
 "provider.install.gemini.already_configured" = "Gemini 텔레메트리가 이미 Tokenmon용으로 설정되어 있습니다.";
@@ -285,16 +285,17 @@
 "provider.claude.missing.custom_path_detail" = "사용자 지정 경로에서 Claude를 찾지 못했습니다. 경로를 수정하거나 자동 감지로 되돌리세요.";
 "provider.claude.repair.title" = "Claude 설정 복구 필요";
 "provider.claude.repair.action" = "Claude 복구";
-"provider.claude.repair.detail" = "Tokenmon이 Claude를 자동으로 설정해야 합니다. 가능한 경우 OTel 라이브 토큰 수집을 사용하고, 상태 줄은 fallback으로 유지합니다.";
-"provider.claude.repair.hooks_only_detail" = "Claude hooks는 존재하지만 라이브 게임플레이에는 여전히 상태 줄이 필요합니다.";
-"provider.claude.repair.statusline_detail" = "Claude OTel 또는 상태 줄 fallback 설정이 필요합니다. 대시보드 복구는 알려진 transcript에만 동작합니다.";
-"provider.claude.repair.external_otel_detail" = "기존 Claude OTel 설정이 감지되어 Tokenmon이 자동으로 변경하지 않습니다. Claude 복구는 상태 줄 fallback만 설정합니다.";
+"provider.claude.repair.detail" = "Tokenmon이 라이브 사용량을 위해 Claude 상태 줄 wrapper를 설치해야 합니다.";
+"provider.claude.repair.hooks_only_detail" = "Claude hooks는 존재하지만 라이브 게임플레이에는 상태 줄 wrapper가 필요합니다.";
+"provider.claude.repair.statusline_detail" = "Claude 상태 줄 라이브 설정이 필요합니다. 대시보드 복구는 알려진 transcript에만 동작합니다.";
+"provider.claude.repair.tokenmon_otel_detail" = "이전 Tokenmon 소유 Claude OTel 설정을 복구해야 상태 줄 라이브 수집만 Tokenmon 소유 Claude 라이브 경로로 남습니다.";
+"provider.claude.repair.external_otel_detail" = "기존 Claude OTel 설정이 감지되어 Tokenmon이 자동으로 변경하지 않습니다. Claude 복구는 상태 줄 wrapper만 설정합니다.";
 "provider.claude.connected.title" = "Claude 연결됨";
-"provider.claude.connected.detail" = "상태 줄 fallback 기반 라이브 게임플레이가 준비되었습니다. 대시보드 복구는 알려진 transcript에만 적용됩니다.";
-"provider.claude.connected.detail_with_hooks" = "상태 줄 fallback 기반 라이브 게임플레이가 준비되었습니다. Claude hooks는 선택 사항입니다.";
-"provider.claude.connected.detail_otel" = "OTel 기반 라이브 토큰 수집이 준비되었습니다. 상태 줄은 세션 정보와 기존 출력 보존에만 사용됩니다.";
-"provider.claude.connected.detail_otel_with_hooks" = "OTel 기반 라이브 토큰 수집이 준비되었습니다. Claude hooks와 상태 줄은 보조 신호로 유지됩니다.";
-"provider.claude.connected.detail_external_otel_statusline" = "기존 Claude OTel 백엔드를 보존했습니다. Tokenmon은 상태 줄 fallback으로 라이브 사용량을 관찰합니다.";
+"provider.claude.connected.detail" = "상태 줄 기반 라이브 게임플레이가 준비되었습니다. 대시보드 복구는 알려진 transcript에만 적용됩니다.";
+"provider.claude.connected.detail_with_hooks" = "상태 줄 기반 라이브 게임플레이가 준비되었습니다. Claude hooks는 선택 사항입니다.";
+"provider.claude.connected.detail_otel" = "상태 줄 기반 라이브 게임플레이가 준비되었습니다. 기존 Tokenmon 소유 Claude OTel 설정은 복구로 정리할 수 있습니다.";
+"provider.claude.connected.detail_otel_with_hooks" = "상태 줄 기반 라이브 게임플레이가 준비되었습니다. Claude hooks는 선택 사항이고 기존 Tokenmon 소유 OTel 설정은 복구로 정리할 수 있습니다.";
+"provider.claude.connected.detail_external_otel_statusline" = "기존 Claude OTel 백엔드를 보존했습니다. Tokenmon은 상태 줄로 라이브 사용량을 관찰합니다.";
 
 "provider.codex.missing.title" = "Codex 감지 안 됨";
 "provider.codex.missing.detail" = "Codex를 설치하거나 경로를 지정하세요.";
