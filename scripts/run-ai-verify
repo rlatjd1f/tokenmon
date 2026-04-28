@@ -121,6 +121,15 @@ require_contains() {
   fi
 }
 
+require_not_contains() {
+  local haystack="$1"
+  local needle="$2"
+  if [[ "$haystack" == *"$needle"* ]]; then
+    printf 'VERIFY FAIL: expected output not to contain %s\n' "$needle" >&2
+    exit 1
+  fi
+}
+
 have_repo_paths() {
   local relative_path
   for relative_path in "$@"; do
@@ -1132,7 +1141,7 @@ printf 'VERIFY PASS: menubar strip screenshot generation\n'
 diagnose_empty_output="$(tokenmon_app_cmd --tokenmon-diagnose --db "$db" 2>&1)"
 require_contains "$diagnose_empty_output" "[claude]"
 require_contains "$diagnose_empty_output" "health_state: missing_configuration"
-require_contains "$diagnose_empty_output" "next_step: Tokenmon should configure Claude automatically; repair Claude if OTel live usage or the status line fallback is still unavailable"
+require_contains "$diagnose_empty_output" "next_step: Tokenmon should configure Claude automatically; repair Claude if status line live usage is still unavailable"
 require_contains "$diagnose_empty_output" "offline_dashboard_recovery: known_transcript_only"
 require_contains "$diagnose_empty_output" "live_gameplay_armed: no"
 require_contains "$diagnose_empty_output" "[codex]"
@@ -1180,11 +1189,14 @@ require_contains "$claude_onboarding_output" "provider_connect: ok"
 require_contains "$claude_onboarding_output" "provider: claude"
 claude_settings_path="$onboarding_home/.claude/settings.json"
 claude_wrapper_path="$onboarding_home/.claude/tokenmon-statusline.sh"
-require_contains "$(cat "$claude_settings_path")" "tokenmon-statusline.sh"
-require_contains "$(cat "$claude_settings_path")" "CLAUDE_CODE_ENABLE_TELEMETRY"
-require_contains "$(cat "$claude_settings_path")" "OTEL_EXPORTER_OTLP_ENDPOINT"
-require_contains "$(cat "$claude_wrapper_path")" "--tokenmon-provider-claude-statusline-import"
-require_contains "$(cat "$claude_wrapper_path")" "--metadata-only"
+claude_settings_contents="$(cat "$claude_settings_path")"
+claude_wrapper_contents="$(cat "$claude_wrapper_path")"
+require_contains "$claude_settings_contents" "tokenmon-statusline.sh"
+require_contains "$claude_settings_contents" '"refreshInterval" : 30'
+require_not_contains "$claude_settings_contents" "CLAUDE_CODE_ENABLE_TELEMETRY"
+require_not_contains "$claude_settings_contents" "OTEL_EXPORTER_OTLP_ENDPOINT"
+require_contains "$claude_wrapper_contents" "--tokenmon-provider-claude-statusline-import"
+require_not_contains "$claude_wrapper_contents" "--metadata-only"
 printf 'VERIFY PASS: claude onboarding installer\n'
 
 codex_onboarding_db="$tmpdir/codex-onboarding.sqlite"

@@ -331,7 +331,7 @@ public extension TokenmonDatabaseManager {
             return (
                 sourceMode,
                 "connected",
-                "Claude transcript recovery updated dashboard totals at \(lastObservedAt); gameplay still requires OTel live usage or the status line fallback"
+                "Claude transcript recovery updated dashboard totals at \(lastObservedAt); gameplay still requires status line live usage"
             )
         }
 
@@ -385,9 +385,9 @@ public extension TokenmonDatabaseManager {
         switch provider {
         case .claude:
             return (
-                sourceMode ?? "claude_otel_api_request_live",
+                sourceMode ?? "claude_statusline_live",
                 "missing_configuration",
-                "Claude OTel live usage or status line fallback is not configured yet"
+                "Claude status line live usage is not configured yet"
             )
         case .codex:
             return (

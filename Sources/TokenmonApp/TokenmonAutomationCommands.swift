@@ -1023,7 +1023,7 @@ enum TokenmonAutomationCommand {
     private static func nextStep(for summary: ProviderHealthSummary) -> String {
         switch (summary.provider, summary.healthState) {
         case (.claude, "missing_configuration"):
-            return "Tokenmon should configure Claude automatically; repair Claude if OTel live usage or the status line fallback is still unavailable"
+            return "Tokenmon should configure Claude automatically; repair Claude if status line live usage is still unavailable"
         case (.codex, "missing_configuration"):
             return "Codex is watched automatically; inspect the local session store path if live updates are missing"
         case (.gemini, "missing_configuration"):

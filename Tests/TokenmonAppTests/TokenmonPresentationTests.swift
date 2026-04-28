@@ -1795,15 +1795,17 @@ struct TokenmonPresentationTests {
         let claudeSettings = try String(contentsOf: claudeDirectory.appendingPathComponent("settings.json"), encoding: .utf8)
         let claudeWrapper = try String(contentsOf: claudeDirectory.appendingPathComponent("tokenmon-statusline.sh"), encoding: .utf8)
         let geminiSettings = try String(contentsOf: geminiDirectory.appendingPathComponent("settings.json"), encoding: .utf8)
+        let claudeSettingsJSON = try #require(try JSONSerialization.jsonObject(with: Data(claudeSettings.utf8)) as? [String: Any])
+        let claudeStatusLine = try #require(claudeSettingsJSON["statusLine"] as? [String: Any])
 
         #expect(claudeResult.configured)
         #expect(geminiResult.configured)
         #expect(claudeSettings.contains("tokenmon-statusline.sh"))
-        #expect(claudeSettings.contains("\"CLAUDE_CODE_ENABLE_TELEMETRY\""))
-        #expect(claudeSettings.contains("\"OTEL_EXPORTER_OTLP_ENDPOINT\""))
-        #expect(claudeSettings.contains("127.0.0.1:4317"))
+        #expect(claudeStatusLine["refreshInterval"] as? Int == 30)
+        #expect(claudeSettings.contains("\"CLAUDE_CODE_ENABLE_TELEMETRY\"") == false)
+        #expect(claudeSettings.contains("\"OTEL_EXPORTER_OTLP_ENDPOINT\"") == false)
         #expect(claudeWrapper.contains("--tokenmon-provider-claude-statusline-import"))
-        #expect(claudeWrapper.contains("--metadata-only"))
+        #expect(claudeWrapper.contains("--metadata-only") == false)
         #expect(claudeSettings.contains("--tokenmon-provider-claude-hook-import") == false)
         #expect(geminiSettings.contains("\"otlpEndpoint\""))
         #expect(geminiSettings.contains("127.0.0.1:4317"))
@@ -1878,7 +1880,7 @@ struct TokenmonPresentationTests {
         #expect(statusLine["padding"] as? Int == 2)
         #expect(statusLine["refreshInterval"] as? Int == 5)
         #expect(wrapperContents.contains("--tokenmon-provider-claude-statusline-import"))
-        #expect(wrapperContents.contains("--metadata-only"))
+        #expect(wrapperContents.contains("--metadata-only") == false)
         #expect(wrapperContents.contains(Data(previousCommand.utf8).base64EncodedString()))
 
         let wrapperOutput = try runShellCommand(command: wrapperCommand, stdin: fixture)
@@ -1889,7 +1891,7 @@ struct TokenmonPresentationTests {
     }
 
     @Test
-    func claudeInstallPreservesExternalOtelAndUsesStatusLineUsageFallback() throws {
+    func claudeInstallPreservesExternalOtelAndUsesStatusLineUsagePrimary() throws {
         let directory = try makeTemporaryDirectory()
         defer { try? FileManager.default.removeItem(at: directory) }
 
@@ -1933,6 +1935,81 @@ struct TokenmonPresentationTests {
         #expect(result.message.contains("status line") || result.message.contains("상태 줄"))
         #expect(env["OTEL_EXPORTER_OTLP_ENDPOINT"] as? String == "https://observability.example.com:4317")
         #expect(env["OTEL_EXPORTER_OTLP_HEADERS"] as? String == "authorization=Bearer secret")
+        #expect(statusLine["refreshInterval"] as? Int == 30)
+        #expect(wrapperCommand == "'\(wrapperPath.path)'")
+        #expect(wrapperContents.contains("--tokenmon-provider-claude-statusline-import"))
+        #expect(wrapperContents.contains("--metadata-only") == false)
+    }
+
+    @Test
+    func claudeInstallMigratesTokenmonOwnedOtelToStatusLinePrimary() throws {
+        let directory = try makeTemporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+
+        let claudeDirectory = directory.appendingPathComponent(".claude", isDirectory: true)
+        try FileManager.default.createDirectory(at: claudeDirectory, withIntermediateDirectories: true)
+
+        let fakeClaudeExecutable = directory.appendingPathComponent("claude")
+        try "#!/bin/sh\nexit 0\n".write(to: fakeClaudeExecutable, atomically: true, encoding: .utf8)
+        try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: fakeClaudeExecutable.path)
+
+        let settingsPath = claudeDirectory.appendingPathComponent("settings.json")
+        try """
+        {
+          "env": {
+            "CLAUDE_CODE_ENABLE_TELEMETRY": "1",
+            "OTEL_LOGS_EXPORTER": "otlp",
+            "OTEL_METRICS_EXPORTER": "none",
+            "OTEL_TRACES_EXPORTER": "none",
+            "OTEL_EXPORTER_OTLP_PROTOCOL": "grpc",
+            "OTEL_EXPORTER_OTLP_ENDPOINT": "http://127.0.0.1:4317",
+            "EXAMPLE_ENV": "preserve-me"
+          },
+          "statusLine": {
+            "type": "command",
+            "command": "'/tmp/TokenmonApp' --tokenmon-provider-claude-statusline-import --db '/tmp/tokenmon.sqlite' --metadata-only",
+            "padding": 0
+          }
+        }
+        """.write(to: settingsPath, atomically: true, encoding: .utf8)
+
+        var preferences = ProviderInstallationPreferences()
+        preferences.setExecutablePath(fakeClaudeExecutable.path, for: .claude)
+        preferences.setConfigurationPath(claudeDirectory.path, for: .claude)
+
+        let databasePath = directory.appendingPathComponent("tokenmon.sqlite").path
+        try TokenmonDatabaseManager(path: databasePath).bootstrap()
+
+        let statuses = TokenmonProviderOnboarding.inspectAll(
+            databasePath: databasePath,
+            executablePath: "/tmp/TokenmonApp",
+            preferences: preferences
+        )
+        let claudeStatus = try #require(statuses.first(where: { $0.provider == .claude }))
+        #expect(claudeStatus.isConnected == false)
+        #expect(claudeStatus.isPartial)
+        #expect(claudeStatus.actionTitle == "Repair Claude")
+
+        _ = try TokenmonProviderOnboarding.install(
+            provider: .claude,
+            databasePath: databasePath,
+            executablePath: "/tmp/TokenmonApp",
+            preferences: preferences
+        )
+
+        let settingsData = try Data(contentsOf: settingsPath)
+        let settings = try #require(try JSONSerialization.jsonObject(with: settingsData) as? [String: Any])
+        let env = try #require(settings["env"] as? [String: Any])
+        let statusLine = try #require(settings["statusLine"] as? [String: Any])
+        let wrapperCommand = try #require(statusLine["command"] as? String)
+        let wrapperPath = claudeDirectory.appendingPathComponent("tokenmon-statusline.sh")
+        let wrapperContents = try String(contentsOf: wrapperPath, encoding: .utf8)
+
+        #expect(env["EXAMPLE_ENV"] as? String == "preserve-me")
+        #expect(env["CLAUDE_CODE_ENABLE_TELEMETRY"] == nil)
+        #expect(env["OTEL_LOGS_EXPORTER"] == nil)
+        #expect(env["OTEL_EXPORTER_OTLP_ENDPOINT"] == nil)
+        #expect(statusLine["refreshInterval"] as? Int == 30)
         #expect(wrapperCommand == "'\(wrapperPath.path)'")
         #expect(wrapperContents.contains("--tokenmon-provider-claude-statusline-import"))
         #expect(wrapperContents.contains("--metadata-only") == false)
