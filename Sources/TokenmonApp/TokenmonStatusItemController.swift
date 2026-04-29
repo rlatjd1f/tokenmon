@@ -116,6 +116,7 @@ final class TokenmonAppController {
     private let captureNotificationCoordinator: TokenmonCaptureNotificationCoordinator
     private let analyticsTracker: TokenmonAnalyticsTracking
     private var geminiSupervisor: GeminiOtelReceiverSupervisor?
+    private var claudeTranscriptLiveObserver: ClaudeTranscriptLiveObserver?
     private var codexSessionStoreObserver: CodexSessionStoreObserver?
     private var codexSessionsRootPath: String?
     private var startupTask: Task<Void, Never>?
@@ -303,8 +304,12 @@ final class TokenmonAppController {
             logStartupPhase("mark_live_gameplay_started", startedAt: phaseStartedAt)
 
             phaseStartedAt = Date()
+            let claudeDiscovery = TokenmonProviderDiscovery.discover(provider: .claude, preferences: preferences)
             let codexDiscovery = TokenmonProviderDiscovery.discover(provider: .codex, preferences: preferences)
             let cursorDiscovery = TokenmonProviderDiscovery.discover(provider: .cursor, preferences: preferences)
+            let claudeProjectsRootPath = URL(fileURLWithPath: claudeDiscovery.configurationPath, isDirectory: true)
+                .appendingPathComponent("projects", isDirectory: true)
+                .path
             let sessionsRootPath = CodexSessionStorageLocator.sessionStorageRootPath(
                 config: CodexSessionStorageLocatorConfig(
                     configurationRootPath: codexDiscovery.configurationPath
@@ -314,6 +319,33 @@ final class TokenmonAppController {
                 "resolve_provider_paths",
                 startedAt: phaseStartedAt,
                 metadata: ["cursor_detected": cursorDiscovery.executableExists ? "yes" : "no"]
+            )
+
+            phaseStartedAt = Date()
+            let shouldStartClaudeTranscriptObserver = TokenmonProviderOnboarding
+                .shouldStartClaudePassiveTranscriptObserver(preferences: preferences)
+            let claudeObserver: ClaudeTranscriptLiveObserver?
+            if shouldStartClaudeTranscriptObserver {
+                let observer = ClaudeTranscriptLiveObserver(
+                    config: ClaudeTranscriptLiveObserverConfig(
+                        projectsRootPath: claudeProjectsRootPath,
+                        outputPath: TokenmonDatabaseManager.inboxPath(provider: .claude, databasePath: databasePath),
+                        onActivityPulse: { [weak self] in
+                            Task { @MainActor [weak self] in
+                                self?.menuModel.recordLiveActivityPulse()
+                            }
+                        }
+                    )
+                )
+                observer.startAsync()
+                claudeObserver = observer
+            } else {
+                claudeObserver = nil
+            }
+            logStartupPhase(
+                "claude_transcript_observer_started",
+                startedAt: phaseStartedAt,
+                metadata: ["started": shouldStartClaudeTranscriptObserver ? "yes" : "no"]
             )
 
             phaseStartedAt = Date()
@@ -333,6 +365,7 @@ final class TokenmonAppController {
 
             await MainActor.run {
                 let mainActorPhaseStartedAt = Date()
+                self.claudeTranscriptLiveObserver = claudeObserver
                 self.codexSessionsRootPath = sessionsRootPath
                 self.codexSessionStoreObserver = observer
 
@@ -506,6 +539,8 @@ final class TokenmonAppController {
         recoveryTask = nil
         cursorSyncTask?.cancel()
         cursorSyncTask = nil
+        claudeTranscriptLiveObserver?.stop()
+        claudeTranscriptLiveObserver = nil
         codexSessionStoreObserver?.stop()
         codexSessionStoreObserver = nil
         clearOnboardingWindow(closeWindow: true)

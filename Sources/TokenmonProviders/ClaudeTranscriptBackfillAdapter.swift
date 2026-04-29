@@ -3,15 +3,24 @@ import TokenmonDomain
 
 public struct ClaudeTranscriptBackfillAdapterConfig: Sendable {
     public let sessionIDFallback: String?
+    public let sourceMode: String
+    public let rawReferenceKind: String
+    public let sessionOriginHint: ProviderSessionOriginHint
     public let nowProvider: @Sendable () -> String
 
     public init(
         sessionIDFallback: String? = nil,
+        sourceMode: String = "claude_transcript_backfill",
+        rawReferenceKind: String = "transcript_backfill",
+        sessionOriginHint: ProviderSessionOriginHint = .unknown,
         nowProvider: @escaping @Sendable () -> String = {
             ISO8601DateFormatter().string(from: Date())
         }
     ) {
         self.sessionIDFallback = sessionIDFallback
+        self.sourceMode = sourceMode
+        self.rawReferenceKind = rawReferenceKind
+        self.sessionOriginHint = sessionOriginHint
         self.nowProvider = nowProvider
     }
 }
@@ -163,7 +172,7 @@ public enum ClaudeTranscriptBackfillAdapter {
             return ProviderUsageSampleEvent(
                 eventType: "provider_usage_sample",
                 provider: .claude,
-                sourceMode: "claude_transcript_backfill",
+                sourceMode: config.sourceMode,
                 providerSessionID: sessionID,
                 observedAt: step.observedAt ?? config.nowProvider(),
                 workspaceDir: step.workspaceDir,
@@ -175,12 +184,13 @@ public enum ClaudeTranscriptBackfillAdapter {
                 normalizedTotalTokens: accounting.normalizedTotalTokens,
                 providerEventFingerprint: "claude:\(sessionID):\(cumulativeInputTokens):\(cumulativeOutputTokens)",
                 rawReference: ProviderRawReference(
-                    kind: "transcript_backfill",
+                    kind: config.rawReferenceKind,
                     offset: String(step.firstLineNumber),
                     eventName: "assistant"
                 ),
                 currentInputTokens: accounting.currentInputTokens,
-                currentOutputTokens: accounting.currentOutputTokens
+                currentOutputTokens: accounting.currentOutputTokens,
+                sessionOriginHint: config.sessionOriginHint
             )
         }
 

@@ -1213,6 +1213,8 @@ enum TokenmonSettingsPresentationBuilder {
             return TokenmonL10n.string("settings.providers.source_mode.claude_otel_api_request_live")
         case "claude_statusline_live":
             return TokenmonL10n.string("settings.providers.source_mode.claude_statusline_live")
+        case "claude_transcript_live":
+            return TokenmonL10n.string("settings.providers.source_mode.claude_transcript_live")
         case "claude_transcript_backfill":
             return TokenmonL10n.string("settings.providers.source_mode.transcript_backfill")
         case "codex_exec_json":

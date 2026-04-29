@@ -1042,7 +1042,7 @@ public extension TokenmonDatabaseManager {
     ) throws -> [String: GeminiSessionRunningTotals] {
         try latestProviderSessionTotals(
             provider: .claude,
-            sourceModes: ["claude_otel_api_request_live", "claude_statusline_live"],
+            sourceModes: ["claude_otel_api_request_live", "claude_statusline_live", "claude_transcript_live"],
             activeWithinHours: activeWithinHours,
             asOf: reference
         )
