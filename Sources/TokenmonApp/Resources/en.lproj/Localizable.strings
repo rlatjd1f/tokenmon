@@ -1,5 +1,6 @@
 "provider.install.claude.success" = "Claude status line live token capture was configured. Tokenmon will use Claude's documented status line JSON without installing Claude OTel settings.";
 "provider.install.claude.statusline_fallback" = "Existing Claude OTel settings were preserved. Tokenmon will observe Claude usage through the status line.";
+"provider.install.claude.passive_transcript" = "Claude passive transcript monitoring is ready. Tokenmon did not change your Claude status line, hooks, or OTel settings.";
 "provider.install.codex.success" = "Codex observation is automatic. Tokenmon will watch local Codex session files without installing hooks.";
 "provider.install.gemini.success" = "Gemini telemetry was configured automatically. Tokenmon will receive live telemetry on 127.0.0.1:4317.";
 "provider.install.gemini.already_configured" = "Gemini telemetry was already configured for Tokenmon.";
@@ -314,15 +315,17 @@
 "provider.claude.repair.action" = "Repair Claude";
 "provider.claude.connected.title" = "Claude connected";
 "provider.claude.connected.detail" = "Status line live gameplay is ready. Dashboard recovery only applies to known transcripts.";
+"provider.claude.connected.detail_passive_transcript" = "Passive transcript monitoring is ready. Tokenmon leaves Claude status line, hooks, and OTel settings unchanged.";
 "provider.claude.connected.detail_with_hooks" = "Status line live gameplay is ready. Claude hooks remain optional.";
 "provider.claude.connected.detail_otel" = "Status line live gameplay is ready. Existing Tokenmon-owned Claude OTel settings can be cleaned up by repair.";
+"provider.claude.connected.detail_otel_passive_skip" = "Existing Tokenmon-owned Claude OTel settings were preserved. Passive transcript monitoring stays off to avoid double counting.";
 "provider.claude.connected.detail_otel_with_hooks" = "Status line live gameplay is ready. Claude hooks remain optional and existing Tokenmon-owned OTel settings can be cleaned up by repair.";
 "provider.claude.connected.detail_external_otel_statusline" = "Existing Claude OTel backend settings were preserved. Tokenmon is using the status line for live usage.";
-"provider.claude.repair.detail" = "Tokenmon needs to install the Claude status line wrapper for live usage.";
-"provider.claude.repair.hooks_only_detail" = "Claude hooks exist, but live gameplay still needs the status line wrapper.";
-"provider.claude.repair.statusline_detail" = "Claude status line live setup is required. Dashboard recovery only applies to known transcripts.";
-"provider.claude.repair.tokenmon_otel_detail" = "Older Tokenmon-owned Claude OTel setup needs repair so status line live collection becomes the only Tokenmon-owned Claude live source.";
-"provider.claude.repair.external_otel_detail" = "Existing Claude OTel settings were detected, so Tokenmon will not change them automatically. Repair configures only the status line wrapper.";
+"provider.claude.repair.detail" = "Claude passive transcript monitoring does not require status line repair.";
+"provider.claude.repair.hooks_only_detail" = "Claude hooks exist, and Tokenmon can still use passive transcript monitoring without changing them.";
+"provider.claude.repair.statusline_detail" = "Claude passive transcript monitoring is available without changing status line settings.";
+"provider.claude.repair.tokenmon_otel_detail" = "Older Tokenmon-owned Claude OTel settings were preserved. Tokenmon will not migrate them automatically.";
+"provider.claude.repair.external_otel_detail" = "Existing Claude OTel settings were detected and preserved. Tokenmon will not change them automatically.";
 "settings.banner.error" = "Settings Error";
 "settings.banner.updated" = "Updated";
 "settings.providers.overview.providers" = "Providers";
@@ -346,6 +349,7 @@
 "settings.providers.source_mode.codex_session_store_live" = "Session-store live";
 "settings.providers.source_mode.codex_interactive_observer" = "Interactive observer";
 "settings.providers.source_mode.claude_otel_api_request_live" = "OTel API request live";
+"settings.providers.source_mode.claude_transcript_live" = "Passive transcript live";
 "settings.providers.support.managed_only" = "Managed-only";
 "settings.providers.source_mode.cursor_usage_export_api" = "Usage export sync";
 "settings.providers.source_mode.cursor_legacy_usage_sample" = "Legacy stats repair";

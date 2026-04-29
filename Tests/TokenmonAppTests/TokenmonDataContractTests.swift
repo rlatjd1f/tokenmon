@@ -2339,8 +2339,10 @@ struct TokenmonDataContractTests {
         #expect(codex.offlineDashboardRecovery == "automatic_supported")
         #expect(codex.reliabilityLabel == "best_effort")
         #expect(codex.liveGameplayArmed)
+        #expect(claude.sourceMode == "claude_transcript_live")
         #expect(claude.offlineDashboardRecovery == "known_transcript_only")
-        #expect(claude.liveGameplayArmed == false)
+        #expect(claude.reliabilityLabel == "best_effort")
+        #expect(claude.liveGameplayArmed)
         #expect(gemini.offlineDashboardRecovery == "unavailable")
         #expect(gemini.reliabilityLabel == "first_class")
     }

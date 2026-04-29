@@ -331,7 +331,18 @@ public extension TokenmonDatabaseManager {
             return (
                 sourceMode,
                 "connected",
-                "Claude transcript recovery updated dashboard totals at \(lastObservedAt); gameplay still requires status line live usage"
+                "Claude transcript recovery updated dashboard totals at \(lastObservedAt); gameplay still waits for live transcript, status line, or OTel usage"
+            )
+        }
+
+        if provider == .claude,
+           sourceMode == "claude_transcript_live",
+           let lastObservedAt
+        {
+            return (
+                sourceMode,
+                "active",
+                "Claude passive transcript monitoring observed usage at \(lastObservedAt)"
             )
         }
 
@@ -385,9 +396,9 @@ public extension TokenmonDatabaseManager {
         switch provider {
         case .claude:
             return (
-                sourceMode ?? "claude_statusline_live",
-                "missing_configuration",
-                "Claude status line live usage is not configured yet"
+                sourceMode ?? "claude_transcript_live",
+                "connected",
+                "Claude passive transcript monitoring is ready; status line settings are left unchanged"
             )
         case .codex:
             return (
@@ -457,7 +468,9 @@ public extension TokenmonDatabaseManager {
         }
 
         switch provider {
-        case .claude, .gemini:
+        case .claude:
+            return sourceMode == "claude_transcript_live" ? "best_effort" : "first_class"
+        case .gemini:
             return "first_class"
         case .codex:
             return sourceMode == "codex_exec_json" ? "managed_first_class" : "best_effort"

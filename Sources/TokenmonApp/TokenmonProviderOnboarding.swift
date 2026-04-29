@@ -265,8 +265,8 @@ enum TokenmonProviderOnboarding {
     }
 
     private static func inspectClaude(
-        databasePath: String,
-        executablePath: String,
+        databasePath _: String,
+        executablePath _: String,
         preferences: ProviderInstallationPreferences
     ) -> TokenmonProviderOnboardingStatus {
         let discovery = TokenmonProviderDiscovery.discover(provider: .claude, preferences: preferences)
@@ -293,24 +293,7 @@ enum TokenmonProviderOnboarding {
         }
 
         let settingsPath = TokenmonProviderDiscovery.claudeSettingsPath(configurationRootPath: discovery.configurationPath)
-        guard let json = loadJSONObject(at: settingsPath) else {
-            return TokenmonProviderOnboardingStatus(
-                provider: .claude,
-                cliInstalled: true,
-                isConnected: false,
-                isPartial: false,
-                title: TokenmonL10n.string("provider.claude.repair.title"),
-                detail: TokenmonL10n.string("provider.claude.repair.detail"),
-                actionTitle: TokenmonL10n.string("provider.claude.repair.action"),
-                executablePath: discovery.executablePath,
-                executableSource: discovery.executableSource,
-                configurationPath: discovery.configurationPath,
-                configurationSource: discovery.configurationSource,
-                usesCustomExecutablePath: discovery.usesCustomExecutablePath,
-                usesCustomConfigurationPath: discovery.usesCustomConfigurationPath,
-                codexMode: nil
-            )
-        }
+        let json = loadJSONObject(at: settingsPath) ?? [:]
 
         let statusLineInstalled = containsTokenmonClaudeStatusLine(
             in: json,
@@ -351,11 +334,13 @@ enum TokenmonProviderOnboarding {
         return TokenmonProviderOnboardingStatus(
             provider: .claude,
             cliInstalled: true,
-            isConnected: false,
-            isPartial: statusLineInstalled || hooksInstalled || claudeOtelState != .safeToInstall,
-            title: TokenmonL10n.string("provider.claude.repair.title"),
-            detail: claudeRepairDetail(otelState: claudeOtelState, hooksInstalled: hooksInstalled),
-            actionTitle: TokenmonL10n.string("provider.claude.repair.action"),
+            isConnected: true,
+            isPartial: false,
+            title: TokenmonL10n.string("provider.claude.connected.title"),
+            detail: claudeOtelState == .tokenmonConfigured
+                ? TokenmonL10n.string("provider.claude.connected.detail_otel_passive_skip")
+                : TokenmonL10n.string("provider.claude.connected.detail_passive_transcript"),
+            actionTitle: nil,
             executablePath: discovery.executablePath,
             executableSource: discovery.executableSource,
             configurationPath: discovery.configurationPath,
@@ -433,55 +418,71 @@ enum TokenmonProviderOnboarding {
 
     private static func installClaude(
         databasePath: String,
-        executablePath: String,
-        preferences: ProviderInstallationPreferences
+        executablePath _: String,
+        preferences _: ProviderInstallationPreferences
     ) throws -> TokenmonProviderInstallResult {
-        let discovery = TokenmonProviderDiscovery.discover(provider: .claude, preferences: preferences)
-        let settingsPath = TokenmonProviderDiscovery.claudeSettingsPath(configurationRootPath: discovery.configurationRootPath)
-        let wrapperPath = claudeStatusLineWrapperPath(configurationRootPath: discovery.configurationRootPath)
-        var json = loadJSONObject(at: settingsPath) ?? [:]
-        let claudeOtelState = claudeOtelSettingsState(in: json)
-        let statusLineCommand = shellCommand(
-            executablePath: executablePath,
-            flag: "--tokenmon-provider-claude-statusline-import",
-            databasePath: databasePath
-        )
-        try backupIfExists(path: settingsPath)
-
-        let existingStatusLine = json["statusLine"] as? [String: Any]
-        let previousStatusLineCommand = preservedClaudeStatusLineCommand(
-            from: existingStatusLine,
-            wrapperPath: wrapperPath,
-            backupSettingsPath: backupPath(for: settingsPath)
-        )
-        try writeClaudeStatusLineWrapper(
-            path: wrapperPath,
-            tokenmonCommand: statusLineCommand,
-            previousCommand: previousStatusLineCommand
-        )
-
-        var statusLine = existingStatusLine ?? [:]
-        statusLine["type"] = "command"
-        statusLine["command"] = shellQuote(wrapperPath)
-        if statusLine["padding"] == nil {
-            statusLine["padding"] = 0
-        }
-        if statusLine["refreshInterval"] == nil {
-            statusLine["refreshInterval"] = claudeStatusLineDefaultRefreshInterval
-        }
-        json["statusLine"] = statusLine
-
-        if claudeOtelState == .tokenmonConfigured {
-            removeTokenmonClaudeOtelEnv(into: &json)
-        }
-
-        try writeJSONObject(json, to: settingsPath)
+        try upsertClaudePassiveTranscriptHealth(databasePath: databasePath)
 
         return TokenmonProviderInstallResult(
             provider: .claude,
-            message: claudeOtelState == .externalOrSensitive
-                ? TokenmonL10n.string("provider.install.claude.statusline_fallback")
-                : TokenmonL10n.string("provider.install.claude.success")
+            message: TokenmonL10n.string("provider.install.claude.passive_transcript")
+        )
+    }
+
+    static func shouldStartClaudePassiveTranscriptObserver(
+        preferences: ProviderInstallationPreferences
+    ) -> Bool {
+        let discovery = TokenmonProviderDiscovery.discover(provider: .claude, preferences: preferences)
+        let settingsPath = TokenmonProviderDiscovery.claudeSettingsPath(configurationRootPath: discovery.configurationRootPath)
+        let json = loadJSONObject(at: settingsPath) ?? [:]
+
+        let statusLineInstalled = containsTokenmonClaudeStatusLine(
+            in: json,
+            configurationRootPath: discovery.configurationRootPath
+        )
+        let statusLineMetadataOnly = containsTokenmonClaudeStatusLineMetadataOnly(
+            in: json,
+            configurationRootPath: discovery.configurationRootPath
+        )
+        let tokenmonStatusLineLiveInstalled = statusLineInstalled && statusLineMetadataOnly == false
+
+        return tokenmonStatusLineLiveInstalled == false
+            && claudeOtelSettingsState(in: json) != .tokenmonConfigured
+    }
+
+    private static func upsertClaudePassiveTranscriptHealth(databasePath: String) throws {
+        let database = try TokenmonDatabaseManager(path: databasePath).open()
+        let updatedAt = ISO8601DateFormatter().string(from: Date())
+        try database.execute(
+            """
+            INSERT INTO provider_health (
+                provider_code,
+                source_mode,
+                health_state,
+                message,
+                last_success_at,
+                last_error_at,
+                last_error_code,
+                last_error_summary,
+                updated_at
+            ) VALUES (?, ?, ?, ?, ?, NULL, NULL, NULL, ?)
+            ON CONFLICT(provider_code, source_mode) DO UPDATE SET
+                health_state = excluded.health_state,
+                message = excluded.message,
+                last_success_at = excluded.last_success_at,
+                last_error_at = NULL,
+                last_error_code = NULL,
+                last_error_summary = NULL,
+                updated_at = excluded.updated_at;
+            """,
+            bindings: [
+                .text(ProviderCode.claude.rawValue),
+                .text("claude_transcript_live"),
+                .text("connected"),
+                .text("Claude passive transcript monitoring is ready without changing Claude settings"),
+                .text(updatedAt),
+                .text(updatedAt),
+            ]
         )
     }
 
