@@ -1342,7 +1342,7 @@ struct TokenmonPresentationTests {
 
     @Test
     func dexPresentationMetricRowsUseHumanReadableDates() {
-        let entry = makeDexEntry(status: .captured, sortOrder: 7, capturedCount: 3)
+        let entry = makeDexEntry(status: .captured, sortOrder: 7, capturedCount: 3, affinityLevel: 2)
 
         let rows = TokenmonDexPresentation.metricRows(
             for: entry,
@@ -1352,14 +1352,25 @@ struct TokenmonPresentationTests {
             timeZone: TimeZone(secondsFromGMT: 0)!
         )
 
-        #expect(rows.count == 9)
-        #expect(rows.contains(where: { $0.title == "Bond" && $0.value == "Bond I" }))
-        #expect(rows.contains(where: { $0.title == "Success chance" && $0.value == "34%" }))
-        #expect(rows.contains(where: { $0.title == "Resonance" && $0.value == "Resonance 0/3" }))
+        #expect(rows.count == 10)
+        #expect(rows.contains(where: { $0.title == "Bond" && $0.value == "Bond II" }))
+        #expect(rows.contains(where: { $0.title == "Raid bonus" && $0.value == "+1" }))
+        #expect(rows.contains(where: { $0.title == "Success chance" && $0.value == "27%" }))
+        #expect(rows.contains(where: { $0.title == "Resonance" && $0.value == "Resonance 0/4" }))
         #expect(rows.contains(where: { $0.title == "Captured" && $0.value == "3 times" }))
         #expect(rows.contains(where: { $0.title == "Seen" && $0.value == "2 encounters" }))
         #expect(rows.filter { $0.title.contains("seen") || $0.title.contains("captured") }
             .allSatisfy { $0.value.contains("T") == false && $0.value.contains("Z") == false })
+    }
+
+    @Test
+    func dexPresentationSurfacesAffinityRaidBonus() {
+        let entry = makeDexEntry(status: .captured, sortOrder: 8, capturedCount: 5, affinityLevel: 4)
+
+        #expect(TokenmonDexPresentation.metadataLine(for: entry).contains("Raid +3"))
+        #expect(TokenmonDexPresentation.affinityRaidBonusValueLabel(level: 4) == "+3")
+        #expect(TokenmonDexPresentation.affinityRaidBonusShortLabel(level: 2) == "Raid +1")
+        #expect(TokenmonDexPresentation.affinityNextTargetLabel(for: entry) == "Bond V")
     }
 
     @Test

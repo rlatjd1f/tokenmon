@@ -299,6 +299,10 @@ enum TokenmonDexPresentation {
         var parts = [entry.field.displayName, entry.rarity.displayName]
         if let affinityLabel = affinityLevelLabel(for: entry, compact: false) {
             parts.append(affinityLabel)
+            let bonus = affinityRaidBonus(for: affinityLevelNumber(for: entry))
+            if bonus > 0 {
+                parts.append(TokenmonL10n.format("affinity.raid_bonus_short", bonus))
+            }
         }
         return parts.joined(separator: " · ")
     }
@@ -313,8 +317,68 @@ enum TokenmonDexPresentation {
         return affinityLevelLabel(level: normalizedAffinityLevel(encounter.affinityLevel, capturedCount: encounter.capturedCount), compact: compact)
     }
 
+    static func affinityLevelNumber(for encounter: RecentEncounterSummary) -> Int64 {
+        normalizedAffinityLevel(encounter.affinityLevel, capturedCount: encounter.capturedCount)
+    }
+
     static func affinityLevelLabel(level: Int64, compact _: Bool = false) -> String {
         TokenmonL10n.format("affinity.level", SpeciesAffinityResolver.romanLevel(Int(level)))
+    }
+
+    static func affinityRomanLabel(level: Int64) -> String {
+        SpeciesAffinityResolver.romanLevel(Int(max(1, min(5, level))))
+    }
+
+    static func affinityLevelNumber(for entry: DexEntrySummary) -> Int64 {
+        normalizedAffinityLevel(entry.affinityLevel, capturedCount: entry.capturedCount)
+    }
+
+    static func affinityRaidBonus(for level: Int64) -> Int {
+        RaidDamageCalculator.captureBondBonus(affinityLevel: max(1, level))
+    }
+
+    static func affinityRaidBonusValueLabel(level: Int64) -> String {
+        let bonus = affinityRaidBonus(for: level)
+        return bonus > 0 ? "+\(bonus)" : "+0"
+    }
+
+    static func affinityRaidBonusShortLabel(level: Int64) -> String {
+        TokenmonL10n.format("affinity.raid_bonus_short", affinityRaidBonus(for: level))
+    }
+
+    static func affinityNextTargetLabel(for entry: DexEntrySummary) -> String {
+        let level = affinityLevelNumber(for: entry)
+        guard level > 0, level < 5 else {
+            return TokenmonL10n.string("affinity.max")
+        }
+        return affinityLevelLabel(level: level + 1)
+    }
+
+    static func affinityCeilingLabel(for entry: DexEntrySummary) -> String? {
+        guard entry.status == .captured else { return nil }
+        let level = affinityLevelNumber(for: entry)
+        guard level > 0, level < 5 else {
+            return TokenmonL10n.string("affinity.max")
+        }
+        let ceiling = affinityCeilingFailures(
+            rarity: entry.rarity,
+            currentLevel: Int(level),
+            probability: entry.affinityLastProbability
+        )
+        return TokenmonL10n.format("affinity.resonance", entry.affinityPityCount, Int64(ceiling))
+    }
+
+    static func affinityResonanceFraction(for entry: DexEntrySummary) -> Double {
+        guard entry.status == .captured else { return 0 }
+        let level = affinityLevelNumber(for: entry)
+        guard level > 0, level < 5 else { return 1 }
+        let ceiling = affinityCeilingFailures(
+            rarity: entry.rarity,
+            currentLevel: Int(level),
+            probability: entry.affinityLastProbability
+        )
+        guard ceiling > 0 else { return 0 }
+        return min(1, max(0, Double(entry.affinityPityCount) / Double(ceiling)))
     }
 
     static func affinityResultLine(for encounter: RecentEncounterSummary) -> String? {
@@ -439,6 +503,7 @@ enum TokenmonDexPresentation {
         case .captured:
             return [
                 TokenmonDexMetricValue(title: TokenmonL10n.string("affinity.label"), value: affinityLevelLabel(for: entry, compact: false) ?? TokenmonL10n.string("common.unknown")),
+                TokenmonDexMetricValue(title: TokenmonL10n.string("affinity.raid_bonus"), value: affinityRaidBonusValueLabel(level: affinityLevelNumber(for: entry))),
                 TokenmonDexMetricValue(title: TokenmonL10n.string("affinity.success_chance"), value: affinitySuccessChanceLabel(for: entry) ?? TokenmonL10n.string("common.unknown")),
                 TokenmonDexMetricValue(title: TokenmonL10n.string("affinity.resonance_label"), value: affinityResonanceLabel(for: entry) ?? TokenmonL10n.string("common.unknown")),
                 TokenmonDexMetricValue(title: TokenmonL10n.string("dex.metric.captured"), value: countLabel(entry.capturedCount, singularKey: "dex.count.time.one", pluralKey: "dex.count.time.other")),

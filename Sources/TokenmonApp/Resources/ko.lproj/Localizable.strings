@@ -206,6 +206,9 @@
 "affinity.resonance_label" = "공명";
 "affinity.resonance" = "공명 %1$lld/%2$lld";
 "affinity.success_chance" = "성공 확률";
+"affinity.raid_bonus" = "레이드 보너스";
+"affinity.raid_bonus_short" = "레이드 +%1$d";
+"affinity.next_target" = "다음";
 "affinity.guaranteed" = "확정";
 "affinity.max" = "최대 친밀도";
 "dex.status.captured" = "포획";

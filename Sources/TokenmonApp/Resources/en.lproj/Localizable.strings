@@ -204,6 +204,9 @@
 "affinity.resonance_label" = "Resonance";
 "affinity.resonance" = "Resonance %1$lld/%2$lld";
 "affinity.success_chance" = "Success chance";
+"affinity.raid_bonus" = "Raid bonus";
+"affinity.raid_bonus_short" = "Raid +%1$d";
+"affinity.next_target" = "Next";
 "affinity.guaranteed" = "Guaranteed";
 "affinity.max" = "Max bond";
 

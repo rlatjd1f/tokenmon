@@ -159,8 +159,8 @@ struct TokenmonNowTab: View {
                     metaRow(label: TokenmonL10n.string("now.meta.rarity"), value: encounter.rarity.displayName)
                     metaRow(label: TokenmonL10n.string("now.meta.field"), value: encounter.field.displayName)
                     metaRow(label: TokenmonL10n.string("now.meta.result"), value: encounter.outcome.displayName)
-                    if let affinityLine = TokenmonDexPresentation.affinityResultLine(for: encounter) {
-                        metaRow(label: TokenmonL10n.string("now.meta.affinity"), value: affinityLine)
+                    if encounter.outcome == .captured {
+                        latestAffinityRow(for: encounter)
                     }
                 }
                 Spacer()
@@ -184,6 +184,49 @@ struct TokenmonNowTab: View {
                 RoundedRectangle(cornerRadius: 12, style: .continuous)
                     .fill(Color.secondary.opacity(0.08))
             )
+        }
+    }
+
+    @ViewBuilder
+    private func latestAffinityRow(for encounter: RecentEncounterSummary) -> some View {
+        let level = TokenmonDexPresentation.affinityLevelNumber(for: encounter)
+        HStack(spacing: 6) {
+            Text(TokenmonL10n.string("now.meta.affinity"))
+                .font(.system(size: 9, weight: .bold, design: .rounded))
+                .tracking(0.6)
+                .foregroundStyle(.secondary)
+                .frame(width: 44, alignment: .leading)
+
+            TokenmonAffinityBadge(
+                level: level,
+                compact: true,
+                emphasized: level >= 2
+            )
+
+            Label {
+                Text(TokenmonDexPresentation.affinityRaidBonusValueLabel(level: level))
+                    .font(.caption2.monospacedDigit().weight(.bold))
+            } icon: {
+                Image(systemName: "bolt.fill")
+                    .font(.system(size: 8, weight: .black))
+            }
+            .foregroundStyle(.secondary)
+            .lineLimit(1)
+            .padding(.horizontal, 6)
+            .padding(.vertical, 3)
+            .background(
+                Capsule()
+                    .fill(Color.secondary.opacity(0.10))
+            )
+            .help(TokenmonDexPresentation.affinityRaidBonusShortLabel(level: level))
+
+            if let affinityLine = TokenmonDexPresentation.affinityResultLine(for: encounter) {
+                Text(affinityLine)
+                    .font(.caption.weight(.medium))
+                    .foregroundStyle(.primary)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.78)
+            }
         }
     }
 

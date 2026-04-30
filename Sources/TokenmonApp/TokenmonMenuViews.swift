@@ -2872,6 +2872,10 @@ struct TokenmonDexDetailPane: View {
                         TokenmonDexDetailCard(entry: entry)
 
                         VStack(spacing: 10) {
+                            if entry.status == .captured {
+                                TokenmonDexAffinityPanel(entry: entry)
+                            }
+
                             TokenmonDexProgressPanel(entry: entry)
 
                             TokenmonDexFieldNotesPanel(entry: entry)
@@ -3144,19 +3148,50 @@ struct TokenmonAffinityBadge: View {
     var emphasized: Bool = false
 
     var body: some View {
-        Text(TokenmonDexPresentation.affinityLevelLabel(level: max(1, level), compact: compact))
-            .font(compact ? .caption2.weight(.bold) : .caption.weight(.bold))
+        let normalizedLevel = max(1, min(5, level))
+        let tint = affinityTint(for: normalizedLevel)
+
+        HStack(spacing: compact ? 3 : 5) {
+            Image(systemName: "heart.fill")
+                .font(compact ? .system(size: 8, weight: .black) : .caption2.weight(.black))
+                .foregroundStyle(tint)
+
+            Text(compact
+                ? TokenmonDexPresentation.affinityRomanLabel(level: normalizedLevel)
+                : TokenmonDexPresentation.affinityLevelLabel(level: normalizedLevel, compact: false)
+            )
+            .font(compact ? .caption2.weight(.black) : .caption.weight(.bold))
             .lineLimit(1)
             .minimumScaleFactor(0.78)
-            .foregroundStyle(emphasized ? Color.accentColor : Color.secondary)
-            .padding(.horizontal, compact ? 6 : 9)
-            .padding(.vertical, compact ? 3 : 5)
-            .background(
-                Capsule()
-                    .fill((emphasized ? Color.accentColor : Color.secondary).opacity(emphasized ? 0.16 : 0.11))
-            )
-            .fixedSize(horizontal: true, vertical: false)
-            .help(TokenmonDexPresentation.affinityLevelLabel(level: max(1, level), compact: false))
+        }
+        .foregroundStyle(emphasized ? tint : Color.secondary)
+        .padding(.horizontal, compact ? 6 : 9)
+        .padding(.vertical, compact ? 4 : 6)
+        .background(
+            Capsule()
+                .fill(tint.opacity(emphasized ? 0.20 : 0.11))
+        )
+        .overlay(
+            Capsule()
+                .stroke(tint.opacity(emphasized ? 0.45 : 0.20), lineWidth: emphasized ? 1.2 : 1)
+        )
+        .fixedSize(horizontal: true, vertical: false)
+        .help(TokenmonDexPresentation.affinityLevelLabel(level: normalizedLevel, compact: false))
+    }
+
+    private func affinityTint(for level: Int64) -> Color {
+        switch level {
+        case 5:
+            return Color(red: 1.0, green: 0.77, blue: 0.28)
+        case 4:
+            return Color(red: 0.72, green: 0.55, blue: 1.0)
+        case 3:
+            return Color(red: 0.28, green: 0.66, blue: 1.0)
+        case 2:
+            return Color(red: 0.32, green: 0.82, blue: 0.58)
+        default:
+            return Color.secondary
+        }
     }
 }
 

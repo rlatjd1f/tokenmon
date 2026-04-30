@@ -1660,6 +1660,158 @@ private struct TokenmonDexFoilStripe {
     let accent: Color
 }
 
+struct TokenmonDexAffinityPanel: View {
+    let entry: DexEntrySummary
+
+    private var level: Int64 {
+        TokenmonDexPresentation.affinityLevelNumber(for: entry)
+    }
+
+    var body: some View {
+        TokenmonDexSupportingPanel(
+            title: TokenmonL10n.string("affinity.label"),
+            accent: entry.rarity.tint
+        ) {
+            VStack(alignment: .leading, spacing: 12) {
+                HStack(alignment: .center, spacing: 10) {
+                    TokenmonAffinityBadge(
+                        level: level,
+                        compact: false,
+                        emphasized: level >= 2
+                    )
+
+                    Spacer(minLength: 0)
+
+                    TokenmonAffinityLevelLadder(
+                        level: level,
+                        tint: entry.rarity.tint
+                    )
+                    .frame(width: 116)
+                }
+
+                HStack(spacing: 8) {
+                    TokenmonAffinityStatTile(
+                        title: TokenmonL10n.string("affinity.raid_bonus"),
+                        value: TokenmonDexPresentation.affinityRaidBonusValueLabel(level: level),
+                        tint: entry.rarity.tint
+                    )
+
+                    TokenmonAffinityStatTile(
+                        title: TokenmonL10n.string("affinity.next_target"),
+                        value: TokenmonDexPresentation.affinityNextTargetLabel(for: entry),
+                        tint: entry.field.tint
+                    )
+                }
+
+                TokenmonAffinityResonanceMeter(entry: entry)
+            }
+        }
+    }
+}
+
+private struct TokenmonAffinityLevelLadder: View {
+    let level: Int64
+    let tint: Color
+
+    var body: some View {
+        HStack(spacing: 4) {
+            ForEach(1...5, id: \.self) { step in
+                let stepLevel = Int64(step)
+                VStack(spacing: 3) {
+                    RoundedRectangle(cornerRadius: 2, style: .continuous)
+                        .fill(stepLevel <= level ? tint : Color.secondary.opacity(0.18))
+                        .frame(height: stepLevel <= level ? 7 : 5)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 2, style: .continuous)
+                                .stroke(Color.white.opacity(stepLevel <= level ? 0.22 : 0.04), lineWidth: 0.6)
+                        )
+
+                    Text(TokenmonDexPresentation.affinityRomanLabel(level: Int64(step)))
+                        .font(.system(size: 7, weight: .bold, design: .rounded))
+                        .monospacedDigit()
+                        .foregroundStyle(stepLevel <= level ? tint : Color.secondary.opacity(0.55))
+                        .lineLimit(1)
+                }
+                .frame(maxWidth: .infinity)
+            }
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(TokenmonDexPresentation.affinityLevelLabel(level: level))
+    }
+}
+
+private struct TokenmonAffinityStatTile: View {
+    let title: String
+    let value: String
+    let tint: Color
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(title)
+                .font(.caption2.weight(.bold))
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
+                .minimumScaleFactor(0.78)
+
+            Text(value)
+                .font(.subheadline.monospacedDigit().weight(.black))
+                .foregroundStyle(.primary)
+                .lineLimit(1)
+                .minimumScaleFactor(0.78)
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 8)
+        .frame(maxWidth: .infinity, minHeight: 52, alignment: .leading)
+        .background(
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .fill(tint.opacity(0.10))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .stroke(tint.opacity(0.22), lineWidth: 1)
+        )
+    }
+}
+
+private struct TokenmonAffinityResonanceMeter: View {
+    let entry: DexEntrySummary
+
+    private var label: String {
+        TokenmonDexPresentation.affinityCeilingLabel(for: entry)
+            ?? TokenmonL10n.string("common.unknown")
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(alignment: .firstTextBaseline) {
+                Text(TokenmonL10n.string("affinity.resonance_label"))
+                    .font(.caption2.weight(.bold))
+                    .foregroundStyle(.secondary)
+                Spacer(minLength: 0)
+                Text(label)
+                    .font(.caption.monospacedDigit().weight(.semibold))
+                    .foregroundStyle(.primary)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
+            }
+
+            GeometryReader { proxy in
+                let fraction = TokenmonDexPresentation.affinityResonanceFraction(for: entry)
+                ZStack(alignment: .leading) {
+                    Capsule()
+                        .fill(Color.secondary.opacity(0.16))
+
+                    Capsule()
+                        .fill(entry.field.tint.opacity(0.75))
+                        .frame(width: fraction <= 0 ? 0 : max(7, proxy.size.width * fraction))
+                }
+            }
+            .frame(height: 7)
+            .accessibilityLabel(label)
+        }
+    }
+}
+
 struct TokenmonDexProgressPanel: View {
     let entry: DexEntrySummary
 

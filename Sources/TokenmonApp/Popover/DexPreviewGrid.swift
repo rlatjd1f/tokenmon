@@ -183,8 +183,16 @@ struct DexPreviewGrid: View {
 
     private func accessibilityLabel(for entry: DexEntrySummary) -> String {
         let baseLabel = TokenmonDexPresentation.visibleSpeciesName(for: entry)
-        guard model.partySpeciesIDs.contains(entry.speciesID) else { return baseLabel }
-        return "\(baseLabel), \(TokenmonL10n.string("dex.card.accessibility.party_suffix"))"
+        var parts = [baseLabel]
+        if entry.status == .captured {
+            let level = TokenmonDexPresentation.affinityLevelNumber(for: entry)
+            parts.append(TokenmonDexPresentation.affinityLevelLabel(level: level))
+            parts.append(TokenmonDexPresentation.affinityRaidBonusShortLabel(level: level))
+        }
+        if model.partySpeciesIDs.contains(entry.speciesID) {
+            parts.append(TokenmonL10n.string("dex.card.accessibility.party_suffix"))
+        }
+        return parts.joined(separator: ", ")
     }
 
     private func tooltip(for entry: DexEntrySummary) -> String {
@@ -194,6 +202,11 @@ struct DexPreviewGrid: View {
 
         let date = entry.lastCapturedAt ?? entry.lastSeenAt ?? ""
         let displayName = TokenmonDexPresentation.visibleSpeciesName(for: entry, style: .sentence)
-        return TokenmonL10n.format("dex.preview.tooltip.known", displayName, entry.rarity.displayName, entry.field.displayName, date)
+        var tooltip = TokenmonL10n.format("dex.preview.tooltip.known", displayName, entry.rarity.displayName, entry.field.displayName, date)
+        if entry.status == .captured {
+            let level = TokenmonDexPresentation.affinityLevelNumber(for: entry)
+            tooltip += " · \(TokenmonDexPresentation.affinityLevelLabel(level: level)) · \(TokenmonDexPresentation.affinityRaidBonusShortLabel(level: level))"
+        }
+        return tooltip
     }
 }
