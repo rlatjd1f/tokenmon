@@ -361,6 +361,7 @@ private struct TokenmonProviderStatusChip: View {
                 Capsule(style: .continuous)
                     .stroke(presentation.tint.opacity(0.28), lineWidth: 0.8)
             )
+            .contentShape(Capsule(style: .continuous))
         }
         .buttonStyle(.plain)
         .help(chipTooltip)
@@ -423,6 +424,7 @@ private struct TokenmonBrandLinkChip: View {
                 Capsule(style: .continuous)
                     .stroke(Color.secondary.opacity(0.16), lineWidth: 0.8)
             )
+            .contentShape(Capsule(style: .continuous))
         }
         .buttonStyle(.plain)
         .help(link.displayValue)

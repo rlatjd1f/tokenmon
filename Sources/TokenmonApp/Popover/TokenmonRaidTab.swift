@@ -801,6 +801,7 @@ struct TokenmonRewardArchivePanel: View {
                             RoundedRectangle(cornerRadius: 10, style: .continuous)
                                 .fill(item.selection == sidebarSelection ? Color.accentColor.opacity(0.16) : Color.clear)
                         )
+                        .contentShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
                     }
                     .buttonStyle(.plain)
                 }
@@ -877,6 +878,7 @@ struct TokenmonRewardArchivePanel: View {
                                     isSelected: selectedEntry?.rewardID == entry.rewardID
                                 )
                             }
+                            .contentShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
                             .buttonStyle(.plain)
                         }
                     }
@@ -969,6 +971,7 @@ private struct TokenmonRewardArchiveCard: View {
             RoundedRectangle(cornerRadius: 16)
                 .stroke(isSelected ? Color.accentColor : tint.opacity(0.35), lineWidth: isSelected ? 2 : 1)
         )
+        .contentShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
     }
 
     private var statusPill: some View {

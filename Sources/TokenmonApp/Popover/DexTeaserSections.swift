@@ -93,6 +93,7 @@ struct DexActivityFeed: View {
                         } label: {
                             DexActivityRow(item: item)
                         }
+                        .contentShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
                         .buttonStyle(.plain)
                     }
                 }
@@ -151,6 +152,7 @@ private struct DexActivityRow: View {
             RoundedRectangle(cornerRadius: 14, style: .continuous)
                 .stroke(Color.black.opacity(0.05), lineWidth: 1)
         )
+        .contentShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
     }
 }
 
@@ -178,6 +180,7 @@ struct DexFindsGrid: View {
                     } label: {
                         DexFindCard(entry: entry)
                     }
+                    .contentShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
                     .buttonStyle(.plain)
                 }
             }
@@ -234,6 +237,7 @@ private struct DexFindCard: View {
             RoundedRectangle(cornerRadius: 14, style: .continuous)
                 .stroke(borderColor, lineWidth: 1)
         )
+        .contentShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
     }
 
     private var cardFill: LinearGradient {
@@ -287,6 +291,7 @@ struct DexHiddenSlotsGrid: View {
                     } label: {
                         DexHiddenSlotCard(entry: entry)
                     }
+                    .contentShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
                     .buttonStyle(.plain)
                 }
             }
@@ -342,6 +347,7 @@ private struct DexHiddenSlotCard: View {
             RoundedRectangle(cornerRadius: 14, style: .continuous)
                 .stroke(Color.secondary.opacity(0.14), lineWidth: 1)
         )
+        .contentShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
     }
 }
 

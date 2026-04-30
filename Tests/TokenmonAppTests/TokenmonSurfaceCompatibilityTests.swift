@@ -37,6 +37,8 @@ struct TokenmonSurfaceCompatibilityTests {
             onFinish: {}
         )
         let developerPanel = TokenmonDeveloperPanel(model: model)
+        let dexPanel = TokenmonDexPanel(model: model)
+        let rewardArchivePanel = TokenmonRewardArchivePanel(model: model)
         let popoverContainer = TokenmonPopoverContainer(
             model: model,
             actions: TokenmonPopoverContainerActions(
@@ -64,6 +66,8 @@ struct TokenmonSurfaceCompatibilityTests {
         assertHostedRender(settingsPanel, size: CGSize(width: 760, height: 560))
         assertHostedRender(onboardingPanel, size: CGSize(width: 620, height: 500))
         assertHostedRender(developerPanel, size: CGSize(width: 1040, height: 760))
+        assertHostedRender(dexPanel, size: CGSize(width: 1040, height: 720))
+        assertHostedRender(rewardArchivePanel, size: CGSize(width: 1120, height: 720))
         assertHostedRender(popoverContainer, size: CGSize(width: 360, height: 480))
         assertHostedRender(raidPopoverContainer, size: CGSize(width: 360, height: 520))
     }
