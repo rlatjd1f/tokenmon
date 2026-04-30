@@ -645,6 +645,14 @@ private struct TokenmonDexCardHeader: View {
                 TokenmonDexHeaderPillFlow(spacing: 6, rowSpacing: 5) {
                     TokenmonFieldBadge(field: entry.field, compact: true, iconOnly: true)
 
+                    if entry.status == .captured {
+                        TokenmonAffinityBadge(
+                            level: max(1, entry.affinityLevel),
+                            compact: true,
+                            emphasized: entry.affinityLevel >= 2
+                        )
+                    }
+
                     if TokenmonDexPresentation.showsTraitTags(for: entry) {
                         ForEach(entry.stats.traits, id: \.self) { trait in
                             TokenmonDexHeaderTraitPill(trait: trait, style: style)

@@ -315,7 +315,7 @@ public final class TokenmonDatabaseManager {
 
         try database.inTransaction {
             try deleteDomainEvents(
-                matching: [.seenDexUpdated, .capturedDexUpdated],
+                matching: [.seenDexUpdated, .capturedDexUpdated, .speciesAffinityUpdated],
                 database: database
             )
             try database.execute("DELETE FROM dex_captured;")
@@ -341,6 +341,7 @@ public final class TokenmonDatabaseManager {
                     .captureResolved,
                     .seenDexUpdated,
                     .capturedDexUpdated,
+                    .speciesAffinityUpdated,
                 ],
                 database: database
             )
@@ -2503,6 +2504,30 @@ public final class TokenmonDatabaseManager {
                       FROM usage_samples
                       WHERE provider_code = 'cursor'
                   );
+                """,
+            ]),
+            SQLiteMigration(version: 15, statements: [
+                "ALTER TABLE dex_captured ADD COLUMN affinity_level INTEGER NOT NULL DEFAULT 1 CHECK(affinity_level BETWEEN 1 AND 5);",
+                "ALTER TABLE dex_captured ADD COLUMN affinity_pity_count INTEGER NOT NULL DEFAULT 0 CHECK(affinity_pity_count >= 0);",
+                "ALTER TABLE dex_captured ADD COLUMN affinity_last_roll REAL;",
+                "ALTER TABLE dex_captured ADD COLUMN affinity_last_probability REAL;",
+                "ALTER TABLE dex_captured ADD COLUMN affinity_last_outcome TEXT;",
+                "ALTER TABLE dex_captured ADD COLUMN affinity_updated_at TEXT;",
+                """
+                UPDATE dex_captured
+                SET affinity_level = CASE
+                        WHEN captured_count >= 25 THEN 4
+                        WHEN captured_count >= 10 THEN 3
+                        WHEN captured_count >= 3 THEN 2
+                        ELSE 1
+                    END,
+                    affinity_pity_count = 0,
+                    affinity_last_roll = NULL,
+                    affinity_last_probability = NULL,
+                    affinity_last_outcome = 'migration_seeded',
+                    affinity_updated_at = COALESCE(affinity_updated_at, updated_at)
+                WHERE affinity_last_outcome IS NULL
+                   OR affinity_last_outcome = '';
                 """,
             ]),
         ]

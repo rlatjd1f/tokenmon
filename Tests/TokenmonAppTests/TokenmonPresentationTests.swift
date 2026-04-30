@@ -1352,11 +1352,44 @@ struct TokenmonPresentationTests {
             timeZone: TimeZone(secondsFromGMT: 0)!
         )
 
-        #expect(rows.count == 6)
+        #expect(rows.count == 9)
+        #expect(rows.contains(where: { $0.title == "Bond" && $0.value == "Bond I" }))
+        #expect(rows.contains(where: { $0.title == "Success chance" && $0.value == "34%" }))
+        #expect(rows.contains(where: { $0.title == "Resonance" && $0.value == "Resonance 0/3" }))
         #expect(rows.contains(where: { $0.title == "Captured" && $0.value == "3 times" }))
         #expect(rows.contains(where: { $0.title == "Seen" && $0.value == "2 encounters" }))
         #expect(rows.filter { $0.title.contains("seen") || $0.title.contains("captured") }
             .allSatisfy { $0.value.contains("T") == false && $0.value.contains("Z") == false })
+    }
+
+    @Test
+    func dexPresentationFormatsAffinityResultLines() {
+        let success = makeEncounter(
+            outcome: .captured,
+            capturedCount: 2,
+            affinityLevel: 2,
+            affinityLastOutcome: "success"
+        )
+        let failure = makeEncounter(
+            outcome: .captured,
+            capturedCount: 3,
+            affinityLevel: 2,
+            affinityPityCount: 1,
+            affinityLastProbability: 0.2652,
+            affinityLastOutcome: "failure"
+        )
+        let maxed = makeEncounter(
+            outcome: .captured,
+            capturedCount: 8,
+            affinityLevel: 5,
+            affinityLastOutcome: "max_level"
+        )
+        let escaped = makeEncounter(outcome: .escaped)
+
+        #expect(TokenmonDexPresentation.affinityResultLine(for: success) == "Bond II reached")
+        #expect(TokenmonDexPresentation.affinityResultLine(for: failure) == "Resonance 1/4")
+        #expect(TokenmonDexPresentation.affinityResultLine(for: maxed) == "Max bond")
+        #expect(TokenmonDexPresentation.affinityResultLine(for: escaped) == nil)
     }
 
     @Test
@@ -4427,7 +4460,11 @@ struct TokenmonPresentationTests {
         sequence: Int64 = 1,
         outcome: EncounterOutcome,
         seenCount: Int64 = 1,
-        capturedCount: Int64? = nil
+        capturedCount: Int64? = nil,
+        affinityLevel: Int64 = 0,
+        affinityPityCount: Int64 = 0,
+        affinityLastProbability: Double? = nil,
+        affinityLastOutcome: String? = nil
     ) -> RecentEncounterSummary {
         let resolvedCapturedCount = capturedCount ?? (outcome == .captured ? 1 : 0)
         return RecentEncounterSummary(
@@ -4442,6 +4479,10 @@ struct TokenmonPresentationTests {
             assetKey: "sky_012_nimbusray",
             seenCount: seenCount,
             capturedCount: resolvedCapturedCount,
+            affinityLevel: affinityLevel,
+            affinityPityCount: affinityPityCount,
+            affinityLastProbability: affinityLastProbability,
+            affinityLastOutcome: affinityLastOutcome,
             burstIntensityBand: 2,
             captureProbability: 0.6,
             captureRoll: 0.2,
@@ -4527,6 +4568,10 @@ struct TokenmonPresentationTests {
         rarity: RarityTier = .rare,
         seenCount: Int64? = nil,
         capturedCount: Int64? = nil,
+        affinityLevel: Int64 = 0,
+        affinityPityCount: Int64 = 0,
+        affinityLastProbability: Double? = nil,
+        affinityLastOutcome: String? = nil,
         traits: [String] = []
     ) -> DexEntrySummary {
         let resolvedSeenCount = seenCount ?? (status == .unknown ? 0 : 2)
@@ -4546,6 +4591,10 @@ struct TokenmonPresentationTests {
             lastSeenAt: resolvedSeenCount > 0 ? "2026-04-05T01:00:00Z" : nil,
             firstCapturedAt: resolvedCapturedCount > 0 ? "2026-04-05T00:30:00Z" : nil,
             lastCapturedAt: resolvedCapturedCount > 0 ? "2026-04-05T01:30:00Z" : nil,
+            affinityLevel: affinityLevel,
+            affinityPityCount: affinityPityCount,
+            affinityLastProbability: affinityLastProbability,
+            affinityLastOutcome: affinityLastOutcome,
             stats: SpeciesStatBlock(
                 planning: 1,
                 design: 1,

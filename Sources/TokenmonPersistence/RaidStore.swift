@@ -578,6 +578,7 @@ private extension TokenmonDatabaseManager {
                 rarity: member.rarity,
                 slotOrder: member.slotOrder,
                 capturedCount: member.capturedCount,
+                affinityLevel: member.affinityLevel,
                 stats: member.stats
             )
         }
@@ -593,6 +594,7 @@ private extension TokenmonDatabaseManager {
                party_members.added_at,
                party_members.slot_order,
                dex_captured.captured_count,
+               dex_captured.affinity_level,
                species.stat_planning,
                species.stat_design,
                species.stat_frontend,
@@ -615,7 +617,7 @@ private extension TokenmonDatabaseManager {
             }
             let traits = (try? JSONDecoder().decode(
                 [String].self,
-                from: Data(SQLiteDatabase.columnText(statement, index: 14).utf8)
+                from: Data(SQLiteDatabase.columnText(statement, index: 15).utf8)
             )) ?? []
             return PartyMemberSummary(
                 speciesID: SQLiteDatabase.columnText(statement, index: 0),
@@ -626,13 +628,14 @@ private extension TokenmonDatabaseManager {
                 addedAt: SQLiteDatabase.columnText(statement, index: 5),
                 slotOrder: Int(SQLiteDatabase.columnInt64(statement, index: 6)),
                 capturedCount: SQLiteDatabase.columnInt64(statement, index: 7),
+                affinityLevel: SQLiteDatabase.columnInt64(statement, index: 8),
                 stats: SpeciesStatBlock(
-                    planning: Int(SQLiteDatabase.columnInt64(statement, index: 8)),
-                    design: Int(SQLiteDatabase.columnInt64(statement, index: 9)),
-                    frontend: Int(SQLiteDatabase.columnInt64(statement, index: 10)),
-                    backend: Int(SQLiteDatabase.columnInt64(statement, index: 11)),
-                    pm: Int(SQLiteDatabase.columnInt64(statement, index: 12)),
-                    infra: Int(SQLiteDatabase.columnInt64(statement, index: 13)),
+                    planning: Int(SQLiteDatabase.columnInt64(statement, index: 9)),
+                    design: Int(SQLiteDatabase.columnInt64(statement, index: 10)),
+                    frontend: Int(SQLiteDatabase.columnInt64(statement, index: 11)),
+                    backend: Int(SQLiteDatabase.columnInt64(statement, index: 12)),
+                    pm: Int(SQLiteDatabase.columnInt64(statement, index: 13)),
+                    infra: Int(SQLiteDatabase.columnInt64(statement, index: 14)),
                     traits: traits
                 )
             )
@@ -756,6 +759,7 @@ private extension TokenmonDatabaseManager {
                 rarity: $0.rarity,
                 slotOrder: $0.slotOrder,
                 capturedCount: $0.capturedCount,
+                affinityLevel: $0.affinityLevel,
                 stats: $0.stats
             )
         }

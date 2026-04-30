@@ -116,6 +116,94 @@ struct TokenmonDataContractTests {
     }
 
     @Test
+    func speciesAffinityResolverUsesDocumentedProbabilitiesAndCeilings() throws {
+        let resolver = SpeciesAffinityResolver()
+
+        #expect(try resolver.successProbability(rarity: .common, targetLevel: 2) == 0.50)
+        #expect(abs((try resolver.successProbability(rarity: .rare, targetLevel: 3)) - 0.2652) < 0.000_001)
+        #expect(abs((try resolver.successProbability(rarity: .legendary, targetLevel: 5)) - 0.0756) < 0.000_001)
+        #expect(try resolver.ceilingFailures(probability: 0.50) == 2)
+        #expect(try resolver.ceilingFailures(probability: 0.0756) == 10)
+    }
+
+    @Test
+    func speciesAffinityResolverRollsDeterministicallyAndAppliesPity() throws {
+        let resolver = SpeciesAffinityResolver()
+
+        let first = try resolver.resolveCapture(
+            speciesID: "GRS_001",
+            rarity: .rare,
+            encounterSeedContextID: "seed-repeatable",
+            capturedCountAfter: 2,
+            currentLevel: 1,
+            pityCount: 0
+        )
+        let replay = try resolver.resolveCapture(
+            speciesID: "GRS_001",
+            rarity: .rare,
+            encounterSeedContextID: "seed-repeatable",
+            capturedCountAfter: 2,
+            currentLevel: 1,
+            pityCount: 0
+        )
+
+        #expect(first == replay)
+        #expect(first.roll != nil)
+        #expect(first.targetLevel == 2)
+
+        let failure = try #require((0 ..< 100).compactMap { index -> SpeciesAffinityResolution? in
+            let resolution = try resolver.resolveCapture(
+                speciesID: "GRS_001",
+                rarity: .legendary,
+                encounterSeedContextID: "seed-failure-\(index)",
+                capturedCountAfter: 7,
+                currentLevel: 4,
+                pityCount: 3
+            )
+            return resolution.outcome == .failure ? resolution : nil
+        }.first)
+
+        #expect(failure.previousLevel == 4)
+        #expect(failure.newLevel == 4)
+        #expect(failure.pityCountBefore == 3)
+        #expect(failure.pityCountAfter == 4)
+    }
+
+    @Test
+    func speciesAffinityResolverGuaranteesAfterCeilingAndCapsAtMaxLevel() throws {
+        let resolver = SpeciesAffinityResolver()
+
+        let guaranteed = try resolver.resolveCapture(
+            speciesID: "GRS_001",
+            rarity: .common,
+            encounterSeedContextID: "seed-guaranteed",
+            capturedCountAfter: 4,
+            currentLevel: 1,
+            pityCount: 2
+        )
+
+        #expect(guaranteed.outcome == .guaranteedSuccess)
+        #expect(guaranteed.previousLevel == 1)
+        #expect(guaranteed.newLevel == 2)
+        #expect(guaranteed.roll == nil)
+        #expect(guaranteed.pityCountAfter == 0)
+
+        let maxed = try resolver.resolveCapture(
+            speciesID: "GRS_001",
+            rarity: .common,
+            encounterSeedContextID: "seed-max",
+            capturedCountAfter: 12,
+            currentLevel: 5,
+            pityCount: 6
+        )
+
+        #expect(maxed.outcome == .maxLevel)
+        #expect(maxed.newLevel == 5)
+        #expect(maxed.pityCountAfter == 0)
+        #expect(maxed.probability == nil)
+    }
+
+    @Test
     func explorationAccumulatorUsesCollectionScaledThresholdRanges() {
         let config = ExplorationAccumulatorConfig()
         let earlyRange = config.scaledThresholdRange(capturedSpeciesCount: 0)
@@ -209,7 +297,7 @@ struct TokenmonDataContractTests {
             """
             SELECT COUNT(*)
             FROM domain_events
-            WHERE event_type IN ('seen_dex_updated', 'captured_dex_updated');
+            WHERE event_type IN ('seen_dex_updated', 'captured_dex_updated', 'species_affinity_updated');
             """
         ) { statement in
             SQLiteDatabase.columnInt64(statement, index: 0)
@@ -260,7 +348,8 @@ struct TokenmonDataContractTests {
                 'encounter_spawned',
                 'capture_resolved',
                 'seen_dex_updated',
-                'captured_dex_updated'
+                'captured_dex_updated',
+                'species_affinity_updated'
             );
             """
         ) { statement in
@@ -1374,6 +1463,32 @@ struct TokenmonDataContractTests {
         } ?? 0
     }
 
+    private func maxUsageSampleID(database: SQLiteDatabase) throws -> Int64 {
+        try database.fetchOne("SELECT COALESCE(MAX(usage_sample_id), 0) FROM usage_samples;") { statement in
+            SQLiteDatabase.columnInt64(statement, index: 0)
+        } ?? 0
+    }
+
+    private func latestSpeciesAffinityPayload(
+        database: SQLiteDatabase,
+        speciesID: String
+    ) throws -> SpeciesAffinityUpdatedEventPayload {
+        let payloadJSON = try #require(database.fetchOne(
+            """
+            SELECT payload_json
+            FROM domain_events
+            WHERE event_type = 'species_affinity_updated'
+              AND aggregate_id = ?
+            ORDER BY domain_event_row_id DESC
+            LIMIT 1;
+            """,
+            bindings: [.text(speciesID)]
+        ) { statement in
+            SQLiteDatabase.columnText(statement, index: 0)
+        })
+        return try JSONDecoder().decode(SpeciesAffinityUpdatedEventPayload.self, from: Data(payloadJSON.utf8))
+    }
+
     private func jsonObject(_ json: String) throws -> [String: Any] {
         let data = Data(json.utf8)
         return try #require(JSONSerialization.jsonObject(with: data) as? [String: Any])
@@ -2174,6 +2289,313 @@ struct TokenmonDataContractTests {
         #expect(cursor.diagnosticFacts["legacy_gameplay_delta_tokens"] == "0")
         #expect(cursor.diagnosticFacts["legacy_cursor_encounters"] == "1")
         #expect(cursor.diagnosticFacts["legacy_cursor_gameplay_history_detected"] == "yes")
+    }
+
+    @Test
+    func dexCapturedAffinityColumnsExistAfterBootstrap() throws {
+        let manager = try makeManager(prefix: "tokenmon-affinity-columns")
+        let database = try manager.open()
+
+        let columns = try database.fetchAll("PRAGMA table_info(dex_captured);") { statement in
+            SQLiteDatabase.columnText(statement, index: 1)
+        }
+
+        #expect(columns.contains("affinity_level"))
+        #expect(columns.contains("affinity_pity_count"))
+        #expect(columns.contains("affinity_last_roll"))
+        #expect(columns.contains("affinity_last_probability"))
+        #expect(columns.contains("affinity_last_outcome"))
+        #expect(columns.contains("affinity_updated_at"))
+    }
+
+    @Test
+    func migrationVersionFifteenSeedsAffinityFromCapturedCounts() throws {
+        let manager = try makeManager(prefix: "tokenmon-mig-v15-affinity")
+        let database = try manager.open()
+        let speciesIDs = ["GRS_001", "GRS_002", "GRS_003", "GRS_004"]
+        let counts: [Int64] = [2, 3, 10, 25]
+
+        for (index, speciesID) in speciesIDs.enumerated() {
+            _ = try manager.forgeEncounter(
+                TokenmonDeveloperEncounterForgeRequest(
+                    provider: .codex,
+                    field: .grassland,
+                    rarity: .common,
+                    speciesID: speciesID,
+                    outcome: .captured,
+                    occurredAt: "2026-04-20T00:0\(index):00Z"
+                )
+            )
+        }
+
+        for (speciesID, count) in zip(speciesIDs, counts) {
+            try database.execute(
+                """
+                UPDATE dex_captured
+                SET captured_count = ?,
+                    affinity_level = 1,
+                    affinity_pity_count = 9,
+                    affinity_last_outcome = NULL
+                WHERE species_id = ?;
+                """,
+                bindings: [.integer(count), .text(speciesID)]
+            )
+        }
+        try database.execute("PRAGMA user_version = 14;")
+
+        let migratedDatabase = try manager.open()
+        let rows = try migratedDatabase.fetchAll(
+            """
+            SELECT species_id,
+                   captured_count,
+                   affinity_level,
+                   affinity_pity_count,
+                   affinity_last_outcome
+            FROM dex_captured
+            WHERE species_id IN ('GRS_001', 'GRS_002', 'GRS_003', 'GRS_004')
+            ORDER BY species_id;
+            """
+        ) { statement in
+            (
+                speciesID: SQLiteDatabase.columnText(statement, index: 0),
+                capturedCount: SQLiteDatabase.columnInt64(statement, index: 1),
+                affinityLevel: SQLiteDatabase.columnInt64(statement, index: 2),
+                pityCount: SQLiteDatabase.columnInt64(statement, index: 3),
+                outcome: SQLiteDatabase.columnText(statement, index: 4)
+            )
+        }
+
+        #expect(rows.map { $0.speciesID } == speciesIDs)
+        #expect(rows.map { $0.capturedCount } == counts)
+        #expect(rows.map { $0.affinityLevel } == [1, 2, 3, 4])
+        #expect(rows.allSatisfy { $0.pityCount == 0 })
+        #expect(rows.allSatisfy { $0.outcome == "migration_seeded" })
+    }
+
+    @Test
+    func firstCaptureInitializesAffinityAndPersistsDomainEvent() throws {
+        let manager = try makeManager(prefix: "tokenmon-affinity-first")
+        let encounter = try manager.forgeEncounter(
+            TokenmonDeveloperEncounterForgeRequest(
+                provider: .codex,
+                field: .grassland,
+                rarity: .common,
+                speciesID: "GRS_001",
+                outcome: .captured,
+                occurredAt: "2026-04-20T01:00:00Z"
+            )
+        )
+        let database = try manager.open()
+
+        let aggregate = try #require(database.fetchOne(
+            """
+            SELECT captured_count,
+                   affinity_level,
+                   affinity_pity_count,
+                   affinity_last_roll,
+                   affinity_last_probability,
+                   affinity_last_outcome
+            FROM dex_captured
+            WHERE species_id = 'GRS_001';
+            """
+        ) { statement in
+            (
+                capturedCount: SQLiteDatabase.columnInt64(statement, index: 0),
+                affinityLevel: SQLiteDatabase.columnInt64(statement, index: 1),
+                pityCount: SQLiteDatabase.columnInt64(statement, index: 2),
+                lastRoll: SQLiteDatabase.columnOptionalDouble(statement, index: 3),
+                lastProbability: SQLiteDatabase.columnOptionalDouble(statement, index: 4),
+                lastOutcome: SQLiteDatabase.columnText(statement, index: 5)
+            )
+        })
+        let payload = try latestSpeciesAffinityPayload(database: database, speciesID: "GRS_001")
+
+        #expect(aggregate.capturedCount == 1)
+        #expect(aggregate.affinityLevel == 1)
+        #expect(aggregate.pityCount == 0)
+        #expect(aggregate.lastRoll == nil)
+        #expect(aggregate.lastProbability == nil)
+        #expect(aggregate.lastOutcome == "initialized")
+        #expect(payload.encounterID == encounter.encounterID)
+        #expect(payload.capturedCountAfter == 1)
+        #expect(payload.previousLevel == 0)
+        #expect(payload.newLevel == 1)
+        #expect(payload.outcome == "initialized")
+    }
+
+    @Test
+    func duplicateCaptureGuaranteedAffinitySuccessResetsPity() throws {
+        let manager = try makeManager(prefix: "tokenmon-affinity-guaranteed")
+        _ = try manager.forgeEncounter(
+            TokenmonDeveloperEncounterForgeRequest(
+                provider: .codex,
+                field: .grassland,
+                rarity: .common,
+                speciesID: "GRS_001",
+                outcome: .captured,
+                occurredAt: "2026-04-20T02:00:00Z"
+            )
+        )
+        let database = try manager.open()
+        try database.execute(
+            """
+            UPDATE dex_captured
+            SET affinity_level = 1,
+                affinity_pity_count = 2
+            WHERE species_id = 'GRS_001';
+            """
+        )
+
+        _ = try manager.forgeEncounter(
+            TokenmonDeveloperEncounterForgeRequest(
+                provider: .codex,
+                field: .grassland,
+                rarity: .common,
+                speciesID: "GRS_001",
+                outcome: .captured,
+                occurredAt: "2026-04-20T02:01:00Z"
+            )
+        )
+
+        let aggregate = try #require(database.fetchOne(
+            """
+            SELECT captured_count,
+                   affinity_level,
+                   affinity_pity_count,
+                   affinity_last_roll,
+                   affinity_last_probability,
+                   affinity_last_outcome
+            FROM dex_captured
+            WHERE species_id = 'GRS_001';
+            """
+        ) { statement in
+            (
+                capturedCount: SQLiteDatabase.columnInt64(statement, index: 0),
+                affinityLevel: SQLiteDatabase.columnInt64(statement, index: 1),
+                pityCount: SQLiteDatabase.columnInt64(statement, index: 2),
+                lastRoll: SQLiteDatabase.columnOptionalDouble(statement, index: 3),
+                lastProbability: SQLiteDatabase.columnOptionalDouble(statement, index: 4),
+                lastOutcome: SQLiteDatabase.columnText(statement, index: 5)
+            )
+        })
+        let payload = try latestSpeciesAffinityPayload(database: database, speciesID: "GRS_001")
+
+        #expect(aggregate.capturedCount == 2)
+        #expect(aggregate.affinityLevel == 2)
+        #expect(aggregate.pityCount == 0)
+        #expect(aggregate.lastRoll == nil)
+        #expect(aggregate.lastProbability == 0.50)
+        #expect(aggregate.lastOutcome == "guaranteed_success")
+        #expect(payload.previousLevel == 1)
+        #expect(payload.newLevel == 2)
+        #expect(payload.targetLevel == 2)
+        #expect(payload.pityCountBefore == 2)
+        #expect(payload.pityCountAfter == 0)
+        #expect(payload.outcome == "guaranteed_success")
+    }
+
+    @Test
+    func duplicateCaptureFailurePreservesAffinityAndIncrementsPity() throws {
+        let manager = try makeManager(prefix: "tokenmon-affinity-failure")
+        let species = try #require(SpeciesCatalog.all.first { $0.id == "GRS_035" })
+        _ = try manager.forgeEncounter(
+            TokenmonDeveloperEncounterForgeRequest(
+                provider: .codex,
+                field: species.field,
+                rarity: species.rarity,
+                speciesID: species.id,
+                outcome: .captured,
+                occurredAt: "2026-04-20T03:00:00Z"
+            )
+        )
+        let database = try manager.open()
+        try database.execute(
+            """
+            UPDATE dex_captured
+            SET affinity_level = 4,
+                affinity_pity_count = 0
+            WHERE species_id = ?;
+            """,
+            bindings: [.text(species.id)]
+        )
+
+        let resolver = SpeciesAffinityResolver()
+        var nextUsageSampleID = try maxUsageSampleID(database: database) + 1
+        var foundFailureSeed = false
+        for attempt in 0 ..< 50 {
+            let preview = try resolver.resolveCapture(
+                speciesID: species.id,
+                rarity: species.rarity,
+                encounterSeedContextID: "internal-devtools-\(nextUsageSampleID)",
+                capturedCountAfter: 2,
+                currentLevel: 4,
+                pityCount: 0
+            )
+            if preview.outcome == .failure {
+                foundFailureSeed = true
+                break
+            }
+            _ = try manager.forgeEncounter(
+                TokenmonDeveloperEncounterForgeRequest(
+                    provider: .codex,
+                    field: species.field,
+                    rarity: species.rarity,
+                    speciesID: species.id,
+                    outcome: .escaped,
+                    occurredAt: "2026-04-20T03:\(String(format: "%02d", attempt)):00Z"
+                )
+            )
+            nextUsageSampleID = try maxUsageSampleID(database: database) + 1
+        }
+        #expect(foundFailureSeed)
+
+        _ = try manager.forgeEncounter(
+            TokenmonDeveloperEncounterForgeRequest(
+                provider: .codex,
+                field: species.field,
+                rarity: species.rarity,
+                speciesID: species.id,
+                outcome: .captured,
+                occurredAt: "2026-04-20T03:10:00Z"
+            )
+        )
+
+        let aggregate = try #require(database.fetchOne(
+            """
+            SELECT captured_count,
+                   affinity_level,
+                   affinity_pity_count,
+                   affinity_last_roll,
+                   affinity_last_probability,
+                   affinity_last_outcome
+            FROM dex_captured
+            WHERE species_id = ?;
+            """,
+            bindings: [.text(species.id)]
+        ) { statement in
+            (
+                capturedCount: SQLiteDatabase.columnInt64(statement, index: 0),
+                affinityLevel: SQLiteDatabase.columnInt64(statement, index: 1),
+                pityCount: SQLiteDatabase.columnInt64(statement, index: 2),
+                lastRoll: SQLiteDatabase.columnOptionalDouble(statement, index: 3),
+                lastProbability: SQLiteDatabase.columnOptionalDouble(statement, index: 4),
+                lastOutcome: SQLiteDatabase.columnText(statement, index: 5)
+            )
+        })
+        let payload = try latestSpeciesAffinityPayload(database: database, speciesID: species.id)
+
+        #expect(aggregate.capturedCount == 2)
+        #expect(aggregate.affinityLevel == 4)
+        #expect(aggregate.pityCount == 1)
+        #expect(aggregate.lastRoll != nil)
+        #expect(abs((aggregate.lastProbability ?? 0) - 0.0756) < 0.000_001)
+        #expect(aggregate.lastOutcome == "failure")
+        #expect(payload.previousLevel == 4)
+        #expect(payload.newLevel == 4)
+        #expect(payload.targetLevel == 5)
+        #expect(payload.pityCountBefore == 0)
+        #expect(payload.pityCountAfter == 1)
+        #expect(payload.outcome == "failure")
     }
 
     @Test
@@ -3760,6 +4182,7 @@ struct TokenmonDataContractTests {
             rarity: .rare,
             slotOrder: 1,
             capturedCount: 4,
+            affinityLevel: 2,
             stats: SpeciesStatBlock(
                 planning: 2,
                 design: 7,
@@ -3795,6 +4218,7 @@ struct TokenmonDataContractTests {
             rarity: .rare,
             slotOrder: 1,
             capturedCount: 4,
+            affinityLevel: 2,
             stats: SpeciesStatBlock(
                 planning: 2,
                 design: 7,
@@ -3827,6 +4251,105 @@ struct TokenmonDataContractTests {
         #expect(nextSample.memberHits.first?.baseHitPower == 9)
         #expect(first.memberHits.first?.rollOutcome != nil)
         #expect(nextSample.memberHits.first?.rollOutcome != nil)
+    }
+
+    @Test
+    func raidDamageIgnoresCapturedCountForCaptureBondBonus() throws {
+        let raid = RaidCatalog.allRaids.first { $0.raidID == "raid_2026_06_logo_vault" }!
+        let member = RaidPartyMember(
+            speciesID: "CST_TEST",
+            assetKey: "cst_test",
+            displayName: "Coralcoder",
+            field: .coast,
+            rarity: .rare,
+            slotOrder: 1,
+            capturedCount: 30,
+            affinityLevel: 1,
+            stats: SpeciesStatBlock(
+                planning: 2,
+                design: 7,
+                frontend: 8,
+                backend: 4,
+                pm: 2,
+                infra: 1,
+                traits: ["Quick Prototyper", "Clean Coder"]
+            )
+        )
+
+        let hit = RaidDamageCalculator.memberHit(raid: raid, member: member)
+
+        #expect(hit.captureBondBonus == 0)
+        #expect(hit.baseHitPower == 8)
+    }
+
+    @Test
+    func raidAttackSnapshotPersistsAffinityLevelAndBondBonus() throws {
+        let manager = try makeManager(prefix: "raid-affinity-snapshot")
+        let database = try manager.open()
+        try upsertStringSetting(
+            database: database,
+            key: "live_gameplay_started_at",
+            value: "2026-04-01T00:00:00Z"
+        )
+
+        _ = try manager.forgeEncounter(
+            TokenmonDeveloperEncounterForgeRequest(
+                provider: .codex,
+                field: .grassland,
+                rarity: .common,
+                speciesID: "GRS_001",
+                outcome: .captured,
+                occurredAt: "2026-04-23T00:00:00Z"
+            )
+        )
+        try database.execute(
+            """
+            UPDATE dex_captured
+            SET affinity_level = 2,
+                affinity_pity_count = 0
+            WHERE species_id = 'GRS_001';
+            """
+        )
+        try manager.addToParty(speciesID: "GRS_001")
+
+        let service = UsageSampleIngestionService(databasePath: manager.path)
+        _ = try service.ingestProviderEvents(
+            [
+                codexUsageEvent(
+                    sessionID: "raid-affinity-session",
+                    observedAt: "2026-04-23T00:01:00Z",
+                    totalInputTokens: 1_000,
+                    totalOutputTokens: 500,
+                    fingerprint: "codex:raid-affinity-session:001"
+                ),
+            ],
+            sourceKey: "raid-affinity-snapshot",
+            sourceKind: "ndjson_file"
+        )
+
+        let snapshotJSON = try #require(database.fetchOne(
+            """
+            SELECT party_snapshot_json
+            FROM raid_attacks
+            ORDER BY raid_attack_row_id DESC
+            LIMIT 1;
+            """
+        ) { statement in
+            SQLiteDatabase.columnText(statement, index: 0)
+        })
+        let captureBondBonus = try #require(database.fetchOne(
+            """
+            SELECT capture_bond_bonus
+            FROM raid_member_hits
+            ORDER BY raid_member_hit_id DESC
+            LIMIT 1;
+            """
+        ) { statement in
+            SQLiteDatabase.columnInt64(statement, index: 0)
+        })
+
+        #expect(snapshotJSON.contains("\"affinityLevel\":2"))
+        #expect(captureBondBonus == 1)
     }
 
     @Test

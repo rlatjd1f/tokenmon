@@ -162,6 +162,7 @@ public struct RaidPartyMember: Equatable, Codable, Sendable {
     public let rarity: RarityTier
     public let slotOrder: Int
     public let capturedCount: Int64
+    public let affinityLevel: Int64
     public let stats: SpeciesStatBlock
 
     public init(
@@ -172,6 +173,7 @@ public struct RaidPartyMember: Equatable, Codable, Sendable {
         rarity: RarityTier,
         slotOrder: Int,
         capturedCount: Int64,
+        affinityLevel: Int64 = 1,
         stats: SpeciesStatBlock
     ) {
         self.speciesID = speciesID
@@ -181,6 +183,46 @@ public struct RaidPartyMember: Equatable, Codable, Sendable {
         self.rarity = rarity
         self.slotOrder = slotOrder
         self.capturedCount = capturedCount
+        self.affinityLevel = affinityLevel
         self.stats = stats
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case speciesID
+        case assetKey
+        case displayName
+        case field
+        case rarity
+        case slotOrder
+        case capturedCount
+        case affinityLevel
+        case stats
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        speciesID = try container.decode(String.self, forKey: .speciesID)
+        assetKey = try container.decode(String.self, forKey: .assetKey)
+        displayName = try container.decode(String.self, forKey: .displayName)
+        field = try container.decode(FieldType.self, forKey: .field)
+        rarity = try container.decode(RarityTier.self, forKey: .rarity)
+        slotOrder = try container.decode(Int.self, forKey: .slotOrder)
+        capturedCount = try container.decode(Int64.self, forKey: .capturedCount)
+        affinityLevel = try container.decodeIfPresent(Int64.self, forKey: .affinityLevel)
+            ?? Int64(Self.migratedAffinityLevel(capturedCount: capturedCount))
+        stats = try container.decode(SpeciesStatBlock.self, forKey: .stats)
+    }
+
+    private static func migratedAffinityLevel(capturedCount: Int64) -> Int {
+        switch capturedCount {
+        case 25...:
+            return 4
+        case 10...24:
+            return 3
+        case 3...9:
+            return 2
+        default:
+            return 1
+        }
     }
 }

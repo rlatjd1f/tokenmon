@@ -100,7 +100,7 @@ public enum RaidDamageCalculator {
             2,
             member.stats.traits.filter { raid.preferredTraitTags.contains($0) }.count
         )
-        let captureBondBonus = captureBondBonus(capturedCount: member.capturedCount)
+        let captureBondBonus = captureBondBonus(affinityLevel: member.affinityLevel)
         let hitPower = max(
             1,
             roundedAxisScore
@@ -138,13 +138,13 @@ public enum RaidDamageCalculator {
         }
     }
 
-    public static func captureBondBonus(capturedCount: Int64) -> Int {
-        switch capturedCount {
-        case 25...:
+    public static func captureBondBonus(affinityLevel: Int64) -> Int {
+        switch affinityLevel {
+        case 4...:
             return 3
-        case 10...24:
+        case 3:
             return 2
-        case 3...9:
+        case 2:
             return 1
         default:
             return 0

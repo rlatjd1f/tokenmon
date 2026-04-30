@@ -105,6 +105,7 @@
 "now.meta.rarity" = "Rarity";
 "now.meta.field" = "Field";
 "now.meta.result" = "Result";
+"now.meta.affinity" = "Affinity";
 "now.stats.encounters" = "Encounters";
 "now.stats.captured" = "Captured";
 "now.stats.enc_short" = "Enc.";
@@ -197,6 +198,14 @@
 "dex.count.time.other" = "%1$lld times";
 "dex.count.encounter.one" = "%1$lld encounter";
 "dex.count.encounter.other" = "%1$lld encounters";
+"affinity.label" = "Bond";
+"affinity.level" = "Bond %1$@";
+"affinity.level.reached" = "Bond %1$@ reached";
+"affinity.resonance_label" = "Resonance";
+"affinity.resonance" = "Resonance %1$lld/%2$lld";
+"affinity.success_chance" = "Success chance";
+"affinity.guaranteed" = "Guaranteed";
+"affinity.max" = "Max bond";
 
 "settings.pane.general.title" = "General";
 "settings.pane.providers.title" = "Providers";
@@ -369,6 +378,7 @@
 "raid.party.title" = "Party";
 "raid.party.power_format" = "Power %lld";
 "raid.party.empty" = "Add captured Tokenmon from the Dex to deal raid damage.";
+"raid.party.affinity_bonus" = "%1$@ · bonus +%2$d";
 "raid.recent.title" = "Recent attacks";
 "raid.recent.empty" = "Live usage will send the party forward.";
 "raid.recent.row" = "%lld members · %lld damage";

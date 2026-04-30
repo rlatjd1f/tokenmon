@@ -122,15 +122,22 @@ struct DexPreviewGrid: View {
             onSelect(entry)
         } label: {
             VStack(spacing: 4) {
-                TokenmonDexSpritePreview(
-                    status: entry.status,
-                    revealStage: TokenmonDexPresentation.revealStage(for: entry),
-                    field: entry.field,
-                    rarity: entry.rarity,
-                    assetKey: entry.assetKey,
-                    cardSize: 56,
-                    spriteSize: 38
-                )
+                ZStack(alignment: .bottomTrailing) {
+                    TokenmonDexSpritePreview(
+                        status: entry.status,
+                        revealStage: TokenmonDexPresentation.revealStage(for: entry),
+                        field: entry.field,
+                        rarity: entry.rarity,
+                        assetKey: entry.assetKey,
+                        cardSize: 56,
+                        spriteSize: 38
+                    )
+
+                    if entry.status == .captured, entry.affinityLevel >= 2 {
+                        TokenmonAffinityBadge(level: entry.affinityLevel, compact: true, emphasized: true)
+                            .offset(x: 4, y: 4)
+                    }
+                }
 
                 Text(TokenmonDexPresentation.visibleSpeciesName(for: entry))
                     .font(.caption2)

@@ -386,6 +386,9 @@ seen_dex_updated_count = cur.execute(
 captured_dex_updated_count = cur.execute(
     "SELECT COUNT(*) FROM domain_events WHERE event_type = 'captured_dex_updated';"
 ).fetchone()[0]
+species_affinity_updated_count = cur.execute(
+    "SELECT COUNT(*) FROM domain_events WHERE event_type = 'species_affinity_updated';"
+).fetchone()[0]
 raid_attack_triggered_count = cur.execute(
     "SELECT COUNT(*) FROM domain_events WHERE event_type = 'raid_attack_triggered';"
 ).fetchone()[0]
@@ -512,6 +515,7 @@ print(f"encounter_spawned_count={encounter_spawned_count}")
 print(f"capture_resolved_event_count={capture_resolved_event_count}")
 print(f"seen_dex_updated_count={seen_dex_updated_count}")
 print(f"captured_dex_updated_count={captured_dex_updated_count}")
+print(f"species_affinity_updated_count={species_affinity_updated_count}")
 print(f"raid_attack_triggered_count={raid_attack_triggered_count}")
 print(f"raid_member_hit_resolved_count={raid_member_hit_resolved_count}")
 print(f"raid_progress_updated_count={raid_progress_updated_count}")
@@ -531,7 +535,8 @@ print(f"encounter_spawned_count_matches_expected={int(encounter_spawned_count ==
 print(f"capture_resolved_matches_encounter_count={int(capture_resolved_event_count == encounter_count)}")
 print(f"seen_dex_updated_matches_encounter_count={int(seen_dex_updated_count == encounter_count)}")
 print(f"captured_dex_updated_matches_captured_count={int(captured_dex_updated_count == captured_count)}")
-print(f"domain_event_count_matches_expected={int(domain_event_count == 2 + threshold_event_count + field_selected_count + rarity_selected_count + species_selected_count + encounter_spawned_count + capture_resolved_event_count + seen_dex_updated_count + captured_dex_updated_count + raid_attack_triggered_count + raid_member_hit_resolved_count + raid_progress_updated_count + raid_cleared_count + raid_expired_count + raid_reward_acquired_count + raid_reward_missed_count + reward_archive_recorded_count)}")
+print(f"species_affinity_updated_matches_captured_count={int(species_affinity_updated_count == captured_count)}")
+print(f"domain_event_count_matches_expected={int(domain_event_count == 2 + threshold_event_count + field_selected_count + rarity_selected_count + species_selected_count + encounter_spawned_count + capture_resolved_event_count + seen_dex_updated_count + captured_dex_updated_count + species_affinity_updated_count + raid_attack_triggered_count + raid_member_hit_resolved_count + raid_progress_updated_count + raid_cleared_count + raid_expired_count + raid_reward_acquired_count + raid_reward_missed_count + reward_archive_recorded_count)}")
 print(f"dex_seen_matches_unique_encounter_species={int(dex_seen_species == encounter_species)}")
 print(f"dex_captured_matches_unique_captured_species={int(dex_captured_species == captured_species)}")
 print(f"state_total_captures_matches_captured_count={int(state_total_captures == captured_count)}")
@@ -2016,6 +2021,7 @@ require_contains "$threshold_probe" "encounter_spawned_count_matches_expected=1"
 require_contains "$threshold_probe" "capture_resolved_matches_encounter_count=1"
 require_contains "$threshold_probe" "seen_dex_updated_matches_encounter_count=1"
 require_contains "$threshold_probe" "captured_dex_updated_matches_captured_count=1"
+require_contains "$threshold_probe" "species_affinity_updated_matches_captured_count=1"
 require_contains "$threshold_probe" "domain_event_count_matches_expected=1"
 require_contains "$threshold_probe" "state_total_encounters=$threshold_encounter_count"
 require_contains "$threshold_probe" "dex_seen_matches_unique_encounter_species=1"
@@ -2103,6 +2109,7 @@ require_contains "$threshold_replay_probe" "encounter_spawned_count_matches_expe
 require_contains "$threshold_replay_probe" "capture_resolved_matches_encounter_count=1"
 require_contains "$threshold_replay_probe" "seen_dex_updated_matches_encounter_count=1"
 require_contains "$threshold_replay_probe" "captured_dex_updated_matches_captured_count=1"
+require_contains "$threshold_replay_probe" "species_affinity_updated_matches_captured_count=1"
 require_contains "$threshold_replay_probe" "domain_event_count_matches_expected=1"
 if [[ "$threshold_probe" == *"encounter_count=0"* ]]; then
   require_contains "$threshold_replay_probe" "encounter_count=0"
@@ -2164,6 +2171,7 @@ require_contains "$multi_threshold_probe" "encounter_spawned_count_matches_expec
 require_contains "$multi_threshold_probe" "capture_resolved_matches_encounter_count=1"
 require_contains "$multi_threshold_probe" "seen_dex_updated_matches_encounter_count=1"
 require_contains "$multi_threshold_probe" "captured_dex_updated_matches_captured_count=1"
+require_contains "$multi_threshold_probe" "species_affinity_updated_matches_captured_count=1"
 require_contains "$multi_threshold_probe" "domain_event_count_matches_expected=1"
 require_contains "$multi_threshold_probe" "state_total_encounters=$multi_threshold_encounter_count"
 require_contains "$multi_threshold_probe" "dex_seen_matches_unique_encounter_species=1"

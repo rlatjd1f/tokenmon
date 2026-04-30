@@ -159,6 +159,9 @@ struct TokenmonNowTab: View {
                     metaRow(label: TokenmonL10n.string("now.meta.rarity"), value: encounter.rarity.displayName)
                     metaRow(label: TokenmonL10n.string("now.meta.field"), value: encounter.field.displayName)
                     metaRow(label: TokenmonL10n.string("now.meta.result"), value: encounter.outcome.displayName)
+                    if let affinityLine = TokenmonDexPresentation.affinityResultLine(for: encounter) {
+                        metaRow(label: TokenmonL10n.string("now.meta.affinity"), value: affinityLine)
+                    }
                 }
                 Spacer()
             }

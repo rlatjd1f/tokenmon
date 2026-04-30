@@ -904,9 +904,19 @@ enum TokenmonAutomationCommand {
             let displayName = entry.isNameUnlocked
                 ? entry.speciesName
                 : "Unknown species"
-            lines.append(
-                "\(index + 1). \(displayName) | id=\(entry.speciesID) | field=\(entry.field.rawValue) | rarity=\(entry.rarity.rawValue) | count=\(entry.count) | first=\(entry.firstRecordedAt) | last=\(entry.lastRecordedAt)"
-            )
+            var pieces = [
+                "\(index + 1). \(displayName)",
+                "id=\(entry.speciesID)",
+                "field=\(entry.field.rawValue)",
+                "rarity=\(entry.rarity.rawValue)",
+                "count=\(entry.count)",
+            ]
+            if let affinity = entry.affinitySummary {
+                pieces.append(affinity)
+            }
+            pieces.append("first=\(entry.firstRecordedAt)")
+            pieces.append("last=\(entry.lastRecordedAt)")
+            lines.append(pieces.joined(separator: " | "))
         }
 
         return lines.joined(separator: "\n")
@@ -1085,6 +1095,7 @@ private protocol AutomationDexSummaryLike {
     var lastRecordedAt: String { get }
     var count: Int64 { get }
     var isNameUnlocked: Bool { get }
+    var affinitySummary: String? { get }
 }
 
 extension DexSeenSummaryEntry: AutomationDexSummaryLike {
@@ -1092,6 +1103,7 @@ extension DexSeenSummaryEntry: AutomationDexSummaryLike {
     fileprivate var lastRecordedAt: String { lastSeenAt }
     fileprivate var count: Int64 { seenCount }
     fileprivate var isNameUnlocked: Bool { capturedCount > 0 }
+    fileprivate var affinitySummary: String? { nil }
 }
 
 extension DexCapturedSummaryEntry: AutomationDexSummaryLike {
@@ -1099,6 +1111,9 @@ extension DexCapturedSummaryEntry: AutomationDexSummaryLike {
     fileprivate var lastRecordedAt: String { lastCapturedAt }
     fileprivate var count: Int64 { capturedCount }
     fileprivate var isNameUnlocked: Bool { true }
+    fileprivate var affinitySummary: String? {
+        "affinity=\(TokenmonDexPresentation.affinityLevelLabel(level: affinityLevel)) resonance=\(affinityPityCount)"
+    }
 }
 
 private enum AutomationError: Error, LocalizedError {

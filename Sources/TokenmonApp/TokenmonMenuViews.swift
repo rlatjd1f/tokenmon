@@ -2596,6 +2596,10 @@ struct TokenmonDexListRow: View {
 
                     Spacer(minLength: 0)
 
+                    if entry.status == .captured, entry.affinityLevel >= 2 {
+                        TokenmonAffinityBadge(level: entry.affinityLevel, compact: compact, emphasized: true)
+                    }
+
                     TokenmonDexStatusBadge(status: entry.status, compact: compact)
                 }
 
@@ -2750,6 +2754,9 @@ struct TokenmonDexCard: View {
                     .foregroundStyle(.secondary)
                 Spacer()
                 HStack(spacing: 6) {
+                    if entry.status == .captured, entry.affinityLevel >= 2 {
+                        TokenmonAffinityBadge(level: entry.affinityLevel, compact: true, emphasized: true)
+                    }
                     TokenmonDexAlbumRarityPill(rarity: entry.rarity, albumStyle: albumStyle)
                     TokenmonDexAlbumStatusPill(status: entry.status)
                 }
@@ -3128,6 +3135,28 @@ struct TokenmonRarityBadge: View {
         .background(Capsule().fill(rarity.tint.opacity(0.14)))
         .fixedSize(horizontal: true, vertical: false)
         .help(rarity.displayName)
+    }
+}
+
+struct TokenmonAffinityBadge: View {
+    let level: Int64
+    var compact: Bool = false
+    var emphasized: Bool = false
+
+    var body: some View {
+        Text(TokenmonDexPresentation.affinityLevelLabel(level: max(1, level), compact: compact))
+            .font(compact ? .caption2.weight(.bold) : .caption.weight(.bold))
+            .lineLimit(1)
+            .minimumScaleFactor(0.78)
+            .foregroundStyle(emphasized ? Color.accentColor : Color.secondary)
+            .padding(.horizontal, compact ? 6 : 9)
+            .padding(.vertical, compact ? 3 : 5)
+            .background(
+                Capsule()
+                    .fill((emphasized ? Color.accentColor : Color.secondary).opacity(emphasized ? 0.16 : 0.11))
+            )
+            .fixedSize(horizontal: true, vertical: false)
+            .help(TokenmonDexPresentation.affinityLevelLabel(level: max(1, level), compact: false))
     }
 }
 

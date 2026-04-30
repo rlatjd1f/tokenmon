@@ -128,6 +128,7 @@
 "now.meta.rarity" = "희귀도";
 "now.meta.field" = "필드";
 "now.meta.result" = "결과";
+"now.meta.affinity" = "친밀도";
 "now.stats.encounters" = "조우";
 "now.stats.captured" = "포획";
 "now.stats.enc_short" = "조우";
@@ -199,6 +200,14 @@
 "dex.count.time.other" = "%1$lld회";
 "dex.count.encounter.one" = "%1$lld회 조우";
 "dex.count.encounter.other" = "%1$lld회 조우";
+"affinity.label" = "친밀도";
+"affinity.level" = "친밀도 %1$@";
+"affinity.level.reached" = "친밀도 %1$@ 달성";
+"affinity.resonance_label" = "공명";
+"affinity.resonance" = "공명 %1$lld/%2$lld";
+"affinity.success_chance" = "성공 확률";
+"affinity.guaranteed" = "확정";
+"affinity.max" = "최대 친밀도";
 "dex.status.captured" = "포획";
 "dex.status.seen" = "발견";
 "dex.status.hidden" = "숨김";
@@ -694,6 +703,7 @@
 "raid.party.title" = "파티";
 "raid.party.power_format" = "전투력 %lld";
 "raid.party.empty" = "포획한 토큰몬을 Dex에서 파티에 추가하면 레이드 데미지를 줄 수 있어요.";
+"raid.party.affinity_bonus" = "%1$@ · 보너스 +%2$d";
 "raid.recent.title" = "최근 공격";
 "raid.recent.empty" = "라이브 사용이 감지되면 파티가 자동으로 출격합니다.";
 "raid.recent.row" = "%lld마리 · %lld 데미지";

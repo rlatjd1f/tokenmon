@@ -14,6 +14,7 @@ public enum TokenmonDomainEventType: String, Sendable {
     case captureResolved = "capture_resolved"
     case seenDexUpdated = "seen_dex_updated"
     case capturedDexUpdated = "captured_dex_updated"
+    case speciesAffinityUpdated = "species_affinity_updated"
     case backfillStarted = "backfill_started"
     case backfillCompleted = "backfill_completed"
     case raidInstanceStarted = "raid_instance_started"

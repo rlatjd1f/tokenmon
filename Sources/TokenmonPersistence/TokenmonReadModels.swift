@@ -28,10 +28,62 @@ public struct RecentEncounterSummary: Equatable, Sendable {
     public let assetKey: String
     public let seenCount: Int64
     public let capturedCount: Int64
+    public let affinityLevel: Int64
+    public let affinityPityCount: Int64
+    public let affinityLastRoll: Double?
+    public let affinityLastProbability: Double?
+    public let affinityLastOutcome: String?
+    public let affinityUpdatedAt: String?
     public let burstIntensityBand: Int
     public let captureProbability: Double
     public let captureRoll: Double
     public let outcome: EncounterOutcome
+
+    public init(
+        encounterID: String,
+        encounterSequence: Int64,
+        occurredAt: String,
+        provider: ProviderCode?,
+        field: FieldType,
+        rarity: RarityTier,
+        speciesID: String,
+        speciesName: String,
+        assetKey: String,
+        seenCount: Int64,
+        capturedCount: Int64,
+        affinityLevel: Int64 = 0,
+        affinityPityCount: Int64 = 0,
+        affinityLastRoll: Double? = nil,
+        affinityLastProbability: Double? = nil,
+        affinityLastOutcome: String? = nil,
+        affinityUpdatedAt: String? = nil,
+        burstIntensityBand: Int,
+        captureProbability: Double,
+        captureRoll: Double,
+        outcome: EncounterOutcome
+    ) {
+        self.encounterID = encounterID
+        self.encounterSequence = encounterSequence
+        self.occurredAt = occurredAt
+        self.provider = provider
+        self.field = field
+        self.rarity = rarity
+        self.speciesID = speciesID
+        self.speciesName = speciesName
+        self.assetKey = assetKey
+        self.seenCount = seenCount
+        self.capturedCount = capturedCount
+        self.affinityLevel = affinityLevel
+        self.affinityPityCount = affinityPityCount
+        self.affinityLastRoll = affinityLastRoll
+        self.affinityLastProbability = affinityLastProbability
+        self.affinityLastOutcome = affinityLastOutcome
+        self.affinityUpdatedAt = affinityUpdatedAt
+        self.burstIntensityBand = burstIntensityBand
+        self.captureProbability = captureProbability
+        self.captureRoll = captureRoll
+        self.outcome = outcome
+    }
 }
 
 public struct DexSeenSummaryEntry: Equatable, Sendable {
@@ -56,7 +108,47 @@ public struct DexCapturedSummaryEntry: Equatable, Sendable {
     public let firstCapturedAt: String
     public let lastCapturedAt: String
     public let capturedCount: Int64
+    public let affinityLevel: Int64
+    public let affinityPityCount: Int64
+    public let affinityLastRoll: Double?
+    public let affinityLastProbability: Double?
+    public let affinityLastOutcome: String?
+    public let affinityUpdatedAt: String?
     public let lastEncounterID: String
+
+    public init(
+        speciesID: String,
+        speciesName: String,
+        field: FieldType,
+        rarity: RarityTier,
+        sortOrder: Int,
+        firstCapturedAt: String,
+        lastCapturedAt: String,
+        capturedCount: Int64,
+        affinityLevel: Int64 = 1,
+        affinityPityCount: Int64 = 0,
+        affinityLastRoll: Double? = nil,
+        affinityLastProbability: Double? = nil,
+        affinityLastOutcome: String? = nil,
+        affinityUpdatedAt: String? = nil,
+        lastEncounterID: String
+    ) {
+        self.speciesID = speciesID
+        self.speciesName = speciesName
+        self.field = field
+        self.rarity = rarity
+        self.sortOrder = sortOrder
+        self.firstCapturedAt = firstCapturedAt
+        self.lastCapturedAt = lastCapturedAt
+        self.capturedCount = capturedCount
+        self.affinityLevel = affinityLevel
+        self.affinityPityCount = affinityPityCount
+        self.affinityLastRoll = affinityLastRoll
+        self.affinityLastProbability = affinityLastProbability
+        self.affinityLastOutcome = affinityLastOutcome
+        self.affinityUpdatedAt = affinityUpdatedAt
+        self.lastEncounterID = lastEncounterID
+    }
 }
 
 public enum DexEntryStatus: String, CaseIterable, Sendable {
@@ -80,7 +172,59 @@ public struct DexEntrySummary: Equatable, Sendable {
     public let lastSeenAt: String?
     public let firstCapturedAt: String?
     public let lastCapturedAt: String?
+    public let affinityLevel: Int64
+    public let affinityPityCount: Int64
+    public let affinityLastRoll: Double?
+    public let affinityLastProbability: Double?
+    public let affinityLastOutcome: String?
+    public let affinityUpdatedAt: String?
     public let stats: SpeciesStatBlock
+
+    public init(
+        speciesID: String,
+        speciesName: String,
+        field: FieldType,
+        rarity: RarityTier,
+        assetKey: String,
+        flavorText: String?,
+        sortOrder: Int,
+        status: DexEntryStatus,
+        seenCount: Int64,
+        capturedCount: Int64,
+        firstSeenAt: String?,
+        lastSeenAt: String?,
+        firstCapturedAt: String?,
+        lastCapturedAt: String?,
+        affinityLevel: Int64 = 0,
+        affinityPityCount: Int64 = 0,
+        affinityLastRoll: Double? = nil,
+        affinityLastProbability: Double? = nil,
+        affinityLastOutcome: String? = nil,
+        affinityUpdatedAt: String? = nil,
+        stats: SpeciesStatBlock
+    ) {
+        self.speciesID = speciesID
+        self.speciesName = speciesName
+        self.field = field
+        self.rarity = rarity
+        self.assetKey = assetKey
+        self.flavorText = flavorText
+        self.sortOrder = sortOrder
+        self.status = status
+        self.seenCount = seenCount
+        self.capturedCount = capturedCount
+        self.firstSeenAt = firstSeenAt
+        self.lastSeenAt = lastSeenAt
+        self.firstCapturedAt = firstCapturedAt
+        self.lastCapturedAt = lastCapturedAt
+        self.affinityLevel = affinityLevel
+        self.affinityPityCount = affinityPityCount
+        self.affinityLastRoll = affinityLastRoll
+        self.affinityLastProbability = affinityLastProbability
+        self.affinityLastOutcome = affinityLastOutcome
+        self.affinityUpdatedAt = affinityUpdatedAt
+        self.stats = stats
+    }
 }
 
 public struct TodayActivitySummary: Equatable, Sendable {
@@ -170,7 +314,32 @@ public struct PartyMemberSummary: Equatable, Sendable {
     public let addedAt: String
     public let slotOrder: Int
     public let capturedCount: Int64
+    public let affinityLevel: Int64
     public let stats: SpeciesStatBlock
+
+    public init(
+        speciesID: String,
+        assetKey: String,
+        field: FieldType,
+        rarity: RarityTier,
+        displayName: String,
+        addedAt: String,
+        slotOrder: Int,
+        capturedCount: Int64,
+        affinityLevel: Int64 = 1,
+        stats: SpeciesStatBlock
+    ) {
+        self.speciesID = speciesID
+        self.assetKey = assetKey
+        self.field = field
+        self.rarity = rarity
+        self.displayName = displayName
+        self.addedAt = addedAt
+        self.slotOrder = slotOrder
+        self.capturedCount = capturedCount
+        self.affinityLevel = affinityLevel
+        self.stats = stats
+    }
 }
 
 public enum AmbientCompanionRoster: Equatable, Sendable {
@@ -314,6 +483,12 @@ public extension TokenmonDatabaseManager {
                species.asset_key,
                COALESCE(dex_seen.seen_count, 0) AS seen_count,
                COALESCE(dex_captured.captured_count, 0) AS captured_count,
+               COALESCE(dex_captured.affinity_level, 0) AS affinity_level,
+               COALESCE(dex_captured.affinity_pity_count, 0) AS affinity_pity_count,
+               dex_captured.affinity_last_roll,
+               dex_captured.affinity_last_probability,
+               dex_captured.affinity_last_outcome,
+               dex_captured.affinity_updated_at,
                encounters.burst_intensity_band,
                encounters.capture_probability,
                encounters.capture_roll,
@@ -331,7 +506,7 @@ public extension TokenmonDatabaseManager {
                 .flatMap(ProviderCode.init(rawValue:))
             let field = try decodeFieldType(SQLiteDatabase.columnText(statement, index: 4), sql: sql)
             let rarity = try decodeRarityTier(SQLiteDatabase.columnText(statement, index: 5), sql: sql)
-            let outcome = try decodeEncounterOutcome(SQLiteDatabase.columnText(statement, index: 14), sql: sql)
+            let outcome = try decodeEncounterOutcome(SQLiteDatabase.columnText(statement, index: 20), sql: sql)
 
             return RecentEncounterSummary(
                 encounterID: SQLiteDatabase.columnText(statement, index: 0),
@@ -345,9 +520,15 @@ public extension TokenmonDatabaseManager {
                 assetKey: SQLiteDatabase.columnText(statement, index: 8),
                 seenCount: SQLiteDatabase.columnInt64(statement, index: 9),
                 capturedCount: SQLiteDatabase.columnInt64(statement, index: 10),
-                burstIntensityBand: Int(SQLiteDatabase.columnInt64(statement, index: 11)),
-                captureProbability: SQLiteDatabase.columnDouble(statement, index: 12),
-                captureRoll: SQLiteDatabase.columnDouble(statement, index: 13),
+                affinityLevel: SQLiteDatabase.columnInt64(statement, index: 11),
+                affinityPityCount: SQLiteDatabase.columnInt64(statement, index: 12),
+                affinityLastRoll: SQLiteDatabase.columnOptionalDouble(statement, index: 13),
+                affinityLastProbability: SQLiteDatabase.columnOptionalDouble(statement, index: 14),
+                affinityLastOutcome: SQLiteDatabase.columnOptionalText(statement, index: 15),
+                affinityUpdatedAt: SQLiteDatabase.columnOptionalText(statement, index: 16),
+                burstIntensityBand: Int(SQLiteDatabase.columnInt64(statement, index: 17)),
+                captureProbability: SQLiteDatabase.columnDouble(statement, index: 18),
+                captureRoll: SQLiteDatabase.columnDouble(statement, index: 19),
                 outcome: outcome
             )
         }
@@ -402,6 +583,12 @@ public extension TokenmonDatabaseManager {
                dex_captured.first_captured_at,
                dex_captured.last_captured_at,
                dex_captured.captured_count,
+               dex_captured.affinity_level,
+               dex_captured.affinity_pity_count,
+               dex_captured.affinity_last_roll,
+               dex_captured.affinity_last_probability,
+               dex_captured.affinity_last_outcome,
+               dex_captured.affinity_updated_at,
                dex_captured.last_encounter_id
         FROM dex_captured
         INNER JOIN species ON species.species_id = dex_captured.species_id
@@ -421,7 +608,13 @@ public extension TokenmonDatabaseManager {
                 firstCapturedAt: SQLiteDatabase.columnText(statement, index: 5),
                 lastCapturedAt: SQLiteDatabase.columnText(statement, index: 6),
                 capturedCount: SQLiteDatabase.columnInt64(statement, index: 7),
-                lastEncounterID: SQLiteDatabase.columnText(statement, index: 8)
+                affinityLevel: SQLiteDatabase.columnInt64(statement, index: 8),
+                affinityPityCount: SQLiteDatabase.columnInt64(statement, index: 9),
+                affinityLastRoll: SQLiteDatabase.columnOptionalDouble(statement, index: 10),
+                affinityLastProbability: SQLiteDatabase.columnOptionalDouble(statement, index: 11),
+                affinityLastOutcome: SQLiteDatabase.columnOptionalText(statement, index: 12),
+                affinityUpdatedAt: SQLiteDatabase.columnOptionalText(statement, index: 13),
+                lastEncounterID: SQLiteDatabase.columnText(statement, index: 14)
             )
         }
     }
@@ -442,6 +635,12 @@ public extension TokenmonDatabaseManager {
                dex_captured.first_captured_at,
                dex_captured.last_captured_at,
                COALESCE(dex_captured.captured_count, 0) AS captured_count,
+               COALESCE(dex_captured.affinity_level, 0) AS affinity_level,
+               COALESCE(dex_captured.affinity_pity_count, 0) AS affinity_pity_count,
+               dex_captured.affinity_last_roll,
+               dex_captured.affinity_last_probability,
+               dex_captured.affinity_last_outcome,
+               dex_captured.affinity_updated_at,
                species.stat_planning,
                species.stat_design,
                species.stat_frontend,
@@ -471,13 +670,13 @@ public extension TokenmonDatabaseManager {
                 status = .unknown
             }
 
-            let statPlanning = Int(SQLiteDatabase.columnInt64(statement, index: 13))
-            let statDesign = Int(SQLiteDatabase.columnInt64(statement, index: 14))
-            let statFrontend = Int(SQLiteDatabase.columnInt64(statement, index: 15))
-            let statBackend = Int(SQLiteDatabase.columnInt64(statement, index: 16))
-            let statPM = Int(SQLiteDatabase.columnInt64(statement, index: 17))
-            let statInfra = Int(SQLiteDatabase.columnInt64(statement, index: 18))
-            let traitsJSON = SQLiteDatabase.columnText(statement, index: 19)
+            let statPlanning = Int(SQLiteDatabase.columnInt64(statement, index: 19))
+            let statDesign = Int(SQLiteDatabase.columnInt64(statement, index: 20))
+            let statFrontend = Int(SQLiteDatabase.columnInt64(statement, index: 21))
+            let statBackend = Int(SQLiteDatabase.columnInt64(statement, index: 22))
+            let statPM = Int(SQLiteDatabase.columnInt64(statement, index: 23))
+            let statInfra = Int(SQLiteDatabase.columnInt64(statement, index: 24))
+            let traitsJSON = SQLiteDatabase.columnText(statement, index: 25)
             let traits = (try? JSONDecoder().decode([String].self, from: Data(traitsJSON.utf8))) ?? []
 
             let stats = SpeciesStatBlock(
@@ -505,6 +704,12 @@ public extension TokenmonDatabaseManager {
                 lastSeenAt: SQLiteDatabase.columnOptionalText(statement, index: 8),
                 firstCapturedAt: SQLiteDatabase.columnOptionalText(statement, index: 10),
                 lastCapturedAt: SQLiteDatabase.columnOptionalText(statement, index: 11),
+                affinityLevel: SQLiteDatabase.columnInt64(statement, index: 13),
+                affinityPityCount: SQLiteDatabase.columnInt64(statement, index: 14),
+                affinityLastRoll: SQLiteDatabase.columnOptionalDouble(statement, index: 15),
+                affinityLastProbability: SQLiteDatabase.columnOptionalDouble(statement, index: 16),
+                affinityLastOutcome: SQLiteDatabase.columnOptionalText(statement, index: 17),
+                affinityUpdatedAt: SQLiteDatabase.columnOptionalText(statement, index: 18),
                 stats: stats
             )
         }
@@ -1165,6 +1370,7 @@ public extension TokenmonDatabaseManager {
                party_members.added_at,
                party_members.slot_order,
                dex_captured.captured_count,
+               dex_captured.affinity_level,
                species.stat_planning,
                species.stat_design,
                species.stat_frontend,
@@ -1186,15 +1392,16 @@ public extension TokenmonDatabaseManager {
             let addedAt = SQLiteDatabase.columnText(statement, index: 5)
             let slot = Int(SQLiteDatabase.columnInt64(statement, index: 6))
             let capturedCount = SQLiteDatabase.columnInt64(statement, index: 7)
-            let traitsJSON = SQLiteDatabase.columnText(statement, index: 14)
+            let affinityLevel = SQLiteDatabase.columnInt64(statement, index: 8)
+            let traitsJSON = SQLiteDatabase.columnText(statement, index: 15)
             let traits = (try? JSONDecoder().decode([String].self, from: Data(traitsJSON.utf8))) ?? []
             let stats = SpeciesStatBlock(
-                planning: Int(SQLiteDatabase.columnInt64(statement, index: 8)),
-                design: Int(SQLiteDatabase.columnInt64(statement, index: 9)),
-                frontend: Int(SQLiteDatabase.columnInt64(statement, index: 10)),
-                backend: Int(SQLiteDatabase.columnInt64(statement, index: 11)),
-                pm: Int(SQLiteDatabase.columnInt64(statement, index: 12)),
-                infra: Int(SQLiteDatabase.columnInt64(statement, index: 13)),
+                planning: Int(SQLiteDatabase.columnInt64(statement, index: 9)),
+                design: Int(SQLiteDatabase.columnInt64(statement, index: 10)),
+                frontend: Int(SQLiteDatabase.columnInt64(statement, index: 11)),
+                backend: Int(SQLiteDatabase.columnInt64(statement, index: 12)),
+                pm: Int(SQLiteDatabase.columnInt64(statement, index: 13)),
+                infra: Int(SQLiteDatabase.columnInt64(statement, index: 14)),
                 traits: traits
             )
             return PartyMemberSummary(
@@ -1206,6 +1413,7 @@ public extension TokenmonDatabaseManager {
                 addedAt: addedAt,
                 slotOrder: slot,
                 capturedCount: capturedCount,
+                affinityLevel: affinityLevel,
                 stats: stats
             )
         }

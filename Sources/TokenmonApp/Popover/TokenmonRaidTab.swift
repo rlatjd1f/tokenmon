@@ -1,5 +1,6 @@
 import SwiftUI
 import TokenmonDomain
+import TokenmonGameEngine
 import TokenmonPersistence
 
 struct TokenmonRaidTab: View {
@@ -196,11 +197,16 @@ struct TokenmonRaidTab: View {
                             spriteSize: 30,
                             showsRarityBadge: true
                         )
-                        .help(member.displayName)
+                        .help(raidPartyMemberHelp(member))
                     }
                 }
             }
         }
+    }
+
+    private func raidPartyMemberHelp(_ member: PartyMemberSummary) -> String {
+        let bonus = RaidDamageCalculator.captureBondBonus(affinityLevel: member.affinityLevel)
+        return "\(member.displayName) · \(TokenmonDexPresentation.raidAffinityBonusLabel(affinityLevel: member.affinityLevel, bonus: bonus))"
     }
 
     private func recentAttackSection(_ attacks: [RaidAttackSummary]) -> some View {
@@ -460,7 +466,14 @@ private struct TokenmonRaidPartyMemberToken: View {
         }
         .frame(width: cardSize, height: cardSize)
         .shadow(color: member.rarity.tint.opacity(0.24), radius: 4, y: 2)
-        .accessibilityLabel("\(member.displayName), \(member.rarity.displayName)")
+        .accessibilityLabel("\(member.displayName), \(member.rarity.displayName), \(affinityAccessibilityLabel)")
+    }
+
+    private var affinityAccessibilityLabel: String {
+        TokenmonDexPresentation.raidAffinityBonusLabel(
+            affinityLevel: member.affinityLevel,
+            bonus: RaidDamageCalculator.captureBondBonus(affinityLevel: member.affinityLevel)
+        )
     }
 
     private var cornerRadius: CGFloat {
