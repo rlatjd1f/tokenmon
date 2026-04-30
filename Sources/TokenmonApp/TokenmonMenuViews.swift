@@ -346,6 +346,7 @@ private struct TokenmonSceneDebugCard: View {
                         lineWidth: isSelected ? 2 : 0
                     )
             )
+            .contentShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
         }
         .buttonStyle(.plain)
     }
@@ -572,6 +573,7 @@ private struct TokenmonSettingsSidebarColumn: View {
                                 RoundedRectangle(cornerRadius: 10, style: .continuous)
                                     .fill(pane == selection ? Color.accentColor.opacity(0.16) : Color.clear)
                             )
+                            .contentShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
                     }
                     .buttonStyle(.plain)
                 }
@@ -2192,6 +2194,7 @@ private struct TokenmonDexSidebarList: View {
                             RoundedRectangle(cornerRadius: 10, style: .continuous)
                                 .fill(row.selection == selection ? Color.accentColor.opacity(0.16) : Color.clear)
                         )
+                        .contentShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
                     }
                     .buttonStyle(.plain)
                 }
@@ -2357,6 +2360,7 @@ private struct TokenmonDexBrowserPane: View {
                 RoundedRectangle(cornerRadius: 7, style: .continuous)
                     .stroke(isActive ? Color.accentColor.opacity(0.35) : Color.secondary.opacity(0.18), lineWidth: 1)
             )
+            .contentShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
         }
         .menuStyle(.borderlessButton)
         .menuIndicator(.hidden)
@@ -2377,6 +2381,7 @@ private struct TokenmonDexBrowserPane: View {
                     RoundedRectangle(cornerRadius: 6, style: .continuous)
                         .stroke(Color.secondary.opacity(0.18), lineWidth: 1)
                 )
+                .contentShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
         }
         .buttonStyle(.plain)
         .help(TokenmonL10n.string("common.refresh"))
@@ -2453,6 +2458,7 @@ private struct TokenmonDexBrowserPane: View {
                                                 isSelected: selectedSpeciesID == entry.speciesID
                                             )
                                         }
+                                        .contentShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
                                         .buttonStyle(.plain)
                                         .id(entry.speciesID)
                                         .partyMembershipBorder(
@@ -2538,6 +2544,7 @@ private struct TokenmonDexListPane: View {
                 } label: {
                     TokenmonDexListRow(entry: entry, isSelected: selectedSpeciesID == entry.speciesID)
                 }
+                .contentShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
                 .buttonStyle(.plain)
                 .id(entry.speciesID)
             }
@@ -2612,6 +2619,7 @@ struct TokenmonDexListRow: View {
                     lineWidth: isSelected ? 1.5 : 1
                 )
         )
+        .contentShape(RoundedRectangle(cornerRadius: compact ? 14 : 16, style: .continuous))
     }
 }
 
@@ -2797,6 +2805,7 @@ struct TokenmonDexCard: View {
                     lineWidth: isSelected ? 2 : 1
                 )
         )
+        .contentShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
     }
 
     private var cardBackground: LinearGradient {

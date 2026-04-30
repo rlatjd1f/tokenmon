@@ -60,6 +60,7 @@ struct TokenmonPopoverSidebar: View {
                     RoundedRectangle(cornerRadius: 8, style: .continuous)
                         .fill(activeTab == tab ? Color.accentColor : Color.clear)
                 )
+                .contentShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
         }
         .buttonStyle(.plain)
         .help(tooltip)
@@ -76,6 +77,7 @@ struct TokenmonPopoverSidebar: View {
                 .font(.system(size: 14, weight: .regular))
                 .foregroundStyle(.secondary)
                 .frame(width: 36, height: 32)
+                .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         .help(tooltip)
@@ -86,6 +88,7 @@ struct TokenmonPopoverSidebar: View {
         Link(destination: link.destination) {
             linkIcon(for: link)
                 .frame(width: 36, height: 32)
+                .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         .help(TokenmonL10n.string(link.titleKey))

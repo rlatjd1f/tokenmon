@@ -141,6 +141,7 @@ private struct TokenmonFallbackGlassButtonStyle: ButtonStyle {
             .overlay(
                 shape.stroke(strokeColor, lineWidth: 1)
             )
+            .contentShape(shape)
             .shadow(
                 color: shadowColor(configuration.isPressed),
                 radius: configuration.isPressed ? 6 : 12,
