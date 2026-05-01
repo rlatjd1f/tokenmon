@@ -13,6 +13,14 @@ Files:
 - `now-camp-resonance-effects-sheet.png` — resonance, care, and training effect candidates.
 - `now-camp-hero-layout-mockups.png` — layout reference mockups showing how overlays could sit on existing-style field heroes.
 
+Field-specific sheets now live one level up in:
+
+- `../grassland/`
+- `../coast/`
+- `../ice/`
+- `../sky/`
+- `../common/`
+
 Generation mode:
 
 - Built-in Codex image generation.
