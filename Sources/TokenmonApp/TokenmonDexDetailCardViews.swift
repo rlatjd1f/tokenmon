@@ -345,6 +345,14 @@ struct TokenmonDexDetailCard: View {
             .padding(.top, 12)
             .padding(.bottom, 12)
 
+            if entry.status == .captured, entry.affinityLevel >= 2 {
+                TokenmonAffinityStamp(level: entry.affinityLevel, compact: false)
+                    .padding(.top, 68)
+                    .padding(.trailing, 17)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
+                    .accessibilityHidden(true)
+            }
+
             if premiumEffectsEligible {
                 TokenmonDexHolographicOverlay(
                     style: style,
@@ -644,14 +652,6 @@ private struct TokenmonDexCardHeader: View {
 
                 TokenmonDexHeaderPillFlow(spacing: 6, rowSpacing: 5) {
                     TokenmonFieldBadge(field: entry.field, compact: true, iconOnly: true)
-
-                    if entry.status == .captured {
-                        TokenmonAffinityBadge(
-                            level: max(1, entry.affinityLevel),
-                            compact: true,
-                            emphasized: entry.affinityLevel >= 2
-                        )
-                    }
 
                     if TokenmonDexPresentation.showsTraitTags(for: entry) {
                         ForEach(entry.stats.traits, id: \.self) { trait in
@@ -1672,7 +1672,7 @@ struct TokenmonDexAffinityPanel: View {
             title: TokenmonL10n.string("affinity.label"),
             accent: entry.rarity.tint
         ) {
-            VStack(alignment: .leading, spacing: 12) {
+            VStack(alignment: .leading, spacing: 14) {
                 HStack(alignment: .center, spacing: 10) {
                     TokenmonAffinityBadge(
                         level: level,
@@ -1682,57 +1682,97 @@ struct TokenmonDexAffinityPanel: View {
 
                     Spacer(minLength: 0)
 
-                    TokenmonAffinityLevelLadder(
-                        level: level,
-                        tint: entry.rarity.tint
-                    )
-                    .frame(width: 116)
+                    Label {
+                        Text(TokenmonDexPresentation.affinityRaidBonusValueLabel(level: level))
+                            .font(.caption.monospacedDigit().weight(.black))
+                    } icon: {
+                        Image(systemName: "bolt.fill")
+                            .font(.caption.weight(.black))
+                    }
+                    .foregroundStyle(entry.field.tint)
+                    .lineLimit(1)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 6)
+                    .background(Capsule().fill(entry.field.tint.opacity(0.13)))
+                    .help(TokenmonDexPresentation.affinityRaidBonusShortLabel(level: level))
+
+                    Text(TokenmonDexPresentation.affinitySuccessChanceLabel(for: entry) ?? TokenmonL10n.string("affinity.max"))
+                        .font(.caption.monospacedDigit().weight(.black))
+                        .foregroundStyle(entry.rarity.tint)
+                        .lineLimit(1)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 6)
+                        .background(Capsule().fill(entry.rarity.tint.opacity(0.13)))
                 }
 
-                HStack(spacing: 8) {
-                    TokenmonAffinityStatTile(
-                        title: TokenmonL10n.string("affinity.raid_bonus"),
-                        value: TokenmonDexPresentation.affinityRaidBonusValueLabel(level: level),
-                        tint: entry.rarity.tint
-                    )
-
-                    TokenmonAffinityStatTile(
-                        title: TokenmonL10n.string("affinity.next_target"),
-                        value: TokenmonDexPresentation.affinityNextTargetLabel(for: entry),
-                        tint: entry.field.tint
-                    )
-                }
+                TokenmonAffinityProgressRail(
+                    level: level,
+                    tint: entry.field.tint
+                )
 
                 TokenmonAffinityResonanceMeter(entry: entry)
+
+                Text(TokenmonL10n.string("affinity.progress_footnote"))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
             }
         }
     }
 }
 
-private struct TokenmonAffinityLevelLadder: View {
+private struct TokenmonAffinityProgressRail: View {
     let level: Int64
     let tint: Color
 
     var body: some View {
-        HStack(spacing: 4) {
-            ForEach(1...5, id: \.self) { step in
-                let stepLevel = Int64(step)
-                VStack(spacing: 3) {
-                    RoundedRectangle(cornerRadius: 2, style: .continuous)
-                        .fill(stepLevel <= level ? tint : Color.secondary.opacity(0.18))
-                        .frame(height: stepLevel <= level ? 7 : 5)
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 2, style: .continuous)
-                                .stroke(Color.white.opacity(stepLevel <= level ? 0.22 : 0.04), lineWidth: 0.6)
-                        )
+        VStack(spacing: 8) {
+            GeometryReader { proxy in
+                let nodeSize: CGFloat = 30
+                let lineInset = nodeSize / 2
+                let usableWidth = max(1, proxy.size.width - nodeSize)
+                let filledWidth = usableWidth * CGFloat(max(0, min(4, level - 1))) / 4
 
-                    Text(TokenmonDexPresentation.affinityRomanLabel(level: Int64(step)))
-                        .font(.system(size: 7, weight: .bold, design: .rounded))
-                        .monospacedDigit()
-                        .foregroundStyle(stepLevel <= level ? tint : Color.secondary.opacity(0.55))
-                        .lineLimit(1)
+                ZStack(alignment: .leading) {
+                    Capsule()
+                        .fill(Color.secondary.opacity(0.18))
+                        .frame(height: 3)
+                        .padding(.horizontal, lineInset)
+
+                    Capsule()
+                        .fill(tint.opacity(0.72))
+                        .frame(width: filledWidth, height: 3)
+                        .offset(x: lineInset)
+
+                    ForEach(1...5, id: \.self) { step in
+                        let stepLevel = Int64(step)
+                        TokenmonAffinityProgressNode(
+                            step: stepLevel,
+                            currentLevel: level,
+                            tint: tint
+                        )
+                        .position(
+                            x: lineInset + usableWidth * CGFloat(step - 1) / 4,
+                            y: 20
+                        )
+                    }
                 }
-                .frame(maxWidth: .infinity)
+            }
+            .frame(height: 40)
+
+            HStack(spacing: 0) {
+                ForEach(1...5, id: \.self) { step in
+                    let stepLevel = Int64(step)
+                    VStack(spacing: 2) {
+                        Text(TokenmonDexPresentation.affinityRomanLabel(level: stepLevel))
+                            .font(.caption2.monospacedDigit().weight(.black))
+                        Text(TokenmonDexPresentation.affinityRaidBonusValueLabel(level: stepLevel))
+                            .font(.system(size: 9, weight: .bold, design: .rounded))
+                            .monospacedDigit()
+                    }
+                    .foregroundStyle(stepLevel <= level ? tint : Color.secondary.opacity(0.62))
+                    .frame(maxWidth: .infinity)
+                }
             }
         }
         .accessibilityElement(children: .ignore)
@@ -1740,36 +1780,37 @@ private struct TokenmonAffinityLevelLadder: View {
     }
 }
 
-private struct TokenmonAffinityStatTile: View {
-    let title: String
-    let value: String
+private struct TokenmonAffinityProgressNode: View {
+    let step: Int64
+    let currentLevel: Int64
     let tint: Color
 
-    var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text(title)
-                .font(.caption2.weight(.bold))
-                .foregroundStyle(.secondary)
-                .lineLimit(1)
-                .minimumScaleFactor(0.78)
+    private var reached: Bool {
+        step <= currentLevel
+    }
 
-            Text(value)
-                .font(.subheadline.monospacedDigit().weight(.black))
-                .foregroundStyle(.primary)
-                .lineLimit(1)
-                .minimumScaleFactor(0.78)
+    private var current: Bool {
+        step == currentLevel
+    }
+
+    var body: some View {
+        ZStack {
+            Circle()
+                .fill(reached ? tint.opacity(current ? 0.28 : 0.18) : Color.secondary.opacity(0.12))
+                .frame(width: current ? 30 : 25, height: current ? 30 : 25)
+
+            Circle()
+                .stroke(
+                    reached ? tint.opacity(current ? 0.95 : 0.55) : Color.secondary.opacity(0.22),
+                    lineWidth: current ? 2 : 1
+                )
+                .frame(width: current ? 30 : 25, height: current ? 30 : 25)
+
+            Image(systemName: reached ? (current ? "diamond.fill" : "checkmark") : "lock.fill")
+                .font(.system(size: current ? 10 : 8, weight: .black))
+                .foregroundStyle(reached ? tint : Color.secondary.opacity(0.55))
         }
-        .padding(.horizontal, 10)
-        .padding(.vertical, 8)
-        .frame(maxWidth: .infinity, minHeight: 52, alignment: .leading)
-        .background(
-            RoundedRectangle(cornerRadius: 10, style: .continuous)
-                .fill(tint.opacity(0.10))
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 10, style: .continuous)
-                .stroke(tint.opacity(0.22), lineWidth: 1)
-        )
+        .shadow(color: current ? tint.opacity(0.34) : .clear, radius: current ? 7 : 0)
     }
 }
 

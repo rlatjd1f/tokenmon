@@ -502,10 +502,6 @@ enum TokenmonDexPresentation {
         switch entry.status {
         case .captured:
             return [
-                TokenmonDexMetricValue(title: TokenmonL10n.string("affinity.label"), value: affinityLevelLabel(for: entry, compact: false) ?? TokenmonL10n.string("common.unknown")),
-                TokenmonDexMetricValue(title: TokenmonL10n.string("affinity.raid_bonus"), value: affinityRaidBonusValueLabel(level: affinityLevelNumber(for: entry))),
-                TokenmonDexMetricValue(title: TokenmonL10n.string("affinity.success_chance"), value: affinitySuccessChanceLabel(for: entry) ?? TokenmonL10n.string("common.unknown")),
-                TokenmonDexMetricValue(title: TokenmonL10n.string("affinity.resonance_label"), value: affinityResonanceLabel(for: entry) ?? TokenmonL10n.string("common.unknown")),
                 TokenmonDexMetricValue(title: TokenmonL10n.string("dex.metric.captured"), value: countLabel(entry.capturedCount, singularKey: "dex.count.time.one", pluralKey: "dex.count.time.other")),
                 TokenmonDexMetricValue(title: TokenmonL10n.string("dex.metric.seen"), value: countLabel(entry.seenCount, singularKey: "dex.count.encounter.one", pluralKey: "dex.count.encounter.other")),
                 TokenmonDexMetricValue(title: TokenmonL10n.string("dex.metric.first_seen"), value: formattedTimestamp(entry.firstSeenAt, relativeTo: now, calendar: calendar, locale: locale, timeZone: timeZone) ?? TokenmonL10n.string("common.unknown")),

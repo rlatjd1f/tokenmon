@@ -1841,6 +1841,7 @@ enum TokenmonDexSortMode: String, CaseIterable, Hashable {
     case field
     case name
     case status
+    case affinity
     case lastSeen
     case capturedCount
 
@@ -1851,6 +1852,7 @@ enum TokenmonDexSortMode: String, CaseIterable, Hashable {
         case .field: return TokenmonL10n.string("dex.sort.field")
         case .name: return TokenmonL10n.string("dex.sort.name")
         case .status: return TokenmonL10n.string("dex.sort.status")
+        case .affinity: return TokenmonL10n.string("dex.sort.affinity")
         case .lastSeen: return TokenmonL10n.string("dex.sort.last_seen")
         case .capturedCount: return TokenmonL10n.string("dex.sort.captured_count")
         }
@@ -1913,6 +1915,19 @@ enum TokenmonDexBrowser {
                     let left = statusRank(lhs.status)
                     let right = statusRank(rhs.status)
                     return left == right ? lhs.sortOrder < rhs.sortOrder : left < right
+                case .affinity:
+                    let leftLevel = TokenmonDexPresentation.affinityLevelNumber(for: lhs)
+                    let rightLevel = TokenmonDexPresentation.affinityLevelNumber(for: rhs)
+                    if leftLevel != rightLevel {
+                        return leftLevel > rightLevel
+                    }
+                    if lhs.affinityPityCount != rhs.affinityPityCount {
+                        return lhs.affinityPityCount > rhs.affinityPityCount
+                    }
+                    if lhs.capturedCount != rhs.capturedCount {
+                        return lhs.capturedCount > rhs.capturedCount
+                    }
+                    return lhs.sortOrder < rhs.sortOrder
                 case .lastSeen:
                     let left = lhs.lastSeenAt ?? ""
                     let right = rhs.lastSeenAt ?? ""
@@ -2754,7 +2769,7 @@ struct TokenmonDexCard: View {
                     .foregroundStyle(.secondary)
                 Spacer()
                 HStack(spacing: 6) {
-                    if entry.status == .captured, entry.affinityLevel >= 2 {
+                    if entry.status == .captured, entry.affinityLevel >= 2, isSelected == false {
                         TokenmonAffinityBadge(level: entry.affinityLevel, compact: true, emphasized: true)
                     }
                     TokenmonDexAlbumRarityPill(rarity: entry.rarity, albumStyle: albumStyle)
@@ -3192,6 +3207,75 @@ struct TokenmonAffinityBadge: View {
         default:
             return Color.secondary
         }
+    }
+}
+
+struct TokenmonAffinityStamp: View {
+    let level: Int64
+    var compact: Bool = false
+    var angle: Angle = .degrees(-8)
+
+    private var normalizedLevel: Int64 {
+        max(1, min(5, level))
+    }
+
+    private var stampTint: Color {
+        switch normalizedLevel {
+        case 5:
+            return Color(red: 1.0, green: 0.74, blue: 0.25)
+        case 4:
+            return Color(red: 1.0, green: 0.58, blue: 0.28)
+        case 3:
+            return Color(red: 0.98, green: 0.48, blue: 0.23)
+        default:
+            return Color(red: 0.94, green: 0.52, blue: 0.22)
+        }
+    }
+
+    var body: some View {
+        VStack(spacing: compact ? 0 : 2) {
+            HStack(spacing: compact ? 2 : 3) {
+                ForEach(0..<3, id: \.self) { _ in
+                    Image(systemName: "star.fill")
+                        .font(.system(size: compact ? 6 : 8, weight: .black))
+                }
+            }
+
+            Text(TokenmonDexPresentation.affinityLevelLabel(level: normalizedLevel, compact: false))
+                .font(.system(size: compact ? 11 : 15, weight: .black, design: .rounded))
+                .lineLimit(1)
+                .minimumScaleFactor(0.72)
+                .tracking(compact ? 0.1 : 0.4)
+
+            if compact == false {
+                Text(TokenmonDexPresentation.affinityRaidBonusShortLabel(level: normalizedLevel).uppercased())
+                    .font(.system(size: 7, weight: .black, design: .rounded))
+                    .monospacedDigit()
+                    .lineLimit(1)
+                    .tracking(0.8)
+            }
+        }
+        .foregroundStyle(stampTint)
+        .padding(.horizontal, compact ? 8 : 11)
+        .padding(.vertical, compact ? 5 : 7)
+        .frame(width: compact ? 76 : 98, height: compact ? 42 : 62)
+        .background(
+            RoundedRectangle(cornerRadius: compact ? 12 : 16, style: .continuous)
+                .fill(Color.black.opacity(0.08))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: compact ? 12 : 16, style: .continuous)
+                .stroke(stampTint.opacity(0.90), style: StrokeStyle(lineWidth: compact ? 1.6 : 2.2, dash: [5, 2.5]))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: compact ? 8 : 11, style: .continuous)
+                .stroke(stampTint.opacity(0.62), lineWidth: compact ? 1 : 1.4)
+                .padding(compact ? 5 : 7)
+        )
+        .rotationEffect(angle)
+        .shadow(color: stampTint.opacity(0.18), radius: compact ? 5 : 8, y: 2)
+        .help(TokenmonDexPresentation.affinityLevelLabel(level: normalizedLevel, compact: false))
+        .accessibilityLabel(TokenmonDexPresentation.affinityLevelLabel(level: normalizedLevel, compact: false))
     }
 }
 

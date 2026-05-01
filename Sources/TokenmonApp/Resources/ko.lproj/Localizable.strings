@@ -209,6 +209,7 @@
 "affinity.raid_bonus" = "레이드 보너스";
 "affinity.raid_bonus_short" = "레이드 +%1$d";
 "affinity.next_target" = "다음";
+"affinity.progress_footnote" = "중복 포획으로 친밀도가 자동으로 상승합니다.";
 "affinity.guaranteed" = "확정";
 "affinity.max" = "최대 친밀도";
 "dex.status.captured" = "포획";
@@ -241,6 +242,7 @@
 "dex.sort.field" = "필드";
 "dex.sort.name" = "이름";
 "dex.sort.status" = "상태";
+"dex.sort.affinity" = "친밀도";
 "dex.sort.last_seen" = "최근 발견";
 "dex.sort.captured_count" = "포획 수";
 "dex.completion.completion" = "완료";

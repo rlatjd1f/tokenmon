@@ -176,6 +176,7 @@
 "dex.sort.field" = "Field";
 "dex.sort.name" = "Name";
 "dex.sort.status" = "Status";
+"dex.sort.affinity" = "Bond";
 "dex.sort.last_seen" = "Last seen";
 "dex.sort.captured_count" = "Captured count";
 "dex.activity.count.captured" = "%1$d captured";
@@ -207,6 +208,7 @@
 "affinity.raid_bonus" = "Raid bonus";
 "affinity.raid_bonus_short" = "Raid +%1$d";
 "affinity.next_target" = "Next";
+"affinity.progress_footnote" = "Duplicate captures automatically raise bond over time.";
 "affinity.guaranteed" = "Guaranteed";
 "affinity.max" = "Max bond";
 

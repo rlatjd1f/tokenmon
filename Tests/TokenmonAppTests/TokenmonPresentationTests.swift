@@ -1134,6 +1134,27 @@ struct TokenmonPresentationTests {
     }
 
     @Test
+    func dexBrowserSortsByAffinityDescending() {
+        let entries = [
+            makeDexEntry(status: .captured, sortOrder: 1, speciesName: "First", capturedCount: 9, affinityLevel: 2, affinityPityCount: 1),
+            makeDexEntry(status: .captured, sortOrder: 2, speciesName: "Second", capturedCount: 3, affinityLevel: 4, affinityPityCount: 0),
+            makeDexEntry(status: .captured, sortOrder: 3, speciesName: "Third", capturedCount: 2, affinityLevel: 4, affinityPityCount: 2),
+            makeDexEntry(status: .seenUncaptured, sortOrder: 4, speciesName: "Seen"),
+        ]
+
+        let sorted = TokenmonDexBrowser.filteredEntries(
+            entries: entries,
+            statusSelection: .all,
+            fieldFilter: .all,
+            rarityFilter: .all,
+            searchQuery: "",
+            sortMode: .affinity
+        )
+
+        #expect(sorted.map(\.speciesID) == ["SPC_3", "SPC_2", "SPC_1", "SPC_4"])
+    }
+
+    @Test
     func dexPresentationBuildsCollectionProgress() {
         let entries = [
             makeDexEntry(status: .captured, sortOrder: 1),
@@ -1352,11 +1373,9 @@ struct TokenmonPresentationTests {
             timeZone: TimeZone(secondsFromGMT: 0)!
         )
 
-        #expect(rows.count == 10)
-        #expect(rows.contains(where: { $0.title == "Bond" && $0.value == "Bond II" }))
-        #expect(rows.contains(where: { $0.title == "Raid bonus" && $0.value == "+1" }))
-        #expect(rows.contains(where: { $0.title == "Success chance" && $0.value == "27%" }))
-        #expect(rows.contains(where: { $0.title == "Resonance" && $0.value == "Resonance 0/4" }))
+        #expect(rows.count == 6)
+        #expect(rows.contains(where: { $0.title == "Bond" }) == false)
+        #expect(rows.contains(where: { $0.title == "Raid bonus" }) == false)
         #expect(rows.contains(where: { $0.title == "Captured" && $0.value == "3 times" }))
         #expect(rows.contains(where: { $0.title == "Seen" && $0.value == "2 encounters" }))
         #expect(rows.filter { $0.title.contains("seen") || $0.title.contains("captured") }
