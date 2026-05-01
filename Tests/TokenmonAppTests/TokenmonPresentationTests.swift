@@ -2832,9 +2832,9 @@ struct TokenmonPresentationTests {
     @Test
     func encounterGeneratorPenalizesRecentSpeciesRepeats() throws {
         let catalog = [
-            SpeciesDefinition(id: "GRS_001", name: "First", field: .grassland, rarity: .common, assetKey: "grs_001_first", sortOrder: 1),
-            SpeciesDefinition(id: "GRS_002", name: "Second", field: .grassland, rarity: .common, assetKey: "grs_002_second", sortOrder: 2),
-            SpeciesDefinition(id: "GRS_003", name: "Third", field: .grassland, rarity: .common, assetKey: "grs_003_third", sortOrder: 3),
+            SpeciesDefinition(id: "GRS_001", name: "First", field: .grassland, rarity: .common, assetKey: "grs_001_first", sortOrder: 1, trainingTrait: .trail),
+            SpeciesDefinition(id: "GRS_002", name: "Second", field: .grassland, rarity: .common, assetKey: "grs_002_second", sortOrder: 2, trainingTrait: .scout),
+            SpeciesDefinition(id: "GRS_003", name: "Third", field: .grassland, rarity: .common, assetKey: "grs_003_third", sortOrder: 3, trainingTrait: .capture),
         ]
 
         let generator = EncounterGenerator(

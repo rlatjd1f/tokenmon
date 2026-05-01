@@ -420,3 +420,13 @@
 "raid.reward.status.available" = "Available";
 "raid.reward.status.acquired" = "Acquired";
 "raid.reward.status.missed" = "Missed";
+"now.camp.focus.help" = "Focus Energy";
+"now.camp.lead.empty" = "No Lead";
+"now.camp.lead_picker.help" = "Choose Now Camp Lead";
+"now.camp.no_party" = "No Party Lead";
+"now.camp.train" = "Train";
+"now.camp.train.help" = "Spend 30 Focus";
+"now.camp.care" = "Care";
+"now.camp.care.help" = "Spend 10 Focus";
+"now.camp.training_line" = "Rank %1$@ · %2$@ · R%3$@";
+"dex.context_menu.set_lead" = "Set Lead";

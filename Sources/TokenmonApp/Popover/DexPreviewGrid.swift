@@ -122,7 +122,7 @@ struct DexPreviewGrid: View {
             onSelect(entry)
         } label: {
             VStack(spacing: 4) {
-                ZStack(alignment: .bottomTrailing) {
+                ZStack {
                     TokenmonDexSpritePreview(
                         status: entry.status,
                         revealStage: TokenmonDexPresentation.revealStage(for: entry),
@@ -133,8 +133,20 @@ struct DexPreviewGrid: View {
                         spriteSize: 38
                     )
 
+                    if model.nowCampLeadSpeciesID == entry.speciesID {
+                        Image(systemName: "crown.fill")
+                            .font(.system(size: 9, weight: .black))
+                            .foregroundStyle(.yellow)
+                            .padding(4)
+                            .background(Circle().fill(Color(nsColor: .controlBackgroundColor).opacity(0.86)))
+                            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                            .offset(x: -4, y: -4)
+                            .accessibilityHidden(true)
+                    }
+
                     if entry.status == .captured, entry.affinityLevel >= 2 {
                         TokenmonAffinityBadge(level: entry.affinityLevel, compact: true, emphasized: true)
+                            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
                             .offset(x: 4, y: 4)
                     }
                 }
@@ -161,6 +173,12 @@ struct DexPreviewGrid: View {
             let isCaptured = entry.status == .captured
 
             if isMember {
+                Button {
+                    model.setNowCampLead(entry.speciesID)
+                } label: {
+                    Label(TokenmonL10n.string("dex.context_menu.set_lead"), systemImage: "crown.fill")
+                }
+
                 Button {
                     _ = model.removeSpeciesFromParty(entry.speciesID)
                 } label: {

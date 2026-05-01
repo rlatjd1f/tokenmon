@@ -2470,7 +2470,8 @@ private struct TokenmonDexBrowserPane: View {
                                         } label: {
                                             TokenmonDexCard(
                                                 entry: entry,
-                                                isSelected: selectedSpeciesID == entry.speciesID
+                                                isSelected: selectedSpeciesID == entry.speciesID,
+                                                isCurrentLead: model.nowCampLeadSpeciesID == entry.speciesID
                                             )
                                         }
                                         .contentShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
@@ -2493,6 +2494,12 @@ private struct TokenmonDexBrowserPane: View {
 
                                             if isMember {
                                                 Button {
+                                                    model.setNowCampLead(entry.speciesID)
+                                                } label: {
+                                                    Label(TokenmonL10n.string("dex.context_menu.set_lead"), systemImage: "crown.fill")
+                                                }
+
+                                                Button {
                                                     _ = model.removeSpeciesFromParty(entry.speciesID)
                                                 } label: {
                                                     Label(TokenmonL10n.string("dex.context_menu.remove_from_party"), systemImage: "bag.badge.minus")
@@ -2513,7 +2520,12 @@ private struct TokenmonDexBrowserPane: View {
                                     }
                                 }
                             } else {
-                                TokenmonDexListPane(entries: entries, selectedSpeciesID: $selectedSpeciesID)
+                                TokenmonDexListPane(
+                                    model: model,
+                                    entries: entries,
+                                    selectedSpeciesID: $selectedSpeciesID,
+                                    partyToast: $partyToast
+                                )
                             }
                         }
                         .padding(.top, 2)
@@ -2548,8 +2560,10 @@ private struct TokenmonDexBrowserPane: View {
 }
 
 private struct TokenmonDexListPane: View {
+    @ObservedObject var model: TokenmonMenuModel
     let entries: [DexEntrySummary]
     @Binding var selectedSpeciesID: String?
+    @Binding var partyToast: PartyToast?
 
     var body: some View {
         LazyVStack(spacing: 8) {
@@ -2557,11 +2571,44 @@ private struct TokenmonDexListPane: View {
                 Button {
                     selectedSpeciesID = entry.speciesID
                 } label: {
-                    TokenmonDexListRow(entry: entry, isSelected: selectedSpeciesID == entry.speciesID)
+                    TokenmonDexListRow(
+                        entry: entry,
+                        isSelected: selectedSpeciesID == entry.speciesID,
+                        isCurrentLead: model.nowCampLeadSpeciesID == entry.speciesID
+                    )
                 }
                 .contentShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
                 .buttonStyle(.plain)
                 .id(entry.speciesID)
+                .contextMenu {
+                    let isMember = model.partySpeciesIDs.contains(entry.speciesID)
+                    let isCaptured = entry.status == .captured
+
+                    if isMember {
+                        Button {
+                            model.setNowCampLead(entry.speciesID)
+                        } label: {
+                            Label(TokenmonL10n.string("dex.context_menu.set_lead"), systemImage: "crown.fill")
+                        }
+
+                        Button {
+                            _ = model.removeSpeciesFromParty(entry.speciesID)
+                        } label: {
+                            Label(TokenmonL10n.string("dex.context_menu.remove_from_party"), systemImage: "bag.badge.minus")
+                        }
+                    } else {
+                        Button {
+                            let outcome = model.addSpeciesToParty(entry.speciesID)
+                            if outcome == .partyFull {
+                                partyToast = PartyToast(message: TokenmonL10n.string("party.full.toast"))
+                            }
+                        } label: {
+                            Label(TokenmonL10n.string("dex.context_menu.add_to_party"), systemImage: "bag.badge.plus")
+                        }
+                        .disabled(isCaptured == false)
+                        .help(isCaptured ? "" : TokenmonL10n.string("dex.context_menu.add_to_party.disabled_help"))
+                    }
+                }
             }
         }
     }
@@ -2570,6 +2617,7 @@ private struct TokenmonDexListPane: View {
 struct TokenmonDexListRow: View {
     let entry: DexEntrySummary
     let isSelected: Bool
+    var isCurrentLead: Bool = false
     var compact: Bool = false
     var showsCountMetrics: Bool = true
 
@@ -2608,6 +2656,13 @@ struct TokenmonDexListRow: View {
                         .font(compact ? .subheadline.weight(.semibold) : .headline)
                         .foregroundStyle(entry.status == .unknown ? .secondary : .primary)
                         .lineLimit(1)
+
+                    if isCurrentLead {
+                        Image(systemName: "crown.fill")
+                            .font(.system(size: compact ? 9 : 10, weight: .black))
+                            .foregroundStyle(.yellow)
+                            .accessibilityHidden(true)
+                    }
 
                     Spacer(minLength: 0)
 
@@ -2744,6 +2799,7 @@ private struct RarityText: View {
 struct TokenmonDexCard: View {
     let entry: DexEntrySummary
     let isSelected: Bool
+    var isCurrentLead: Bool = false
 
     private var displayName: String {
         TokenmonDexPresentation.visibleSpeciesName(for: entry)
@@ -2769,6 +2825,18 @@ struct TokenmonDexCard: View {
                     .foregroundStyle(.secondary)
                 Spacer()
                 HStack(spacing: 6) {
+                    if isCurrentLead {
+                        Image(systemName: "crown.fill")
+                            .font(.system(size: 10, weight: .black))
+                            .foregroundStyle(.yellow)
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 4)
+                            .background(
+                                Capsule()
+                                    .fill(Color(nsColor: .controlBackgroundColor).opacity(0.88))
+                            )
+                            .accessibilityHidden(true)
+                    }
                     if entry.status == .captured, entry.affinityLevel >= 2, isSelected == false {
                         TokenmonAffinityBadge(level: entry.affinityLevel, compact: true, emphasized: true)
                     }

@@ -116,6 +116,134 @@ struct TokenmonDataContractTests {
     }
 
     @Test
+    func nowCampSpeciesTrainingTraitsAreBalancedAcrossCatalogGroups() {
+        #expect(SpeciesCatalog.validationIssues().isEmpty)
+
+        for field in FieldType.allCases {
+            let traits = Set(SpeciesCatalog.all.filter { $0.field == field }.map(\.trainingTrait))
+            #expect(traits == Set(TrainingTrait.allCases))
+
+            for rarity in RarityTier.allCases {
+                let entries = SpeciesCatalog.all.filter { $0.field == field && $0.rarity == rarity }
+                guard entries.isEmpty == false else { continue }
+                let counts = TrainingTrait.allCases.map { trait in
+                    entries.filter { $0.trainingTrait == trait }.count
+                }
+                #expect((counts.max() ?? 0) - (counts.min() ?? 0) <= 1)
+            }
+        }
+    }
+
+    @Test
+    func nowCampFocusAccumulatorAppliesRemainderDailyAndStorageCaps() throws {
+        let accumulator = NowCampFocusAccumulator()
+        let state = NowCampFocusState(
+            focusEnergy: 99,
+            focusRemainderTokens: 49_000,
+            focusEarnedLocalDate: "2026-04-30",
+            focusEarnedToday: 119
+        )
+
+        let result = try accumulator.accumulate(
+            state: state,
+            gameplayDeltaTokens: 101_000,
+            localDate: "2026-04-30"
+        )
+
+        #expect(result.rawFocusGain == 3)
+        #expect(result.focusEarned == 1)
+        #expect(result.discardedByDailyCap == 2)
+        #expect(result.discardedByStorageCap == 0)
+        #expect(result.updatedState.focusEnergy == 100)
+        #expect(result.updatedState.focusRemainderTokens == 0)
+        #expect(result.updatedState.focusEarnedToday == 120)
+    }
+
+    @Test
+    func nowCampLeaderTraitBonusesRespectMatchPositionsAndRaidCap() throws {
+        let resolver = LeaderTraitBonusResolver()
+        let trailLead = LeaderTraitContext(
+            speciesID: "trail",
+            homeField: .grassland,
+            rarity: .rare,
+            trait: .trail,
+            trainingRank: .rankIII,
+            slotOrder: 1
+        )
+        let fieldResult = resolver.applyTrail(
+            weights: [
+                EncounterFieldWeight(field: .grassland, weight: 10),
+                EncounterFieldWeight(field: .ice, weight: 10),
+                EncounterFieldWeight(field: .coast, weight: 10),
+                EncounterFieldWeight(field: .sky, weight: 10),
+            ],
+            lead: trailLead
+        )
+        #expect(fieldResult.application?.kind == .trail)
+        #expect(fieldResult.weights.first { $0.field == .grassland }?.weight == 15)
+
+        let scoutLead = LeaderTraitContext(
+            speciesID: "scout",
+            homeField: .ice,
+            rarity: .epic,
+            trait: .scout,
+            trainingRank: .rankIV
+        )
+        let scoutMiss = resolver.applyScout(
+            weights: [EncounterRarityWeight(rarity: .common, weight: 54)],
+            selectedField: .grassland,
+            lead: scoutLead
+        )
+        #expect(scoutMiss.application == nil)
+
+        let scoutHit = resolver.applyScout(
+            weights: RarityTier.allCases.map { EncounterRarityWeight(rarity: $0, weight: $0 == .common ? 54 : 10) },
+            selectedField: .ice,
+            lead: scoutLead
+        )
+        #expect(scoutHit.application?.kind == .scout)
+        #expect((scoutHit.weights.first { $0.rarity == .common }?.weight ?? 0) < 54)
+
+        let captureLead = LeaderTraitContext(
+            speciesID: "capture",
+            homeField: .coast,
+            rarity: .legendary,
+            trait: .capture,
+            trainingRank: .rankV
+        )
+        let captureMiss = resolver.applyCapture(
+            baseProbability: 0.36,
+            encounterField: .sky,
+            encounterRarity: .rare,
+            lead: captureLead
+        )
+        #expect(captureMiss.application == nil)
+        #expect(captureMiss.probability == 0.36)
+
+        let captureHit = resolver.applyCapture(
+            baseProbability: 0.36,
+            encounterField: .coast,
+            encounterRarity: .rare,
+            lead: captureLead
+        )
+        #expect(captureHit.application?.kind == .capture)
+        #expect(abs(captureHit.probability - 0.41) < 0.000_001)
+
+        let raiderResult = resolver.raidBonuses(
+            raidField: .sky,
+            partyMembers: [
+                LeaderTraitContext(speciesID: "a", homeField: .sky, rarity: .legendary, trait: .raider, trainingRank: .rankV, slotOrder: 1),
+                LeaderTraitContext(speciesID: "b", homeField: .sky, rarity: .epic, trait: .raider, trainingRank: .rankV, slotOrder: 2),
+                LeaderTraitContext(speciesID: "c", homeField: .sky, rarity: .rare, trait: .raider, trainingRank: .rankV, slotOrder: 3),
+            ]
+        )
+        #expect(raiderResult.totalBonus == 8)
+        #expect(raiderResult.memberBonuses["a"] == 6)
+        #expect(raiderResult.memberBonuses["b"] == 2)
+        #expect(raiderResult.memberBonuses["c"] == nil)
+    }
+
+    @Test
     func speciesAffinityResolverUsesDocumentedProbabilitiesAndCeilings() throws {
         let resolver = SpeciesAffinityResolver()
 
@@ -3861,7 +3989,8 @@ struct TokenmonDataContractTests {
                 planning: 3, design: 2, frontend: 1,
                 backend: 5, pm: 2, infra: 1,
                 traits: ["Deep Focus"]
-            )
+            ),
+            trainingTrait: .trail
         )
 
         #expect(definition.stats.total == 14)
@@ -3959,6 +4088,75 @@ struct TokenmonDataContractTests {
     }
 
     @Test
+    func nowCampV16SchemaExistsAfterBootstrap() throws {
+        let manager = try makeManager(prefix: "now-camp-schema")
+        let database = try manager.open()
+
+        let speciesColumns = Set(try database.fetchAll("PRAGMA table_info(species);") { statement in
+            SQLiteDatabase.columnText(statement, index: 1)
+        })
+        let nowCampColumns = Set(try database.fetchAll("PRAGMA table_info(now_camp_state);") { statement in
+            SQLiteDatabase.columnText(statement, index: 1)
+        })
+        let trainingColumns = Set(try database.fetchAll("PRAGMA table_info(species_training);") { statement in
+            SQLiteDatabase.columnText(statement, index: 1)
+        })
+        let raidHitColumns = Set(try database.fetchAll("PRAGMA table_info(raid_member_hits);") { statement in
+            SQLiteDatabase.columnText(statement, index: 1)
+        })
+
+        #expect(speciesColumns.contains("training_trait"))
+        #expect(nowCampColumns.isSuperset(of: [
+            "singleton_id",
+            "lead_species_id",
+            "focus_energy",
+            "focus_remainder_tokens",
+            "focus_earned_local_date",
+            "focus_earned_today",
+            "save_training_seed",
+            "updated_at",
+        ]))
+        #expect(trainingColumns.isSuperset(of: [
+            "species_id",
+            "training_rank",
+            "training_resonance",
+            "training_attempt_count",
+            "care_charge",
+            "updated_at",
+        ]))
+        #expect(raidHitColumns.contains("training_raid_bonus"))
+    }
+
+    @Test
+    func nowCampRuntimeAssetContractFilesExist() {
+        let repoRoot = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+        let runtimeRoot = repoRoot.appendingPathComponent("assets/sprites/effects/now-camp/runtime", isDirectory: true)
+        let fieldFiles = ["camp_prop_32.png", "care_fx_16.png", "train_fx_16.png"]
+        let commonFiles = ["resonance_orb_16.png", "training_success_16.png", "training_fail_16.png"]
+
+        for field in FieldType.allCases {
+            for filename in fieldFiles {
+                let path = runtimeRoot
+                    .appendingPathComponent(field.rawValue, isDirectory: true)
+                    .appendingPathComponent(filename)
+                    .path
+                #expect(FileManager.default.fileExists(atPath: path))
+            }
+        }
+
+        for filename in commonFiles {
+            let path = runtimeRoot
+                .appendingPathComponent("common", isDirectory: true)
+                .appendingPathComponent(filename)
+                .path
+            #expect(FileManager.default.fileExists(atPath: path))
+        }
+    }
+
+    @Test
     func addToPartySucceedsForCapturedSpecies() throws {
         let manager = try makeManager(prefix: "party-add")
         _ = try manager.forgeEncounter(
@@ -3978,6 +4176,125 @@ struct TokenmonDataContractTests {
         #expect(summaries.count == 1)
         #expect(summaries[0].speciesID == "GRS_001")
         #expect(summaries[0].slotOrder == 1)
+        #expect(summaries[0].trainingRank == .rankI)
+        #expect(summaries[0].trainingTrait == SpeciesCatalog.all.first { $0.id == "GRS_001" }?.trainingTrait)
+    }
+
+    @Test
+    func nowCampLeadAutoRepairsAcrossPartyChanges() throws {
+        let manager = try makeManager(prefix: "now-camp-lead-repair")
+        _ = try manager.forgeEncounter(
+            TokenmonDeveloperEncounterForgeRequest(
+                provider: .codex, field: .grassland, rarity: .common,
+                speciesID: "GRS_001", outcome: .captured,
+                occurredAt: "2026-04-14T00:00:00Z"
+            )
+        )
+        _ = try manager.forgeEncounter(
+            TokenmonDeveloperEncounterForgeRequest(
+                provider: .codex, field: .grassland, rarity: .common,
+                speciesID: "GRS_002", outcome: .captured,
+                occurredAt: "2026-04-14T00:00:01Z"
+            )
+        )
+
+        #expect(try manager.nowCampSummary().leadSpeciesID == nil)
+        try manager.addToParty(speciesID: "GRS_001")
+        try manager.addToParty(speciesID: "GRS_002")
+        #expect(try manager.nowCampSummary().leadSpeciesID == "GRS_001")
+
+        try manager.setNowCampLead(speciesID: "GRS_002")
+        #expect(try manager.nowCampSummary().leadSpeciesID == "GRS_002")
+
+        try manager.removeFromParty(speciesID: "GRS_002")
+        #expect(try manager.nowCampSummary().leadSpeciesID == "GRS_001")
+
+        try manager.removeFromParty(speciesID: "GRS_001")
+        #expect(try manager.nowCampSummary().leadSpeciesID == nil)
+    }
+
+    @Test
+    func nowCampFocusAccruesOnlyFromEligibleLiveGameplayUsage() throws {
+        let manager = try makeManager(prefix: "now-camp-focus-live")
+        let database = try manager.open()
+        try upsertStringSetting(
+            database: database,
+            key: "live_gameplay_started_at",
+            value: "2026-04-01T00:00:00Z"
+        )
+        let service = UsageSampleIngestionService(databasePath: manager.path)
+
+        _ = try service.ingestProviderEvents(
+            [
+                codexUsageEvent(
+                    sessionID: "now-camp-focus-live",
+                    observedAt: "2026-04-23T00:01:00Z",
+                    totalInputTokens: 400_000,
+                    totalOutputTokens: 0,
+                    fingerprint: "codex:now-camp-focus-live:001"
+                ),
+            ],
+            sourceKey: "now-camp-focus-live",
+            sourceKind: "ndjson_file"
+        )
+        #expect(try manager.nowCampSummary().focusEnergy == 1)
+
+        _ = try service.ingestProviderEvents(
+            [
+                codexUsageEvent(
+                    sessionID: "now-camp-focus-recovery",
+                    observedAt: "2026-04-23T00:02:00Z",
+                    totalInputTokens: 600_000,
+                    totalOutputTokens: 0,
+                    fingerprint: "codex:now-camp-focus-recovery:001"
+                ),
+            ],
+            sourceKey: "now-camp-focus-recovery",
+            sourceKind: "recovery_scan"
+        )
+        #expect(try manager.nowCampSummary().focusEnergy == 1)
+    }
+
+    @Test
+    func nowCampCareAndTrainSpendFocusAndUpdateTrainingState() throws {
+        let manager = try makeManager(prefix: "now-camp-train")
+        let database = try manager.open()
+        _ = try manager.forgeEncounter(
+            TokenmonDeveloperEncounterForgeRequest(
+                provider: .codex, field: .grassland, rarity: .common,
+                speciesID: "GRS_001", outcome: .captured,
+                occurredAt: "2026-04-14T00:00:00Z"
+            )
+        )
+        try database.execute(
+            """
+            UPDATE dex_captured
+            SET affinity_level = 2
+            WHERE species_id = 'GRS_001';
+            """
+        )
+        try manager.addToParty(speciesID: "GRS_001")
+        try database.execute(
+            """
+            UPDATE now_camp_state
+            SET focus_energy = 40,
+                updated_at = '2026-04-14T00:01:00Z'
+            WHERE singleton_id = 1;
+            """
+        )
+
+        let care = try manager.applyLeadCare()
+        #expect(care.focusEnergyAfter == 30)
+        #expect(try manager.nowCampSummary().lead?.training.careCharge == true)
+
+        let train = try manager.trainNowCampLead()
+        let summary = try manager.nowCampSummary()
+        #expect(train.focusEnergyAfter == 0)
+        #expect(summary.focusEnergy == 0)
+        #expect(summary.lead?.training.careCharge == false)
+        #expect(summary.lead?.training.trainingAttemptCount == 1)
+        #expect((summary.lead?.training.trainingRank.rawValue ?? 0) >= TrainingRank.rankI.rawValue)
+        #expect((summary.lead?.training.trainingRank.rawValue ?? 0) <= TrainingRank.rankII.rawValue)
     }
 
     @Test

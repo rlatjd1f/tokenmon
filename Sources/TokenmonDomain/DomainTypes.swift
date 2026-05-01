@@ -57,6 +57,56 @@ public enum EncounterOutcome: String, CaseIterable, Codable, Sendable {
     case escaped
 }
 
+public enum TrainingTrait: String, CaseIterable, Codable, Sendable {
+    case trail
+    case scout
+    case capture
+    case raider
+
+    public var displayName: String {
+        switch self {
+        case .trail: return "Trail"
+        case .scout: return "Scout"
+        case .capture: return "Capture"
+        case .raider: return "Raider"
+        }
+    }
+}
+
+public enum TrainingRank: Int, CaseIterable, Codable, Sendable {
+    case rankI = 1
+    case rankII = 2
+    case rankIII = 3
+    case rankIV = 4
+    case rankV = 5
+
+    public init?(storageValue: Int64) {
+        self.init(rawValue: Int(storageValue))
+    }
+
+    public var storageValue: Int64 {
+        Int64(rawValue)
+    }
+
+    public var romanNumeral: String {
+        switch self {
+        case .rankI: return "I"
+        case .rankII: return "II"
+        case .rankIII: return "III"
+        case .rankIV: return "IV"
+        case .rankV: return "V"
+        }
+    }
+
+    public var rankPower: Int {
+        max(0, rawValue - 1)
+    }
+
+    public var next: TrainingRank? {
+        TrainingRank(rawValue: rawValue + 1)
+    }
+}
+
 public enum UsageSampleGameplayEligibility: String, CaseIterable, Codable, Sendable {
     case outsideLiveRuntime = "outside_live_runtime"
     case recoveryOnly = "recovery_only"
@@ -94,6 +144,7 @@ public struct SpeciesDefinition: Equatable, Codable, Sendable {
     public let introducedInVersion: String
     public let isActive: Bool
     public let stats: SpeciesStatBlock
+    public let trainingTrait: TrainingTrait
 
     public init(
         id: String,
@@ -108,7 +159,8 @@ public struct SpeciesDefinition: Equatable, Codable, Sendable {
         stats: SpeciesStatBlock = SpeciesStatBlock(
             planning: 1, design: 1, frontend: 1,
             backend: 1, pm: 1, infra: 1
-        )
+        ),
+        trainingTrait: TrainingTrait
     ) {
         self.id = id
         self.name = name
@@ -120,5 +172,6 @@ public struct SpeciesDefinition: Equatable, Codable, Sendable {
         self.introducedInVersion = introducedInVersion
         self.isActive = isActive
         self.stats = stats
+        self.trainingTrait = trainingTrait
     }
 }

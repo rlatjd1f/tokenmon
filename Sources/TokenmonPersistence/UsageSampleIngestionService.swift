@@ -261,6 +261,7 @@ public final class UsageSampleIngestionService {
         let priorEncounterFields = try recentEncounterFields(database: database, limit: 2)
         let priorEncounterSpeciesIDs = try recentEncounterSpeciesIDs(database: database, limit: 5)
         let capturedSpeciesCounts = try dexCapturedCounts(database: database)
+        let leaderTraitContext = try databaseManager.leaderTraitContext(database: database)
         var encounterRNG = SeededEncounterRandomNumberGenerator(
             seed: Self.stableSeed(for: "\(seedContextID):encounter")
         )
@@ -274,16 +275,25 @@ public final class UsageSampleIngestionService {
                 burstIntensityBand: burstIntensityBand,
                 priorEncounterFields: priorEncounterFields,
                 priorEncounterSpeciesIDs: priorEncounterSpeciesIDs,
-                capturedSpeciesCounts: capturedSpeciesCounts
+                capturedSpeciesCounts: capturedSpeciesCounts,
+                leaderTraitContext: leaderTraitContext
             ),
             using: &encounterRNG
         )
         var captureRNG = SeededCaptureRandomNumberGenerator(
             seed: Self.stableSeed(for: "\(seedContextID):capture")
         )
+        let baseCaptureProbability = try captureResolver.captureProbability(for: generatedEncounter.rarity)
+        let captureBonusResult = LeaderTraitBonusResolver().applyCapture(
+            baseProbability: baseCaptureProbability,
+            encounterField: generatedEncounter.field,
+            encounterRarity: generatedEncounter.rarity,
+            lead: leaderTraitContext
+        )
         let captureResolution = try captureResolver.resolve(
-            species: generatedEncounter.species,
-            using: &captureRNG
+            rarity: generatedEncounter.rarity,
+            probability: captureBonusResult.probability,
+            roll: captureRNG.nextUnitInterval()
         )
 
         try DomainEventStore.persist(
@@ -308,9 +318,10 @@ public final class UsageSampleIngestionService {
             )
         )
 
-        _ = try EncounterHistoryStore.persistResolvedEncounter(
+        let persistedEncounter = try EncounterHistoryStore.persistResolvedEncounter(
             database: database,
             request: EncounterResolutionWriteRequest(
+                encounterID: generatedEncounter.encounterID,
                 providerCode: event.provider,
                 providerSessionID: event.providerSessionID,
                 providerSessionRowID: providerSessionRowID,
@@ -329,6 +340,17 @@ public final class UsageSampleIngestionService {
                 correlationID: event.providerEventFingerprint,
                 causationID: seedContextID
             )
+        )
+        try databaseManager.persistLeaderTraitBonusApplications(
+            database: database,
+            applications: generatedEncounter.traitBonusApplications
+                + [captureBonusResult.application].compactMap { $0 },
+            usageSampleID: usageSampleID,
+            encounterID: persistedEncounter.encounterID,
+            raidAttackID: nil,
+            observedAt: event.observedAt,
+            correlationID: event.providerEventFingerprint,
+            causationID: "\(TokenmonDomainEventType.encounterSpawned.rawValue):\(generatedEncounter.encounterSeedContextID)"
         )
     }
 
@@ -466,6 +488,13 @@ public final class UsageSampleIngestionService {
 
             if gameplayDecision.eligibility == .eligibleLive,
                balanceDecision.gameplayDeltaTokens > 0 {
+                _ = try databaseManager.addNowCampFocus(
+                    database: database,
+                    usageSampleID: usageSampleID,
+                    gameplayDeltaTokens: balanceDecision.gameplayDeltaTokens,
+                    observedAt: event.observedAt,
+                    correlationID: event.providerEventFingerprint
+                )
                 _ = try databaseManager.processRaidAttackForUsageSample(
                     database: database,
                     usageSampleID: usageSampleID,

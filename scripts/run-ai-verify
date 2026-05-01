@@ -413,6 +413,24 @@ raid_reward_missed_count = cur.execute(
 reward_archive_recorded_count = cur.execute(
     "SELECT COUNT(*) FROM domain_events WHERE event_type = 'reward_archive_recorded';"
 ).fetchone()[0]
+focus_energy_earned_count = cur.execute(
+    "SELECT COUNT(*) FROM domain_events WHERE event_type = 'focus_energy_earned';"
+).fetchone()[0]
+now_camp_lead_selected_count = cur.execute(
+    "SELECT COUNT(*) FROM domain_events WHERE event_type = 'now_camp_lead_selected';"
+).fetchone()[0]
+lead_care_applied_count = cur.execute(
+    "SELECT COUNT(*) FROM domain_events WHERE event_type = 'lead_care_applied';"
+).fetchone()[0]
+lead_training_attempted_count = cur.execute(
+    "SELECT COUNT(*) FROM domain_events WHERE event_type = 'lead_training_attempted';"
+).fetchone()[0]
+lead_training_resolved_count = cur.execute(
+    "SELECT COUNT(*) FROM domain_events WHERE event_type = 'lead_training_resolved';"
+).fetchone()[0]
+leader_trait_bonus_applied_count = cur.execute(
+    "SELECT COUNT(*) FROM domain_events WHERE event_type = 'leader_trait_bonus_applied';"
+).fetchone()[0]
 domain_event_count = cur.execute("SELECT COUNT(*) FROM domain_events;").fetchone()[0]
 state_total_encounters, state_total_captures = cur.execute(
     "SELECT total_encounters, total_captures FROM exploration_state WHERE exploration_state_id = 1;"
@@ -524,6 +542,12 @@ print(f"raid_expired_count={raid_expired_count}")
 print(f"raid_reward_acquired_count={raid_reward_acquired_count}")
 print(f"raid_reward_missed_count={raid_reward_missed_count}")
 print(f"reward_archive_recorded_count={reward_archive_recorded_count}")
+print(f"focus_energy_earned_count={focus_energy_earned_count}")
+print(f"now_camp_lead_selected_count={now_camp_lead_selected_count}")
+print(f"lead_care_applied_count={lead_care_applied_count}")
+print(f"lead_training_attempted_count={lead_training_attempted_count}")
+print(f"lead_training_resolved_count={lead_training_resolved_count}")
+print(f"leader_trait_bonus_applied_count={leader_trait_bonus_applied_count}")
 print(f"domain_event_count={domain_event_count}")
 print(f"state_total_encounters={state_total_encounters}")
 print(f"state_total_captures={state_total_captures}")
@@ -536,7 +560,7 @@ print(f"capture_resolved_matches_encounter_count={int(capture_resolved_event_cou
 print(f"seen_dex_updated_matches_encounter_count={int(seen_dex_updated_count == encounter_count)}")
 print(f"captured_dex_updated_matches_captured_count={int(captured_dex_updated_count == captured_count)}")
 print(f"species_affinity_updated_matches_captured_count={int(species_affinity_updated_count == captured_count)}")
-print(f"domain_event_count_matches_expected={int(domain_event_count == 2 + threshold_event_count + field_selected_count + rarity_selected_count + species_selected_count + encounter_spawned_count + capture_resolved_event_count + seen_dex_updated_count + captured_dex_updated_count + species_affinity_updated_count + raid_attack_triggered_count + raid_member_hit_resolved_count + raid_progress_updated_count + raid_cleared_count + raid_expired_count + raid_reward_acquired_count + raid_reward_missed_count + reward_archive_recorded_count)}")
+print(f"domain_event_count_matches_expected={int(domain_event_count == 2 + threshold_event_count + field_selected_count + rarity_selected_count + species_selected_count + encounter_spawned_count + capture_resolved_event_count + seen_dex_updated_count + captured_dex_updated_count + species_affinity_updated_count + raid_attack_triggered_count + raid_member_hit_resolved_count + raid_progress_updated_count + raid_cleared_count + raid_expired_count + raid_reward_acquired_count + raid_reward_missed_count + reward_archive_recorded_count + focus_energy_earned_count + now_camp_lead_selected_count + lead_care_applied_count + lead_training_attempted_count + lead_training_resolved_count + leader_trait_bonus_applied_count)}")
 print(f"dex_seen_matches_unique_encounter_species={int(dex_seen_species == encounter_species)}")
 print(f"dex_captured_matches_unique_captured_species={int(dex_captured_species == captured_species)}")
 print(f"state_total_captures_matches_captured_count={int(state_total_captures == captured_count)}")

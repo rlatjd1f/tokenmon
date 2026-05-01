@@ -21,8 +21,29 @@ public enum SpeciesCatalog {
             assetKey: assetKey,
             flavorText: SpeciesFlavorText.byID[id],
             sortOrder: sortOrder,
-            stats: stats
+            stats: stats,
+            trainingTrait: authoredTrainingTrait(id: id, field: field, rarity: rarity)
         )
+    }
+
+    private static func authoredTrainingTrait(
+        id: String,
+        field: FieldType,
+        rarity: RarityTier
+    ) -> TrainingTrait {
+        let traits: [TrainingTrait] = [.trail, .scout, .capture, .raider]
+        let numericID = Int(id.split(separator: "_").last ?? "") ?? 1
+        let groupStart = switch rarity {
+        case .common: 1
+        case .uncommon: 11
+        case .rare: 21
+        case .epic: 29
+        case .legendary: 35
+        }
+        let fieldOffset = FieldType.allCases.firstIndex(of: field) ?? 0
+        let rarityOffset = RarityTier.allCases.firstIndex(of: rarity) ?? 0
+        let positionInGroup = max(0, numericID - groupStart)
+        return traits[(positionInGroup + fieldOffset + rarityOffset) % traits.count]
     }
 
     // swiftlint:disable function_body_length
@@ -423,6 +444,33 @@ public enum SpeciesCatalog {
         let missingFields = all.filter { $0.id.isEmpty || $0.name.isEmpty || $0.assetKey.isEmpty }
         if !missingFields.isEmpty {
             issues.append("species definitions contain empty ids/names/asset keys")
+        }
+
+        for field in FieldType.allCases {
+            let traits = Set(all.filter { $0.field == field }.map(\.trainingTrait))
+            let missingTraits = TrainingTrait.allCases.filter { traits.contains($0) == false }
+            if missingTraits.isEmpty == false {
+                issues.append(
+                    "field \(field.rawValue) missing training traits: \(missingTraits.map(\.rawValue).joined(separator: ", "))"
+                )
+            }
+        }
+
+        for field in FieldType.allCases {
+            for rarity in RarityTier.allCases {
+                let entries = all.filter { $0.field == field && $0.rarity == rarity }
+                guard entries.isEmpty == false else { continue }
+                let counts = TrainingTrait.allCases.map { trait in
+                    entries.filter { $0.trainingTrait == trait }.count
+                }
+                if let minCount = counts.min(),
+                   let maxCount = counts.max(),
+                   maxCount - minCount > 1 {
+                    issues.append(
+                        "field \(field.rawValue) rarity \(rarity.rawValue) has imbalanced training traits"
+                    )
+                }
+            }
         }
 
         return issues

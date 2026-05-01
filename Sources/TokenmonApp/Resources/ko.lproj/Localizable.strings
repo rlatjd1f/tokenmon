@@ -745,3 +745,13 @@
 "raid.reward.status.available" = "획득 가능";
 "raid.reward.status.acquired" = "획득";
 "raid.reward.status.missed" = "놓침";
+"now.camp.focus.help" = "포커스 에너지";
+"now.camp.lead.empty" = "리드 없음";
+"now.camp.lead_picker.help" = "Now Camp 리드 선택";
+"now.camp.no_party" = "파티 리드 없음";
+"now.camp.train" = "훈련";
+"now.camp.train.help" = "포커스 30 사용";
+"now.camp.care" = "돌봄";
+"now.camp.care.help" = "포커스 10 사용";
+"now.camp.training_line" = "Rank %1$@ · %2$@ · R%3$@";
+"dex.context_menu.set_lead" = "리드로 설정";

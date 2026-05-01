@@ -668,6 +668,23 @@ public enum EncounterHistoryStore {
                 .text(updatedAt),
             ]
         )
+        try database.execute(
+            """
+            INSERT INTO species_training (
+                species_id,
+                training_rank,
+                training_resonance,
+                training_attempt_count,
+                care_charge,
+                updated_at
+            ) VALUES (?, 1, 0, 0, 0, ?)
+            ON CONFLICT(species_id) DO NOTHING;
+            """,
+            bindings: [
+                .text(speciesID),
+                .text(updatedAt),
+            ]
+        )
 
         return DexCapturedMutation(
             firstCaptureCreated: existing == nil,

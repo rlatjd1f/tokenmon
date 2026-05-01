@@ -106,6 +106,7 @@ public struct EncounterGenerationContext: Equatable, Sendable {
     public let priorEncounterSpeciesIDs: [String]
     public let capturedSpeciesCounts: [String: Int64]
     public let encounterID: String?
+    public let leaderTraitContext: LeaderTraitContext?
 
     public init(
         threshold: EncounterThresholdCrossedSnapshot,
@@ -117,7 +118,8 @@ public struct EncounterGenerationContext: Equatable, Sendable {
         priorEncounterFields: [FieldType] = [],
         priorEncounterSpeciesIDs: [String] = [],
         capturedSpeciesCounts: [String: Int64] = [:],
-        encounterID: String? = nil
+        encounterID: String? = nil,
+        leaderTraitContext: LeaderTraitContext? = nil
     ) {
         self.threshold = threshold
         self.usageSampleID = usageSampleID
@@ -129,6 +131,7 @@ public struct EncounterGenerationContext: Equatable, Sendable {
         self.priorEncounterSpeciesIDs = priorEncounterSpeciesIDs
         self.capturedSpeciesCounts = capturedSpeciesCounts
         self.encounterID = encounterID
+        self.leaderTraitContext = leaderTraitContext
     }
 
     public var encounterSeedContextID: String {
@@ -142,19 +145,22 @@ public struct EncounterFieldSelection: Equatable, Codable, Sendable {
     public let antiRepeatApplied: Bool
     public let fieldWeightsEffective: [EncounterFieldWeight]
     public let roll: Double
+    public let leaderTraitBonusApplication: LeaderTraitBonusApplication?
 
     public init(
         selectedField: FieldType,
         priorFieldHistorySnapshot: [FieldType],
         antiRepeatApplied: Bool,
         fieldWeightsEffective: [EncounterFieldWeight],
-        roll: Double
+        roll: Double,
+        leaderTraitBonusApplication: LeaderTraitBonusApplication? = nil
     ) {
         self.selectedField = selectedField
         self.priorFieldHistorySnapshot = priorFieldHistorySnapshot
         self.antiRepeatApplied = antiRepeatApplied
         self.fieldWeightsEffective = fieldWeightsEffective
         self.roll = roll
+        self.leaderTraitBonusApplication = leaderTraitBonusApplication
     }
 }
 
@@ -162,11 +168,18 @@ public struct EncounterRaritySelection: Equatable, Codable, Sendable {
     public let selectedRarity: RarityTier
     public let rarityWeightsEffective: [EncounterRarityWeight]
     public let roll: Double
+    public let leaderTraitBonusApplication: LeaderTraitBonusApplication?
 
-    public init(selectedRarity: RarityTier, rarityWeightsEffective: [EncounterRarityWeight], roll: Double) {
+    public init(
+        selectedRarity: RarityTier,
+        rarityWeightsEffective: [EncounterRarityWeight],
+        roll: Double,
+        leaderTraitBonusApplication: LeaderTraitBonusApplication? = nil
+    ) {
         self.selectedRarity = selectedRarity
         self.rarityWeightsEffective = rarityWeightsEffective
         self.roll = roll
+        self.leaderTraitBonusApplication = leaderTraitBonusApplication
     }
 }
 
@@ -198,6 +211,7 @@ public struct GeneratedEncounter: Equatable, Codable, Sendable {
     public let fieldSelection: EncounterFieldSelection
     public let raritySelection: EncounterRaritySelection
     public let speciesSelection: EncounterSpeciesSelection
+    public let traitBonusApplications: [LeaderTraitBonusApplication]
 
     public init(
         encounterID: String,
@@ -214,7 +228,8 @@ public struct GeneratedEncounter: Equatable, Codable, Sendable {
         burstIntensityBand: Int,
         fieldSelection: EncounterFieldSelection,
         raritySelection: EncounterRaritySelection,
-        speciesSelection: EncounterSpeciesSelection
+        speciesSelection: EncounterSpeciesSelection,
+        traitBonusApplications: [LeaderTraitBonusApplication] = []
     ) {
         self.encounterID = encounterID
         self.encounterSeedContextID = encounterSeedContextID
@@ -231,6 +246,7 @@ public struct GeneratedEncounter: Equatable, Codable, Sendable {
         self.fieldSelection = fieldSelection
         self.raritySelection = raritySelection
         self.speciesSelection = speciesSelection
+        self.traitBonusApplications = traitBonusApplications
     }
 }
 
@@ -279,9 +295,14 @@ public struct EncounterGenerator {
 
         let fieldSelection = try selectField(
             priorEncounterFields: context.priorEncounterFields,
+            leaderTraitContext: context.leaderTraitContext,
             using: &generator
         )
-        let raritySelection = try selectRarity(using: &generator)
+        let raritySelection = try selectRarity(
+            selectedField: fieldSelection.selectedField,
+            leaderTraitContext: context.leaderTraitContext,
+            using: &generator
+        )
         let speciesSelection = try selectSpecies(
             field: fieldSelection.selectedField,
             rarity: raritySelection.selectedRarity,
@@ -290,6 +311,10 @@ public struct EncounterGenerator {
             using: &generator
         )
         let encounterID = context.encounterID ?? UUID().uuidString.lowercased()
+        let bonusApplications = [
+            fieldSelection.leaderTraitBonusApplication,
+            raritySelection.leaderTraitBonusApplication,
+        ].compactMap { $0 }
 
         return GeneratedEncounter(
             encounterID: encounterID,
@@ -306,7 +331,8 @@ public struct EncounterGenerator {
             burstIntensityBand: context.burstIntensityBand,
             fieldSelection: fieldSelection,
             raritySelection: raritySelection,
-            speciesSelection: speciesSelection
+            speciesSelection: speciesSelection,
+            traitBonusApplications: bonusApplications
         )
     }
 
@@ -347,16 +373,21 @@ public struct EncounterGenerator {
 
     private func selectField<RNG: EncounterRandomNumberGenerator>(
         priorEncounterFields: [FieldType],
+        leaderTraitContext: LeaderTraitContext?,
         using generator: inout RNG
     ) throws -> EncounterFieldSelection {
         let historySnapshot = Array(priorEncounterFields.suffix(2))
         let antiRepeatField = historySnapshot.count == 2 && historySnapshot[0] == historySnapshot[1]
             ? historySnapshot[0]
             : nil
-        let effectiveWeights = adjustedFieldWeights(forRepeatedField: antiRepeatField)
+        let baseWeights = adjustedFieldWeights(forRepeatedField: antiRepeatField)
+        let traitResult = LeaderTraitBonusResolver().applyTrail(
+            weights: baseWeights,
+            lead: leaderTraitContext
+        )
         let roll = try normalizedRoll(using: &generator)
         let selectedField = try weightedSelection(
-            options: effectiveWeights,
+            options: traitResult.weights,
             roll: roll,
             value: \.field,
             weight: \.weight
@@ -366,20 +397,28 @@ public struct EncounterGenerator {
             selectedField: selectedField,
             priorFieldHistorySnapshot: historySnapshot,
             antiRepeatApplied: antiRepeatField != nil,
-            fieldWeightsEffective: effectiveWeights,
-            roll: roll
+            fieldWeightsEffective: traitResult.weights,
+            roll: roll,
+            leaderTraitBonusApplication: traitResult.application
         )
     }
 
     private func selectRarity<RNG: EncounterRandomNumberGenerator>(
+        selectedField: FieldType,
+        leaderTraitContext: LeaderTraitContext?,
         using generator: inout RNG
     ) throws -> EncounterRaritySelection {
-        let effectiveWeights = RarityTier.allCases.map { rarity in
+        let baseWeights = RarityTier.allCases.map { rarity in
             EncounterRarityWeight(rarity: rarity, weight: config.baseRarityWeights[rarity] ?? 0)
         }
+        let traitResult = LeaderTraitBonusResolver().applyScout(
+            weights: baseWeights,
+            selectedField: selectedField,
+            lead: leaderTraitContext
+        )
         let roll = try normalizedRoll(using: &generator)
         let selectedRarity = try weightedSelection(
-            options: effectiveWeights,
+            options: traitResult.weights,
             roll: roll,
             value: \.rarity,
             weight: \.weight
@@ -387,8 +426,9 @@ public struct EncounterGenerator {
 
         return EncounterRaritySelection(
             selectedRarity: selectedRarity,
-            rarityWeightsEffective: effectiveWeights,
-            roll: roll
+            rarityWeightsEffective: traitResult.weights,
+            roll: roll,
+            leaderTraitBonusApplication: traitResult.application
         )
     }
 

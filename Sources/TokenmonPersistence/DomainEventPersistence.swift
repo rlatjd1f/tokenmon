@@ -26,6 +26,12 @@ public enum TokenmonDomainEventType: String, Sendable {
     case raidRewardAcquired = "raid_reward_acquired"
     case raidRewardMissed = "raid_reward_missed"
     case rewardArchiveRecorded = "reward_archive_recorded"
+    case focusEnergyEarned = "focus_energy_earned"
+    case nowCampLeadSelected = "now_camp_lead_selected"
+    case leadCareApplied = "lead_care_applied"
+    case leadTrainingAttempted = "lead_training_attempted"
+    case leadTrainingResolved = "lead_training_resolved"
+    case leaderTraitBonusApplied = "leader_trait_bonus_applied"
 }
 
 public struct DomainEventEnvelope<Payload: Encodable & Sendable>: Sendable {

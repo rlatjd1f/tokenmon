@@ -84,9 +84,10 @@ struct TokenmonNowTab: View {
                 usageAnalyticsPromptCard
             }
 
-            TokenmonNowFieldHeroCard(
+            TokenmonNowCampHeroCard(
+                model: model,
                 sceneContext: model.popoverSceneContext,
-                companionAssetKeys: heroCompanionAssetKeys
+                fallbackCompanionAssetKeys: heroCompanionAssetKeys
             )
 
             TokenProgressBar(
@@ -363,6 +364,236 @@ struct TokenmonNowFieldHeroCard: View {
 
     private var accessibilityLabel: String {
         sceneContext.fieldKind.heroFieldTitle
+    }
+}
+
+private struct TokenmonNowCampHeroCard: View {
+    @ObservedObject var model: TokenmonMenuModel
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    let sceneContext: TokenmonSceneContext
+    let fallbackCompanionAssetKeys: [String]
+
+    private var nowCamp: NowCampSummary? {
+        model.nowCampSummary
+    }
+
+    private var lead: NowCampLeadSummary? {
+        nowCamp?.lead
+    }
+
+    private var partyMembers: [PartyMemberSummary] {
+        let runtimeParty = model.raidDashboard?.partyMembers ?? []
+        return runtimeParty.isEmpty ? model.partyMembers : runtimeParty
+    }
+
+    private var supportMembers: [PartyMemberSummary] {
+        if let supports = nowCamp?.supports, supports.isEmpty == false {
+            return supports
+        }
+        guard let leadID = lead?.speciesID else {
+            return Array(partyMembers.prefix(2))
+        }
+        return Array(partyMembers.filter { $0.speciesID != leadID }.prefix(2))
+    }
+
+    var body: some View {
+        ZStack(alignment: .topLeading) {
+            TokenmonPopoverHeroSceneCard(
+                context: sceneContext,
+                companionAssetKeys: lead == nil ? fallbackCompanionAssetKeys : [],
+                animates: !reduceMotion
+            )
+
+            VStack(alignment: .leading, spacing: 8) {
+                HStack(alignment: .top) {
+                    focusPill
+                    Spacer(minLength: 8)
+                    leadPicker
+                }
+
+                Spacer(minLength: 0)
+
+                HStack(alignment: .bottom, spacing: 8) {
+                    leadSprite
+                    supportSprites
+                    Spacer(minLength: 0)
+                    actionStack
+                }
+            }
+            .padding(10)
+        }
+        .frame(height: 124)
+        .accessibilityElement(children: .contain)
+    }
+
+    private var focusPill: some View {
+        HStack(spacing: 6) {
+            NowCampEffectSpriteImage(scope: .common, variant: .resonanceOrb16)
+                .frame(width: 14, height: 14)
+            Image(systemName: "bolt.fill")
+                .font(.system(size: 10, weight: .black))
+            Text("\(nowCamp?.focusEnergy ?? 0)")
+                .font(.caption.weight(.bold).monospacedDigit())
+        }
+        .foregroundStyle(.primary)
+        .padding(.horizontal, 9)
+        .padding(.vertical, 5)
+        .background(
+            Capsule(style: .continuous)
+                .fill(Color(nsColor: .controlBackgroundColor).opacity(0.86))
+        )
+        .overlay(
+            Capsule(style: .continuous)
+                .stroke(Color.secondary.opacity(0.18), lineWidth: 0.8)
+        )
+        .help(TokenmonL10n.string("now.camp.focus.help"))
+    }
+
+    private var leadPicker: some View {
+        Menu {
+            ForEach(partyMembers, id: \.speciesID) { member in
+                Button {
+                    model.setNowCampLead(member.speciesID)
+                } label: {
+                    Label(
+                        member.displayName,
+                        systemImage: member.speciesID == lead?.speciesID ? "crown.fill" : "person.crop.circle"
+                    )
+                }
+            }
+        } label: {
+            Label(
+                lead?.displayName ?? TokenmonL10n.string("now.camp.lead.empty"),
+                systemImage: lead == nil ? "crown" : "crown.fill"
+            )
+            .font(.caption.weight(.semibold))
+            .lineLimit(1)
+            .minimumScaleFactor(0.78)
+            .padding(.horizontal, 9)
+            .padding(.vertical, 5)
+            .background(
+                Capsule(style: .continuous)
+                    .fill(Color(nsColor: .controlBackgroundColor).opacity(0.86))
+            )
+        }
+        .menuStyle(.borderlessButton)
+        .fixedSize(horizontal: true, vertical: false)
+        .disabled(partyMembers.isEmpty)
+        .help(TokenmonL10n.string("now.camp.lead_picker.help"))
+    }
+
+    @ViewBuilder
+    private var leadSprite: some View {
+        if let lead {
+            VStack(alignment: .leading, spacing: 3) {
+                ZStack(alignment: .bottomTrailing) {
+                    TokenmonDexSpritePreview(
+                        status: .captured,
+                        revealStage: .revealed,
+                        field: lead.field,
+                        rarity: lead.rarity,
+                        assetKey: lead.assetKey,
+                        cardSize: 58,
+                        spriteSize: 42,
+                        showsBackground: true,
+                        showsBorder: true
+                    )
+                    NowCampEffectSpriteImage(scope: .field(lead.field), variant: .campProp32)
+                        .frame(width: 20, height: 20)
+                        .offset(x: 5, y: 5)
+                }
+                Text(trainingLine(for: lead))
+                    .font(.system(size: 9, weight: .bold, design: .rounded))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.74)
+                    .foregroundStyle(.primary)
+                    .frame(width: 104, alignment: .leading)
+            }
+        } else {
+            VStack(alignment: .leading, spacing: 4) {
+                Image(systemName: "crown")
+                    .font(.system(size: 26, weight: .semibold))
+                    .frame(width: 58, height: 58)
+                    .foregroundStyle(.secondary)
+                    .background(
+                        RoundedRectangle(cornerRadius: 14, style: .continuous)
+                            .fill(Color(nsColor: .controlBackgroundColor).opacity(0.72))
+                    )
+                Text(TokenmonL10n.string("now.camp.no_party"))
+                    .font(.system(size: 9, weight: .semibold, design: .rounded))
+                    .lineLimit(2)
+                    .foregroundStyle(.secondary)
+                    .frame(width: 108, alignment: .leading)
+            }
+        }
+    }
+
+    private var supportSprites: some View {
+        HStack(spacing: -8) {
+            ForEach(supportMembers, id: \.speciesID) { member in
+                TokenmonDexSpritePreview(
+                    status: .captured,
+                    revealStage: .revealed,
+                    field: member.field,
+                    rarity: member.rarity,
+                    assetKey: member.assetKey,
+                    cardSize: 38,
+                    spriteSize: 27,
+                    showsBackground: true,
+                    showsBorder: true
+                )
+                .help(member.displayName)
+            }
+        }
+    }
+
+    private var actionStack: some View {
+        VStack(alignment: .trailing, spacing: 5) {
+            Button {
+                model.trainNowCampLead()
+            } label: {
+                Label(TokenmonL10n.string("now.camp.train"), systemImage: "figure.strengthtraining.traditional")
+                    .labelStyle(.iconOnly)
+            }
+            .disabled(canTrain == false)
+            .help(TokenmonL10n.string("now.camp.train.help"))
+
+            Button {
+                model.applyNowCampCareToLead()
+            } label: {
+                Label(TokenmonL10n.string("now.camp.care"), systemImage: "heart.fill")
+                    .labelStyle(.iconOnly)
+            }
+            .disabled(canCare == false)
+            .help(TokenmonL10n.string("now.camp.care.help"))
+        }
+        .buttonStyle(.borderless)
+        .controlSize(.small)
+    }
+
+    private var canTrain: Bool {
+        guard let lead, let nowCamp else { return false }
+        return nowCamp.focusEnergy >= 30
+            && lead.training.trainingRank.rawValue < Int(lead.affinityLevel)
+    }
+
+    private var canCare: Bool {
+        guard let lead, let nowCamp else { return false }
+        return nowCamp.focusEnergy >= 10
+            && lead.training.careCharge == false
+            && lead.training.trainingRank.rawValue < Int(lead.affinityLevel)
+    }
+
+    private func trainingLine(for lead: NowCampLeadSummary) -> String {
+        let rank = lead.training.trainingRank.romanNumeral
+        let resonance = lead.training.trainingResonance
+        return TokenmonL10n.format(
+            "now.camp.training_line",
+            rank,
+            lead.trainingTrait.displayName,
+            resonance
+        )
     }
 }
 

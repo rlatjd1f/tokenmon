@@ -115,6 +115,11 @@ public struct DexCapturedSummaryEntry: Equatable, Sendable {
     public let affinityLastOutcome: String?
     public let affinityUpdatedAt: String?
     public let lastEncounterID: String
+    public let trainingTrait: TrainingTrait
+    public let trainingRank: TrainingRank
+    public let trainingResonance: Int
+    public let trainingAttemptCount: Int
+    public let careCharge: Bool
 
     public init(
         speciesID: String,
@@ -131,7 +136,12 @@ public struct DexCapturedSummaryEntry: Equatable, Sendable {
         affinityLastProbability: Double? = nil,
         affinityLastOutcome: String? = nil,
         affinityUpdatedAt: String? = nil,
-        lastEncounterID: String
+        lastEncounterID: String,
+        trainingTrait: TrainingTrait = .trail,
+        trainingRank: TrainingRank = .rankI,
+        trainingResonance: Int = 0,
+        trainingAttemptCount: Int = 0,
+        careCharge: Bool = false
     ) {
         self.speciesID = speciesID
         self.speciesName = speciesName
@@ -148,6 +158,11 @@ public struct DexCapturedSummaryEntry: Equatable, Sendable {
         self.affinityLastOutcome = affinityLastOutcome
         self.affinityUpdatedAt = affinityUpdatedAt
         self.lastEncounterID = lastEncounterID
+        self.trainingTrait = trainingTrait
+        self.trainingRank = trainingRank
+        self.trainingResonance = trainingResonance
+        self.trainingAttemptCount = trainingAttemptCount
+        self.careCharge = careCharge
     }
 }
 
@@ -178,6 +193,11 @@ public struct DexEntrySummary: Equatable, Sendable {
     public let affinityLastProbability: Double?
     public let affinityLastOutcome: String?
     public let affinityUpdatedAt: String?
+    public let trainingTrait: TrainingTrait
+    public let trainingRank: TrainingRank
+    public let trainingResonance: Int
+    public let trainingAttemptCount: Int
+    public let careCharge: Bool
     public let stats: SpeciesStatBlock
 
     public init(
@@ -201,6 +221,11 @@ public struct DexEntrySummary: Equatable, Sendable {
         affinityLastProbability: Double? = nil,
         affinityLastOutcome: String? = nil,
         affinityUpdatedAt: String? = nil,
+        trainingTrait: TrainingTrait = .trail,
+        trainingRank: TrainingRank = .rankI,
+        trainingResonance: Int = 0,
+        trainingAttemptCount: Int = 0,
+        careCharge: Bool = false,
         stats: SpeciesStatBlock
     ) {
         self.speciesID = speciesID
@@ -223,6 +248,11 @@ public struct DexEntrySummary: Equatable, Sendable {
         self.affinityLastProbability = affinityLastProbability
         self.affinityLastOutcome = affinityLastOutcome
         self.affinityUpdatedAt = affinityUpdatedAt
+        self.trainingTrait = trainingTrait
+        self.trainingRank = trainingRank
+        self.trainingResonance = trainingResonance
+        self.trainingAttemptCount = trainingAttemptCount
+        self.careCharge = careCharge
         self.stats = stats
     }
 }
@@ -315,6 +345,8 @@ public struct PartyMemberSummary: Equatable, Sendable {
     public let slotOrder: Int
     public let capturedCount: Int64
     public let affinityLevel: Int64
+    public let trainingTrait: TrainingTrait
+    public let trainingRank: TrainingRank
     public let stats: SpeciesStatBlock
 
     public init(
@@ -327,6 +359,8 @@ public struct PartyMemberSummary: Equatable, Sendable {
         slotOrder: Int,
         capturedCount: Int64,
         affinityLevel: Int64 = 1,
+        trainingTrait: TrainingTrait = .trail,
+        trainingRank: TrainingRank = .rankI,
         stats: SpeciesStatBlock
     ) {
         self.speciesID = speciesID
@@ -338,6 +372,8 @@ public struct PartyMemberSummary: Equatable, Sendable {
         self.slotOrder = slotOrder
         self.capturedCount = capturedCount
         self.affinityLevel = affinityLevel
+        self.trainingTrait = trainingTrait
+        self.trainingRank = trainingRank
         self.stats = stats
     }
 }
@@ -589,15 +625,27 @@ public extension TokenmonDatabaseManager {
                dex_captured.affinity_last_probability,
                dex_captured.affinity_last_outcome,
                dex_captured.affinity_updated_at,
-               dex_captured.last_encounter_id
+               dex_captured.last_encounter_id,
+               species.training_trait,
+               COALESCE(species_training.training_rank, 1),
+               COALESCE(species_training.training_resonance, 0),
+               COALESCE(species_training.training_attempt_count, 0),
+               COALESCE(species_training.care_charge, 0)
         FROM dex_captured
         INNER JOIN species ON species.species_id = dex_captured.species_id
+        LEFT JOIN species_training ON species_training.species_id = dex_captured.species_id
         ORDER BY species.sort_order ASC, dex_captured.species_id ASC;
         """
 
         return try database.fetchAll(sql) { statement in
             let field = try decodeFieldType(SQLiteDatabase.columnText(statement, index: 2), sql: sql)
             let rarity = try decodeRarityTier(SQLiteDatabase.columnText(statement, index: 3), sql: sql)
+            let traitRaw = SQLiteDatabase.columnText(statement, index: 15)
+            guard let trainingTrait = TrainingTrait(rawValue: traitRaw),
+                  let trainingRank = TrainingRank(storageValue: SQLiteDatabase.columnInt64(statement, index: 16))
+            else {
+                throw SQLiteError.statementFailed(message: "invalid captured training row", sql: sql)
+            }
 
             return DexCapturedSummaryEntry(
                 speciesID: SQLiteDatabase.columnText(statement, index: 0),
@@ -614,7 +662,12 @@ public extension TokenmonDatabaseManager {
                 affinityLastProbability: SQLiteDatabase.columnOptionalDouble(statement, index: 11),
                 affinityLastOutcome: SQLiteDatabase.columnOptionalText(statement, index: 12),
                 affinityUpdatedAt: SQLiteDatabase.columnOptionalText(statement, index: 13),
-                lastEncounterID: SQLiteDatabase.columnText(statement, index: 14)
+                lastEncounterID: SQLiteDatabase.columnText(statement, index: 14),
+                trainingTrait: trainingTrait,
+                trainingRank: trainingRank,
+                trainingResonance: Int(SQLiteDatabase.columnInt64(statement, index: 17)),
+                trainingAttemptCount: Int(SQLiteDatabase.columnInt64(statement, index: 18)),
+                careCharge: SQLiteDatabase.columnInt64(statement, index: 19) != 0
             )
         }
     }
@@ -641,6 +694,11 @@ public extension TokenmonDatabaseManager {
                dex_captured.affinity_last_probability,
                dex_captured.affinity_last_outcome,
                dex_captured.affinity_updated_at,
+               species.training_trait,
+               COALESCE(species_training.training_rank, 1),
+               COALESCE(species_training.training_resonance, 0),
+               COALESCE(species_training.training_attempt_count, 0),
+               COALESCE(species_training.care_charge, 0),
                species.stat_planning,
                species.stat_design,
                species.stat_frontend,
@@ -651,6 +709,7 @@ public extension TokenmonDatabaseManager {
         FROM species
         LEFT JOIN dex_seen ON dex_seen.species_id = species.species_id
         LEFT JOIN dex_captured ON dex_captured.species_id = species.species_id
+        LEFT JOIN species_training ON species_training.species_id = species.species_id
         WHERE species.is_active = 1
         ORDER BY species.sort_order ASC, species.species_id ASC;
         """
@@ -660,6 +719,12 @@ public extension TokenmonDatabaseManager {
             let rarity = try decodeRarityTier(SQLiteDatabase.columnText(statement, index: 3), sql: sql)
             let seenCount = SQLiteDatabase.columnInt64(statement, index: 9)
             let capturedCount = SQLiteDatabase.columnInt64(statement, index: 12)
+            let traitRaw = SQLiteDatabase.columnText(statement, index: 19)
+            guard let trainingTrait = TrainingTrait(rawValue: traitRaw),
+                  let trainingRank = TrainingRank(storageValue: SQLiteDatabase.columnInt64(statement, index: 20))
+            else {
+                throw SQLiteError.statementFailed(message: "invalid dex entry training row", sql: sql)
+            }
 
             let status: DexEntryStatus
             if capturedCount > 0 {
@@ -670,13 +735,13 @@ public extension TokenmonDatabaseManager {
                 status = .unknown
             }
 
-            let statPlanning = Int(SQLiteDatabase.columnInt64(statement, index: 19))
-            let statDesign = Int(SQLiteDatabase.columnInt64(statement, index: 20))
-            let statFrontend = Int(SQLiteDatabase.columnInt64(statement, index: 21))
-            let statBackend = Int(SQLiteDatabase.columnInt64(statement, index: 22))
-            let statPM = Int(SQLiteDatabase.columnInt64(statement, index: 23))
-            let statInfra = Int(SQLiteDatabase.columnInt64(statement, index: 24))
-            let traitsJSON = SQLiteDatabase.columnText(statement, index: 25)
+            let statPlanning = Int(SQLiteDatabase.columnInt64(statement, index: 24))
+            let statDesign = Int(SQLiteDatabase.columnInt64(statement, index: 25))
+            let statFrontend = Int(SQLiteDatabase.columnInt64(statement, index: 26))
+            let statBackend = Int(SQLiteDatabase.columnInt64(statement, index: 27))
+            let statPM = Int(SQLiteDatabase.columnInt64(statement, index: 28))
+            let statInfra = Int(SQLiteDatabase.columnInt64(statement, index: 29))
+            let traitsJSON = SQLiteDatabase.columnText(statement, index: 30)
             let traits = (try? JSONDecoder().decode([String].self, from: Data(traitsJSON.utf8))) ?? []
 
             let stats = SpeciesStatBlock(
@@ -710,6 +775,11 @@ public extension TokenmonDatabaseManager {
                 affinityLastProbability: SQLiteDatabase.columnOptionalDouble(statement, index: 16),
                 affinityLastOutcome: SQLiteDatabase.columnOptionalText(statement, index: 17),
                 affinityUpdatedAt: SQLiteDatabase.columnOptionalText(statement, index: 18),
+                trainingTrait: trainingTrait,
+                trainingRank: trainingRank,
+                trainingResonance: Int(SQLiteDatabase.columnInt64(statement, index: 21)),
+                trainingAttemptCount: Int(SQLiteDatabase.columnInt64(statement, index: 22)),
+                careCharge: SQLiteDatabase.columnInt64(statement, index: 23) != 0,
                 stats: stats
             )
         }
@@ -1356,6 +1426,8 @@ public extension TokenmonDatabaseManager {
                 "INSERT INTO party_members (species_id, slot_order, added_at) VALUES (?, ?, ?);",
                 bindings: [.text(speciesID), .integer(nextSlot), .text(nowISO)]
             )
+            try ensureSpeciesTrainingRowsForCaptured(database: database)
+            try repairNowCampLead(database: database)
         }
     }
 
@@ -1371,6 +1443,8 @@ public extension TokenmonDatabaseManager {
                party_members.slot_order,
                dex_captured.captured_count,
                dex_captured.affinity_level,
+               species.training_trait,
+               COALESCE(species_training.training_rank, 1),
                species.stat_planning,
                species.stat_design,
                species.stat_frontend,
@@ -1381,6 +1455,7 @@ public extension TokenmonDatabaseManager {
         FROM party_members
         INNER JOIN species ON species.species_id = party_members.species_id
         INNER JOIN dex_captured ON dex_captured.species_id = party_members.species_id
+        LEFT JOIN species_training ON species_training.species_id = party_members.species_id
         ORDER BY party_members.slot_order ASC;
         """
         return try database.fetchAll(sql) { statement in
@@ -1393,15 +1468,21 @@ public extension TokenmonDatabaseManager {
             let slot = Int(SQLiteDatabase.columnInt64(statement, index: 6))
             let capturedCount = SQLiteDatabase.columnInt64(statement, index: 7)
             let affinityLevel = SQLiteDatabase.columnInt64(statement, index: 8)
-            let traitsJSON = SQLiteDatabase.columnText(statement, index: 15)
+            let traitRaw = SQLiteDatabase.columnText(statement, index: 9)
+            guard let trainingTrait = TrainingTrait(rawValue: traitRaw),
+                  let trainingRank = TrainingRank(storageValue: SQLiteDatabase.columnInt64(statement, index: 10))
+            else {
+                throw SQLiteError.statementFailed(message: "invalid party member training row", sql: sql)
+            }
+            let traitsJSON = SQLiteDatabase.columnText(statement, index: 17)
             let traits = (try? JSONDecoder().decode([String].self, from: Data(traitsJSON.utf8))) ?? []
             let stats = SpeciesStatBlock(
-                planning: Int(SQLiteDatabase.columnInt64(statement, index: 9)),
-                design: Int(SQLiteDatabase.columnInt64(statement, index: 10)),
-                frontend: Int(SQLiteDatabase.columnInt64(statement, index: 11)),
-                backend: Int(SQLiteDatabase.columnInt64(statement, index: 12)),
-                pm: Int(SQLiteDatabase.columnInt64(statement, index: 13)),
-                infra: Int(SQLiteDatabase.columnInt64(statement, index: 14)),
+                planning: Int(SQLiteDatabase.columnInt64(statement, index: 11)),
+                design: Int(SQLiteDatabase.columnInt64(statement, index: 12)),
+                frontend: Int(SQLiteDatabase.columnInt64(statement, index: 13)),
+                backend: Int(SQLiteDatabase.columnInt64(statement, index: 14)),
+                pm: Int(SQLiteDatabase.columnInt64(statement, index: 15)),
+                infra: Int(SQLiteDatabase.columnInt64(statement, index: 16)),
                 traits: traits
             )
             return PartyMemberSummary(
@@ -1414,6 +1495,8 @@ public extension TokenmonDatabaseManager {
                 slotOrder: slot,
                 capturedCount: capturedCount,
                 affinityLevel: affinityLevel,
+                trainingTrait: trainingTrait,
+                trainingRank: trainingRank,
                 stats: stats
             )
         }
@@ -1421,10 +1504,13 @@ public extension TokenmonDatabaseManager {
 
     func removeFromParty(speciesID: String) throws {
         let database = try open()
-        try database.execute(
-            "DELETE FROM party_members WHERE species_id = ?;",
-            bindings: [.text(speciesID)]
-        )
+        try database.inTransaction {
+            try database.execute(
+                "DELETE FROM party_members WHERE species_id = ?;",
+                bindings: [.text(speciesID)]
+            )
+            try repairNowCampLead(database: database)
+        }
     }
 
     func partySpeciesIDSet() throws -> Set<String> {
@@ -1446,28 +1532,28 @@ public extension TokenmonDatabaseManager {
     }
 }
 
-private func decodeFieldType(_ rawValue: String, sql: String) throws -> FieldType {
+func decodeFieldType(_ rawValue: String, sql: String) throws -> FieldType {
     guard let field = FieldType(rawValue: rawValue) else {
         throw SQLiteError.statementFailed(message: "invalid field_code \(rawValue)", sql: sql)
     }
     return field
 }
 
-private func decodeRarityTier(_ rawValue: String, sql: String) throws -> RarityTier {
+func decodeRarityTier(_ rawValue: String, sql: String) throws -> RarityTier {
     guard let rarity = RarityTier(rawValue: rawValue) else {
         throw SQLiteError.statementFailed(message: "invalid rarity_tier \(rawValue)", sql: sql)
     }
     return rarity
 }
 
-private func decodeProviderCode(_ rawValue: String, sql: String) throws -> ProviderCode {
+func decodeProviderCode(_ rawValue: String, sql: String) throws -> ProviderCode {
     guard let provider = ProviderCode(rawValue: rawValue) else {
         throw SQLiteError.statementFailed(message: "invalid provider_code \(rawValue)", sql: sql)
     }
     return provider
 }
 
-private func decodeEncounterOutcome(_ rawValue: String, sql: String) throws -> EncounterOutcome {
+func decodeEncounterOutcome(_ rawValue: String, sql: String) throws -> EncounterOutcome {
     guard let outcome = EncounterOutcome(rawValue: rawValue) else {
         throw SQLiteError.statementFailed(message: "invalid encounter outcome \(rawValue)", sql: sql)
     }

@@ -163,6 +163,8 @@ public struct RaidPartyMember: Equatable, Codable, Sendable {
     public let slotOrder: Int
     public let capturedCount: Int64
     public let affinityLevel: Int64
+    public let trainingTrait: TrainingTrait
+    public let trainingRank: TrainingRank
     public let stats: SpeciesStatBlock
 
     public init(
@@ -174,6 +176,8 @@ public struct RaidPartyMember: Equatable, Codable, Sendable {
         slotOrder: Int,
         capturedCount: Int64,
         affinityLevel: Int64 = 1,
+        trainingTrait: TrainingTrait = .trail,
+        trainingRank: TrainingRank = .rankI,
         stats: SpeciesStatBlock
     ) {
         self.speciesID = speciesID
@@ -184,6 +188,8 @@ public struct RaidPartyMember: Equatable, Codable, Sendable {
         self.slotOrder = slotOrder
         self.capturedCount = capturedCount
         self.affinityLevel = affinityLevel
+        self.trainingTrait = trainingTrait
+        self.trainingRank = trainingRank
         self.stats = stats
     }
 
@@ -196,6 +202,8 @@ public struct RaidPartyMember: Equatable, Codable, Sendable {
         case slotOrder
         case capturedCount
         case affinityLevel
+        case trainingTrait
+        case trainingRank
         case stats
     }
 
@@ -210,6 +218,8 @@ public struct RaidPartyMember: Equatable, Codable, Sendable {
         capturedCount = try container.decode(Int64.self, forKey: .capturedCount)
         affinityLevel = try container.decodeIfPresent(Int64.self, forKey: .affinityLevel)
             ?? Int64(Self.migratedAffinityLevel(capturedCount: capturedCount))
+        trainingTrait = try container.decodeIfPresent(TrainingTrait.self, forKey: .trainingTrait) ?? .trail
+        trainingRank = try container.decodeIfPresent(TrainingRank.self, forKey: .trainingRank) ?? .rankI
         stats = try container.decode(SpeciesStatBlock.self, forKey: .stats)
     }
 

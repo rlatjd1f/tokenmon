@@ -689,6 +689,39 @@ final class TokenmonMenuModel: ObservableObject {
         }
     }
 
+    func setNowCampLead(_ speciesID: String?) {
+        do {
+            try databaseManager.setNowCampLead(speciesID: speciesID)
+            loadError = nil
+            refresh(reason: .partyChanged)
+        } catch {
+            loadError = error.localizedDescription
+            refresh(reason: .partyChanged)
+        }
+    }
+
+    func applyNowCampCareToLead() {
+        do {
+            _ = try databaseManager.applyLeadCare()
+            loadError = nil
+            refresh(reason: .partyChanged)
+        } catch {
+            loadError = error.localizedDescription
+            refresh(reason: .partyChanged)
+        }
+    }
+
+    func trainNowCampLead() {
+        do {
+            _ = try databaseManager.trainNowCampLead()
+            loadError = nil
+            refresh(reason: .partyChanged)
+        } catch {
+            loadError = error.localizedDescription
+            refresh(reason: .partyChanged)
+        }
+    }
+
     enum PartyMutationOutcome {
         case added, removed, partyFull, notCaptured, failed
     }
@@ -1049,10 +1082,13 @@ final class TokenmonMenuModel: ObservableObject {
 
     var raidDashboard: RaidDashboardSummary? { runtimeSnapshot.raidDashboard }
 
+    var nowCampSummary: NowCampSummary? { runtimeSnapshot.nowCampSummary }
+
     var dexEntries: [DexEntrySummary] { insightsSnapshot.dexEntries }
 
     var partyMembers: [PartyMemberSummary] { insightsSnapshot.partyMembers }
     var partySpeciesIDs: Set<String> { insightsSnapshot.partySpeciesIDs }
+    var nowCampLeadSpeciesID: String? { nowCampSummary?.leadSpeciesID }
     var isPartyFull: Bool { partyMembers.count >= 10 }
 
     var todayActivity: TodayActivitySummary? { runtimeSnapshot.todayActivity }
@@ -1314,7 +1350,8 @@ final class TokenmonMenuModel: ObservableObject {
                 todayActivity: try databaseManager.todayActivitySummary(),
                 providerHealthSummaries: [],
                 ambientCompanionRoster: try databaseManager.ambientCompanionRoster(),
-                raidDashboard: try databaseManager.raidDashboardSummary()
+                raidDashboard: try databaseManager.raidDashboardSummary(),
+                nowCampSummary: try databaseManager.nowCampSummary()
             )
             loadError = nil
         } catch {

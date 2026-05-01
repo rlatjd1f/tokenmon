@@ -262,6 +262,8 @@ public final class TokenmonDatabaseManager {
                 bindings: [.text(now)]
             )
             try database.execute("DELETE FROM backfill_runs;")
+            try database.execute("DELETE FROM party_members;")
+            try database.execute("DELETE FROM species_training;")
             try database.execute("DELETE FROM dex_captured;")
             try database.execute("DELETE FROM dex_seen;")
             try database.execute("DELETE FROM encounters;")
@@ -272,6 +274,19 @@ public final class TokenmonDatabaseManager {
             try database.execute("DELETE FROM ingest_sources;")
             try database.execute("DELETE FROM provider_health;")
             try database.execute("DELETE FROM provider_sessions;")
+            try database.execute(
+                """
+                UPDATE now_camp_state
+                SET lead_species_id = NULL,
+                    focus_energy = 0,
+                    focus_remainder_tokens = 0,
+                    focus_earned_local_date = date('now', 'localtime'),
+                    focus_earned_today = 0,
+                    updated_at = ?
+                WHERE singleton_id = 1;
+                """,
+                bindings: [.text(now)]
+            )
             try database.execute(
                 """
                 UPDATE exploration_state
@@ -315,11 +330,31 @@ public final class TokenmonDatabaseManager {
 
         try database.inTransaction {
             try deleteDomainEvents(
-                matching: [.seenDexUpdated, .capturedDexUpdated, .speciesAffinityUpdated],
+                matching: [
+                    .seenDexUpdated,
+                    .capturedDexUpdated,
+                    .speciesAffinityUpdated,
+                    .nowCampLeadSelected,
+                    .leadCareApplied,
+                    .leadTrainingAttempted,
+                    .leadTrainingResolved,
+                    .leaderTraitBonusApplied,
+                ],
                 database: database
             )
+            try database.execute("DELETE FROM party_members;")
+            try database.execute("DELETE FROM species_training;")
             try database.execute("DELETE FROM dex_captured;")
             try database.execute("DELETE FROM dex_seen;")
+            try database.execute(
+                """
+                UPDATE now_camp_state
+                SET lead_species_id = NULL,
+                    updated_at = ?
+                WHERE singleton_id = 1;
+                """,
+                bindings: [.text(now)]
+            )
             try touchExplorationState(updatedAt: now, database: database)
             try ensurePendingEncounterThresholdPolicy(database: database, force: true)
         }
@@ -342,12 +377,28 @@ public final class TokenmonDatabaseManager {
                     .seenDexUpdated,
                     .capturedDexUpdated,
                     .speciesAffinityUpdated,
+                    .nowCampLeadSelected,
+                    .leadCareApplied,
+                    .leadTrainingAttempted,
+                    .leadTrainingResolved,
+                    .leaderTraitBonusApplied,
                 ],
                 database: database
             )
+            try database.execute("DELETE FROM party_members;")
+            try database.execute("DELETE FROM species_training;")
             try database.execute("DELETE FROM dex_captured;")
             try database.execute("DELETE FROM dex_seen;")
             try database.execute("DELETE FROM encounters;")
+            try database.execute(
+                """
+                UPDATE now_camp_state
+                SET lead_species_id = NULL,
+                    updated_at = ?
+                WHERE singleton_id = 1;
+                """,
+                bindings: [.text(now)]
+            )
             try database.execute(
                 """
                 UPDATE exploration_state
@@ -642,6 +693,9 @@ public final class TokenmonDatabaseManager {
         try ensureSpeciesCatalog(database)
         try ensureRaidCatalog(database)
         try ensureExplorationState(database)
+        try ensureNowCampState(database: database)
+        try ensureSpeciesTrainingRowsForCaptured(database: database)
+        try repairNowCampLead(database: database)
         try ensureEncounterTotalsConsistent(database: database)
         try ensurePendingEncounterThresholdPolicy(database: database, force: false)
         try ensureGameplayStartedAt(database)
@@ -1390,8 +1444,9 @@ public final class TokenmonDatabaseManager {
                     stat_backend,
                     stat_pm,
                     stat_infra,
-                    traits_json
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    traits_json,
+                    training_trait
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ON CONFLICT(species_id) DO UPDATE SET
                     name = excluded.name,
                     field_code = excluded.field_code,
@@ -1407,7 +1462,8 @@ public final class TokenmonDatabaseManager {
                     stat_backend = excluded.stat_backend,
                     stat_pm = excluded.stat_pm,
                     stat_infra = excluded.stat_infra,
-                    traits_json = excluded.traits_json;
+                    traits_json = excluded.traits_json,
+                    training_trait = excluded.training_trait;
                 """,
                 bindings: [
                     .text(species.id),
@@ -1427,6 +1483,7 @@ public final class TokenmonDatabaseManager {
                     .integer(Int64(species.stats.pm)),
                     .integer(Int64(species.stats.infra)),
                     .text(speciesTraitsJSON(species.stats.traits)),
+                    .text(species.trainingTrait.rawValue),
                 ]
             )
         }
@@ -1738,6 +1795,7 @@ public final class TokenmonDatabaseManager {
                     asset_key TEXT,
                     flavor_text TEXT,
                     introduced_in_version TEXT NOT NULL,
+                    training_trait TEXT NOT NULL DEFAULT 'trail' CHECK(training_trait IN ('trail', 'scout', 'capture', 'raider')),
                     created_at TEXT NOT NULL,
                     UNIQUE(field_code, name)
                 );
@@ -2529,6 +2587,72 @@ public final class TokenmonDatabaseManager {
                 WHERE affinity_last_outcome IS NULL
                    OR affinity_last_outcome = '';
                 """,
+            ]),
+            SQLiteMigration(version: 16, statements: [
+                "ALTER TABLE species ADD COLUMN training_trait TEXT NOT NULL DEFAULT 'trail' CHECK(training_trait IN ('trail', 'scout', 'capture', 'raider'));",
+                """
+                CREATE TABLE IF NOT EXISTS now_camp_state (
+                    singleton_id INTEGER PRIMARY KEY NOT NULL CHECK(singleton_id = 1),
+                    lead_species_id TEXT REFERENCES species(species_id),
+                    focus_energy INTEGER NOT NULL DEFAULT 0 CHECK(focus_energy BETWEEN 0 AND 100),
+                    focus_remainder_tokens INTEGER NOT NULL DEFAULT 0 CHECK(focus_remainder_tokens >= 0 AND focus_remainder_tokens < 50000),
+                    focus_earned_local_date TEXT NOT NULL,
+                    focus_earned_today INTEGER NOT NULL DEFAULT 0 CHECK(focus_earned_today >= 0),
+                    save_training_seed TEXT NOT NULL,
+                    updated_at TEXT NOT NULL
+                );
+                """,
+                """
+                INSERT INTO now_camp_state (
+                    singleton_id,
+                    lead_species_id,
+                    focus_energy,
+                    focus_remainder_tokens,
+                    focus_earned_local_date,
+                    focus_earned_today,
+                    save_training_seed,
+                    updated_at
+                ) VALUES (
+                    1,
+                    (SELECT species_id FROM party_members ORDER BY slot_order ASC LIMIT 1),
+                    0,
+                    0,
+                    date('now', 'localtime'),
+                    0,
+                    lower(hex(randomblob(16))),
+                    strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+                )
+                ON CONFLICT(singleton_id) DO NOTHING;
+                """,
+                """
+                CREATE TABLE IF NOT EXISTS species_training (
+                    species_id TEXT PRIMARY KEY NOT NULL REFERENCES species(species_id) ON DELETE CASCADE,
+                    training_rank INTEGER NOT NULL DEFAULT 1 CHECK(training_rank BETWEEN 1 AND 5),
+                    training_resonance INTEGER NOT NULL DEFAULT 0 CHECK(training_resonance >= 0),
+                    training_attempt_count INTEGER NOT NULL DEFAULT 0 CHECK(training_attempt_count >= 0),
+                    care_charge INTEGER NOT NULL DEFAULT 0 CHECK(care_charge IN (0, 1)),
+                    updated_at TEXT NOT NULL
+                );
+                """,
+                """
+                INSERT OR IGNORE INTO species_training (
+                    species_id,
+                    training_rank,
+                    training_resonance,
+                    training_attempt_count,
+                    care_charge,
+                    updated_at
+                )
+                SELECT species_id,
+                       1,
+                       0,
+                       0,
+                       0,
+                       strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+                FROM dex_captured;
+                """,
+                "ALTER TABLE raid_member_hits ADD COLUMN training_raid_bonus INTEGER NOT NULL DEFAULT 0 CHECK(training_raid_bonus >= 0);",
+                "CREATE INDEX IF NOT EXISTS idx_species_training_rank ON species_training(training_rank);",
             ]),
         ]
     }
