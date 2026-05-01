@@ -405,6 +405,12 @@ private struct TokenmonNowCampHeroCard: View {
                 animates: !reduceMotion
             )
 
+            if let lead {
+                campPartyScene(for: lead)
+            } else {
+                emptyCampScene
+            }
+
             VStack(alignment: .leading, spacing: 8) {
                 HStack(alignment: .top) {
                     focusPill
@@ -414,10 +420,8 @@ private struct TokenmonNowCampHeroCard: View {
 
                 Spacer(minLength: 0)
 
-                HStack(alignment: .bottom, spacing: 10) {
-                    leadSprite
-                    supportSprites
-                        .padding(.bottom, lead == nil ? 0 : 14)
+                HStack(alignment: .bottom, spacing: 8) {
+                    trainingBadge
                     Spacer(minLength: 0)
                     actionStack
                 }
@@ -485,98 +489,180 @@ private struct TokenmonNowCampHeroCard: View {
     }
 
     @ViewBuilder
-    private var leadSprite: some View {
-        if let lead {
-            VStack(alignment: .leading, spacing: 3) {
-                ZStack(alignment: .bottomTrailing) {
-                    TokenmonDexSpritePreview(
-                        status: .captured,
-                        revealStage: .revealed,
-                        field: lead.field,
-                        rarity: lead.rarity,
-                        assetKey: lead.assetKey,
-                        cardSize: 58,
-                        spriteSize: 42,
-                        showsBackground: false,
-                        showsBorder: false
-                    )
-                    NowCampEffectSpriteImage(scope: .field(lead.field), variant: .campProp32)
-                        .frame(width: 20, height: 20)
-                        .offset(x: 5, y: 5)
-                }
-                Text(trainingLine(for: lead))
-                    .font(.system(size: 9, weight: .bold, design: .rounded))
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.74)
-                    .foregroundStyle(.primary)
-                    .frame(width: 104, alignment: .leading)
-            }
-        } else {
-            VStack(alignment: .leading, spacing: 4) {
-                Image(systemName: "crown")
-                    .font(.system(size: 26, weight: .semibold))
-                    .frame(width: 58, height: 58)
-                    .foregroundStyle(.secondary)
-                    .background(
-                        RoundedRectangle(cornerRadius: 14, style: .continuous)
-                            .fill(Color(nsColor: .controlBackgroundColor).opacity(0.72))
-                    )
-                Text(TokenmonL10n.string("now.camp.no_party"))
-                    .font(.system(size: 9, weight: .semibold, design: .rounded))
-                    .lineLimit(2)
-                    .foregroundStyle(.secondary)
-                    .frame(width: 108, alignment: .leading)
-            }
-        }
-    }
+    private func campPartyScene(for lead: NowCampLeadSummary) -> some View {
+        GeometryReader { geometry in
+            let width = geometry.size.width
 
-    private var supportSprites: some View {
-        HStack(spacing: 2) {
-            ForEach(supportMembers, id: \.speciesID) { member in
+            ZStack {
+                Ellipse()
+                    .fill(Color.black.opacity(0.18))
+                    .frame(width: 142, height: 18)
+                    .position(x: width * 0.52, y: 104)
+
+                if let firstSupport = supportMembers.first {
+                    supportSprite(for: firstSupport)
+                        .position(x: width * 0.38, y: 86)
+                }
+
+                if supportMembers.count > 1 {
+                    supportSprite(for: supportMembers[1])
+                        .position(x: width * 0.66, y: 87)
+                }
+
+                NowCampEffectSpriteImage(scope: .field(lead.field), variant: .campProp32)
+                    .frame(width: 38, height: 38)
+                    .position(x: width * 0.57, y: 92)
+
                 TokenmonDexSpritePreview(
                     status: .captured,
                     revealStage: .revealed,
-                    field: member.field,
-                    rarity: member.rarity,
-                    assetKey: member.assetKey,
-                    cardSize: 34,
-                    spriteSize: 24,
+                    field: lead.field,
+                    rarity: lead.rarity,
+                    assetKey: lead.assetKey,
+                    cardSize: 62,
+                    spriteSize: 46,
                     showsBackground: false,
                     showsBorder: false
                 )
-                .help(member.displayName)
+                .position(x: width * 0.52, y: 73)
             }
         }
+        .allowsHitTesting(false)
+    }
+
+    private var emptyCampScene: some View {
+        VStack(spacing: 4) {
+            Image(systemName: "crown")
+                .font(.system(size: 26, weight: .semibold))
+                .foregroundStyle(.secondary)
+            Text(TokenmonL10n.string("now.camp.no_party"))
+                .font(.system(size: 9, weight: .semibold, design: .rounded))
+                .foregroundStyle(.secondary)
+        }
+        .frame(width: 96, height: 62)
+        .background(
+            Capsule(style: .continuous)
+                .fill(Color(nsColor: .controlBackgroundColor).opacity(0.72))
+        )
+        .position(x: 95, y: 78)
+    }
+
+    private func supportSprite(for member: PartyMemberSummary) -> some View {
+        TokenmonDexSpritePreview(
+            status: .captured,
+            revealStage: .revealed,
+            field: member.field,
+            rarity: member.rarity,
+            assetKey: member.assetKey,
+            cardSize: 36,
+            spriteSize: 26,
+            showsBackground: false,
+            showsBorder: false
+        )
+        .opacity(0.92)
+        .help(member.displayName)
+    }
+
+    private var trainingBadge: some View {
+        Group {
+            if let lead {
+                Text(trainingLine(for: lead))
+            } else {
+                Text(TokenmonL10n.string("now.camp.no_party"))
+            }
+        }
+        .font(.system(size: 9, weight: .bold, design: .rounded))
+        .lineLimit(1)
+        .minimumScaleFactor(0.72)
+        .foregroundStyle(.primary)
+        .padding(.horizontal, 7)
+        .padding(.vertical, 4)
+        .background(
+            Capsule(style: .continuous)
+                .fill(Color(nsColor: .controlBackgroundColor).opacity(0.72))
+        )
+        .frame(maxWidth: 150, alignment: .leading)
     }
 
     private var actionStack: some View {
-        VStack(alignment: .trailing, spacing: 5) {
-            Button {
-                model.trainNowCampLead()
-            } label: {
-                actionIcon(
-                    variant: .trainFX16,
-                    fallbackSystemImage: "figure.strengthtraining.traditional",
-                    accessibilityLabel: TokenmonL10n.string("now.camp.train")
-                )
-            }
-            .disabled(canTrain == false)
-            .help(TokenmonL10n.string("now.camp.train.help"))
+        VStack(alignment: .trailing, spacing: 4) {
+            actionButton(
+                title: TokenmonL10n.string("now.camp.train"),
+                variant: .trainFX16,
+                fallbackSystemImage: "figure.strengthtraining.traditional",
+                isEnabled: canTrain,
+                help: TokenmonL10n.string("now.camp.train.help"),
+                action: {
+                    model.trainNowCampLead()
+                }
+            )
 
-            Button {
-                model.applyNowCampCareToLead()
-            } label: {
-                actionIcon(
-                    variant: .careFX16,
-                    fallbackSystemImage: "heart.fill",
-                    accessibilityLabel: TokenmonL10n.string("now.camp.care")
-                )
-            }
-            .disabled(canCare == false)
-            .help(TokenmonL10n.string("now.camp.care.help"))
+            actionButton(
+                title: TokenmonL10n.string("now.camp.care"),
+                variant: .careFX16,
+                fallbackSystemImage: "heart.fill",
+                isEnabled: canCare,
+                help: TokenmonL10n.string("now.camp.care.help"),
+                action: {
+                    model.applyNowCampCareToLead()
+                }
+            )
         }
-        .buttonStyle(.borderless)
-        .controlSize(.small)
+    }
+
+    private func actionButton(
+        title: String,
+        variant: NowCampEffectSpriteVariant,
+        fallbackSystemImage: String,
+        isEnabled: Bool,
+        help: String,
+        action: @escaping () -> Void
+    ) -> some View {
+        Button {
+            guard isEnabled else { return }
+            action()
+        } label: {
+            HStack(spacing: 4) {
+                actionIcon(
+                    variant: variant,
+                    fallbackSystemImage: fallbackSystemImage
+                )
+                Text(title)
+                    .font(.system(size: 9, weight: .bold, design: .rounded))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.78)
+            }
+            .foregroundStyle(.primary)
+            .padding(.horizontal, 7)
+            .frame(width: 58, height: 23)
+            .background(
+                Capsule(style: .continuous)
+                    .fill(Color(nsColor: .controlBackgroundColor).opacity(0.82))
+            )
+            .overlay(
+                Capsule(style: .continuous)
+                    .stroke(Color.secondary.opacity(0.18), lineWidth: 0.8)
+            )
+            .opacity(isEnabled ? 1 : 0.84)
+        }
+        .buttonStyle(.plain)
+        .help(help)
+        .accessibilityLabel(Text(title))
+    }
+
+    @ViewBuilder
+    private func actionIcon(
+        variant: NowCampEffectSpriteVariant,
+        fallbackSystemImage: String
+    ) -> some View {
+        if let lead {
+            NowCampEffectSpriteImage(scope: .field(lead.field), variant: variant)
+                .frame(width: 14, height: 14)
+        } else {
+            Image(systemName: fallbackSystemImage)
+                .font(.system(size: 11, weight: .semibold))
+                .frame(width: 14, height: 14)
+        }
     }
 
     private var canTrain: Bool {
@@ -590,26 +676,6 @@ private struct TokenmonNowCampHeroCard: View {
         return nowCamp.focusEnergy >= 10
             && lead.training.careCharge == false
             && lead.training.trainingRank.rawValue < Int(lead.affinityLevel)
-    }
-
-    @ViewBuilder
-    private func actionIcon(
-        variant: NowCampEffectSpriteVariant,
-        fallbackSystemImage: String,
-        accessibilityLabel: String
-    ) -> some View {
-        ZStack {
-            if let lead {
-                NowCampEffectSpriteImage(scope: .field(lead.field), variant: variant)
-                    .frame(width: 16, height: 16)
-            } else {
-                Image(systemName: fallbackSystemImage)
-                    .font(.system(size: 13, weight: .semibold))
-            }
-        }
-        .frame(width: 22, height: 22)
-        .contentShape(Rectangle())
-        .accessibilityLabel(Text(accessibilityLabel))
     }
 
     private func trainingLine(for lead: NowCampLeadSummary) -> String {

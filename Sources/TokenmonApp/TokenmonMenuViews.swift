@@ -167,9 +167,8 @@ struct TokenmonSceneDebugPanel: View {
                                     debugController.selectField(field)
                                 },
                                 content: AnyView(
-                                    TokenmonNowFieldHeroCard(
+                                    TokenmonNowCampSceneDebugPreview(
                                         sceneContext: debugContext(for: field),
-                                        companionAssetKeys: debugCompanionAssetKeys(for: field),
                                         animates: false
                                     )
                                     .frame(width: 272)
@@ -383,6 +382,150 @@ private struct TokenmonSceneDebugCard: View {
             .contentShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
         }
         .buttonStyle(.plain)
+    }
+}
+
+private struct TokenmonNowCampSceneDebugPreview: View {
+    let sceneContext: TokenmonSceneContext
+    let animates: Bool
+
+    private var field: FieldType {
+        sceneContext.fieldKind.debugFieldType
+    }
+
+    private var sampleSpecies: [SpeciesDefinition] {
+        Array(
+            SpeciesCatalog.all
+                .filter { $0.isActive && $0.field == field }
+                .prefix(3)
+        )
+    }
+
+    var body: some View {
+        ZStack(alignment: .topLeading) {
+            TokenmonPopoverHeroSceneCard(
+                context: sceneContext,
+                companionAssetKeys: [],
+                animates: animates
+            )
+
+            if let lead = sampleSpecies.first {
+                debugCampScene(lead: lead, supports: Array(sampleSpecies.dropFirst()))
+
+                VStack {
+                    Spacer(minLength: 0)
+                    HStack(alignment: .bottom) {
+                        Text(TokenmonL10n.format(
+                            "now.camp.training_line",
+                            TrainingRank.rankI.romanNumeral,
+                            lead.trainingTrait.displayName,
+                            Int64(0)
+                        ))
+                        .font(.system(size: 9, weight: .bold, design: .rounded))
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.72)
+                        .padding(.horizontal, 7)
+                        .padding(.vertical, 4)
+                        .background(
+                            Capsule(style: .continuous)
+                                .fill(Color(nsColor: .controlBackgroundColor).opacity(0.72))
+                        )
+
+                        Spacer(minLength: 0)
+
+                        VStack(alignment: .trailing, spacing: 4) {
+                            debugActionLabel(
+                                title: TokenmonL10n.string("now.camp.train"),
+                                variant: .trainFX16
+                            )
+                            debugActionLabel(
+                                title: TokenmonL10n.string("now.camp.care"),
+                                variant: .careFX16
+                            )
+                        }
+                    }
+                }
+                .padding(10)
+            }
+        }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(TokenmonL10n.string("developer.visual.now_camp.preview_accessibility"))
+    }
+
+    private func debugCampScene(
+        lead: SpeciesDefinition,
+        supports: [SpeciesDefinition]
+    ) -> some View {
+        GeometryReader { geometry in
+            let width = geometry.size.width
+
+            ZStack {
+                Ellipse()
+                    .fill(Color.black.opacity(0.18))
+                    .frame(width: 142, height: 18)
+                    .position(x: width * 0.52, y: 104)
+
+                if let firstSupport = supports.first {
+                    debugSpeciesSprite(firstSupport, cardSize: 36, spriteSize: 26)
+                        .position(x: width * 0.38, y: 86)
+                }
+
+                if supports.count > 1 {
+                    debugSpeciesSprite(supports[1], cardSize: 36, spriteSize: 26)
+                        .position(x: width * 0.66, y: 87)
+                }
+
+                NowCampEffectSpriteImage(scope: .field(field), variant: .campProp32)
+                    .frame(width: 38, height: 38)
+                    .position(x: width * 0.57, y: 92)
+
+                debugSpeciesSprite(lead, cardSize: 62, spriteSize: 46)
+                    .position(x: width * 0.52, y: 73)
+            }
+        }
+        .allowsHitTesting(false)
+    }
+
+    private func debugSpeciesSprite(
+        _ species: SpeciesDefinition,
+        cardSize: CGFloat,
+        spriteSize: CGFloat
+    ) -> some View {
+        TokenmonDexSpritePreview(
+            status: .captured,
+            revealStage: .revealed,
+            field: species.field,
+            rarity: species.rarity,
+            assetKey: species.assetKey,
+            cardSize: cardSize,
+            spriteSize: spriteSize,
+            showsBackground: false,
+            showsBorder: false
+        )
+    }
+
+    private func debugActionLabel(
+        title: String,
+        variant: NowCampEffectSpriteVariant
+    ) -> some View {
+        HStack(spacing: 4) {
+            NowCampEffectSpriteImage(scope: .field(field), variant: variant)
+                .frame(width: 14, height: 14)
+            Text(title)
+                .font(.system(size: 9, weight: .bold, design: .rounded))
+                .lineLimit(1)
+                .minimumScaleFactor(0.78)
+        }
+        .padding(.horizontal, 7)
+        .frame(width: 58, height: 23)
+        .background(
+            Capsule(style: .continuous)
+                .fill(Color(nsColor: .controlBackgroundColor).opacity(0.82))
+        )
+        .overlay(
+            Capsule(style: .continuous)
+                .stroke(Color.secondary.opacity(0.18), lineWidth: 0.8)
+        )
     }
 }
 
