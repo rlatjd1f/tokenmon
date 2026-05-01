@@ -428,5 +428,5 @@
 "now.camp.train.help" = "Spend 30 Focus";
 "now.camp.care" = "Care";
 "now.camp.care.help" = "Spend 10 Focus";
-"now.camp.training_line" = "Rank %1$@ · %2$@ · R%3$@";
+"now.camp.training_line" = "Rank %1$@ · %2$@ · R%3$lld";
 "dex.context_menu.set_lead" = "Set Lead";

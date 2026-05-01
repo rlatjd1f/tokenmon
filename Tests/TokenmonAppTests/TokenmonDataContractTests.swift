@@ -1,4 +1,5 @@
 import Foundation
+import AppKit
 import Testing
 @testable import TokenmonGameEngine
 @testable import TokenmonOtelProviders
@@ -4144,6 +4145,7 @@ struct TokenmonDataContractTests {
                     .appendingPathComponent(filename)
                     .path
                 #expect(FileManager.default.fileExists(atPath: path))
+                #expect(runtimePNGHasAlpha(atPath: path))
             }
         }
 
@@ -4153,7 +4155,18 @@ struct TokenmonDataContractTests {
                 .appendingPathComponent(filename)
                 .path
             #expect(FileManager.default.fileExists(atPath: path))
+            #expect(runtimePNGHasAlpha(atPath: path))
         }
+    }
+
+    private func runtimePNGHasAlpha(atPath path: String) -> Bool {
+        guard let image = NSImage(contentsOfFile: path),
+              let data = image.tiffRepresentation,
+              let rep = NSBitmapImageRep(data: data) else {
+            return false
+        }
+
+        return rep.hasAlpha
     }
 
     @Test

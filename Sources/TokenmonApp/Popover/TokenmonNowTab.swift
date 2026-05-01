@@ -496,8 +496,8 @@ private struct TokenmonNowCampHeroCard: View {
                         assetKey: lead.assetKey,
                         cardSize: 58,
                         spriteSize: 42,
-                        showsBackground: true,
-                        showsBorder: true
+                        showsBackground: false,
+                        showsBorder: false
                     )
                     NowCampEffectSpriteImage(scope: .field(lead.field), variant: .campProp32)
                         .frame(width: 20, height: 20)
@@ -540,8 +540,8 @@ private struct TokenmonNowCampHeroCard: View {
                     assetKey: member.assetKey,
                     cardSize: 38,
                     spriteSize: 27,
-                    showsBackground: true,
-                    showsBorder: true
+                    showsBackground: false,
+                    showsBorder: false
                 )
                 .help(member.displayName)
             }
@@ -592,7 +592,7 @@ private struct TokenmonNowCampHeroCard: View {
             "now.camp.training_line",
             rank,
             lead.trainingTrait.displayName,
-            resonance
+            Int64(resonance)
         )
     }
 }
