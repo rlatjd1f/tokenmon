@@ -371,6 +371,17 @@
 "settings.feedback.cursor_sync_started" = "Syncing Cursor usage into Tokenmon…";
 "developer.visual.scene_debugger.field_time_of_day" = "Field time of day";
 "developer.visual.scene_debugger.field_time_of_day_note" = "Preview every generated field background without changing the system clock.";
+"developer.visual.scene_debugger.now_camp_runtime_assets" = "Now Camp runtime assets";
+"developer.visual.scene_debugger.now_camp_runtime_assets_note" = "Preview the field-scoped camp, care, and train sprites plus shared training result sprites.";
+"developer.visual.now_camp.field_assets_subtitle" = "Camp · Care · Train";
+"developer.visual.now_camp.common_assets_title" = "Common";
+"developer.visual.now_camp.common_assets_subtitle" = "Focus · Success · Fail";
+"developer.visual.now_camp.asset.camp_prop" = "Camp";
+"developer.visual.now_camp.asset.care_fx" = "Care";
+"developer.visual.now_camp.asset.train_fx" = "Train";
+"developer.visual.now_camp.asset.resonance" = "Focus";
+"developer.visual.now_camp.asset.success" = "Success";
+"developer.visual.now_camp.asset.fail" = "Fail";
 "developer.visual.time.morning" = "Morning";
 "developer.visual.time.day" = "Day";
 "developer.visual.time.evening" = "Evening";

@@ -182,6 +182,40 @@ struct TokenmonSceneDebugPanel: View {
             }
 
             VStack(alignment: .leading, spacing: 12) {
+                Text(TokenmonL10n.string("developer.visual.scene_debugger.now_camp_runtime_assets"))
+                    .font(.headline)
+                Text(TokenmonL10n.string("developer.visual.scene_debugger.now_camp_runtime_assets_note"))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(alignment: .top, spacing: 14) {
+                        ForEach(fields, id: \.rawValue) { field in
+                            TokenmonSceneDebugCard(
+                                title: field.debugTitle,
+                                subtitle: TokenmonL10n.string("developer.visual.now_camp.field_assets_subtitle"),
+                                isSelected: field == debugController.previewFieldKind,
+                                action: {
+                                    debugController.selectField(field)
+                                },
+                                content: AnyView(
+                                    TokenmonNowCampFieldAssetPreview(field: field.debugFieldType)
+                                )
+                            )
+                            .frame(width: 202)
+                        }
+
+                        TokenmonSceneDebugCard(
+                            title: TokenmonL10n.string("developer.visual.now_camp.common_assets_title"),
+                            subtitle: TokenmonL10n.string("developer.visual.now_camp.common_assets_subtitle"),
+                            content: AnyView(TokenmonNowCampCommonAssetPreview())
+                        )
+                        .frame(width: 202)
+                    }
+                }
+            }
+
+            VStack(alignment: .leading, spacing: 12) {
                 Text(TokenmonL10n.string("developer.visual.scene_debugger.field_time_of_day"))
                     .font(.headline)
                 Text(TokenmonL10n.string("developer.visual.scene_debugger.field_time_of_day_note"))
@@ -349,6 +383,88 @@ private struct TokenmonSceneDebugCard: View {
             .contentShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
         }
         .buttonStyle(.plain)
+    }
+}
+
+private struct TokenmonNowCampFieldAssetPreview: View {
+    let field: FieldType
+
+    var body: some View {
+        HStack(spacing: 10) {
+            TokenmonNowCampAssetTile(
+                title: TokenmonL10n.string("developer.visual.now_camp.asset.camp_prop"),
+                scope: .field(field),
+                variant: .campProp32,
+                imageSize: 30
+            )
+            TokenmonNowCampAssetTile(
+                title: TokenmonL10n.string("developer.visual.now_camp.asset.care_fx"),
+                scope: .field(field),
+                variant: .careFX16,
+                imageSize: 22
+            )
+            TokenmonNowCampAssetTile(
+                title: TokenmonL10n.string("developer.visual.now_camp.asset.train_fx"),
+                scope: .field(field),
+                variant: .trainFX16,
+                imageSize: 22
+            )
+        }
+    }
+}
+
+private struct TokenmonNowCampCommonAssetPreview: View {
+    var body: some View {
+        HStack(spacing: 10) {
+            TokenmonNowCampAssetTile(
+                title: TokenmonL10n.string("developer.visual.now_camp.asset.resonance"),
+                scope: .common,
+                variant: .resonanceOrb16,
+                imageSize: 22
+            )
+            TokenmonNowCampAssetTile(
+                title: TokenmonL10n.string("developer.visual.now_camp.asset.success"),
+                scope: .common,
+                variant: .trainingSuccess16,
+                imageSize: 22
+            )
+            TokenmonNowCampAssetTile(
+                title: TokenmonL10n.string("developer.visual.now_camp.asset.fail"),
+                scope: .common,
+                variant: .trainingFail16,
+                imageSize: 22
+            )
+        }
+    }
+}
+
+private struct TokenmonNowCampAssetTile: View {
+    let title: String
+    let scope: NowCampEffectSpriteScope
+    let variant: NowCampEffectSpriteVariant
+    let imageSize: CGFloat
+
+    var body: some View {
+        VStack(spacing: 6) {
+            ZStack {
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .fill(Color(nsColor: .controlBackgroundColor).opacity(0.72))
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .stroke(Color.secondary.opacity(0.20), lineWidth: 0.8)
+                NowCampEffectSpriteImage(scope: scope, variant: variant)
+                    .frame(width: imageSize, height: imageSize)
+            }
+            .frame(width: 44, height: 44)
+
+            Text(title)
+                .font(.caption2.weight(.semibold))
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
+                .minimumScaleFactor(0.72)
+                .frame(width: 48)
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(Text(title))
     }
 }
 

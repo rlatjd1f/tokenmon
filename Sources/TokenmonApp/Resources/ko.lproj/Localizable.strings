@@ -668,6 +668,17 @@
 "developer.visual.scene_debugger.selected_field" = "선택된 필드: %1$@. 오프셋은 필드별로 저장됩니다.";
 "developer.visual.scene_debugger.field_effect_note" = "필드-이펙트 모드에서는 스트립에서 야생 스프라이트를 숨기고, spawn-pocket 이펙트로 alert/capture/escape 비트를 미리 봅니다.";
 "developer.visual.scene_debugger.now_tab_hero" = "현황 탭 히어로";
+"developer.visual.scene_debugger.now_camp_runtime_assets" = "Now Camp 런타임 에셋";
+"developer.visual.scene_debugger.now_camp_runtime_assets_note" = "필드별 캠프, 돌봄, 훈련 스프라이트와 공통 훈련 결과 스프라이트를 바로 비교합니다.";
+"developer.visual.now_camp.field_assets_subtitle" = "캠프 · 돌봄 · 훈련";
+"developer.visual.now_camp.common_assets_title" = "공통";
+"developer.visual.now_camp.common_assets_subtitle" = "포커스 · 성공 · 실패";
+"developer.visual.now_camp.asset.camp_prop" = "캠프";
+"developer.visual.now_camp.asset.care_fx" = "돌봄";
+"developer.visual.now_camp.asset.train_fx" = "훈련";
+"developer.visual.now_camp.asset.resonance" = "포커스";
+"developer.visual.now_camp.asset.success" = "성공";
+"developer.visual.now_camp.asset.fail" = "실패";
 "developer.visual.scene_debugger.field_time_of_day" = "필드 시간대별 배경";
 "developer.visual.scene_debugger.field_time_of_day_note" = "시스템 시간을 바꾸지 않고 생성된 모든 필드 배경을 비교합니다.";
 "developer.visual.time.morning" = "아침";

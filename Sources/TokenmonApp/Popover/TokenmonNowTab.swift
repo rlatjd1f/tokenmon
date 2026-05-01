@@ -414,9 +414,10 @@ private struct TokenmonNowCampHeroCard: View {
 
                 Spacer(minLength: 0)
 
-                HStack(alignment: .bottom, spacing: 8) {
+                HStack(alignment: .bottom, spacing: 10) {
                     leadSprite
                     supportSprites
+                        .padding(.bottom, lead == nil ? 0 : 14)
                     Spacer(minLength: 0)
                     actionStack
                 }
@@ -530,7 +531,7 @@ private struct TokenmonNowCampHeroCard: View {
     }
 
     private var supportSprites: some View {
-        HStack(spacing: -8) {
+        HStack(spacing: 2) {
             ForEach(supportMembers, id: \.speciesID) { member in
                 TokenmonDexSpritePreview(
                     status: .captured,
@@ -538,8 +539,8 @@ private struct TokenmonNowCampHeroCard: View {
                     field: member.field,
                     rarity: member.rarity,
                     assetKey: member.assetKey,
-                    cardSize: 38,
-                    spriteSize: 27,
+                    cardSize: 34,
+                    spriteSize: 24,
                     showsBackground: false,
                     showsBorder: false
                 )
@@ -553,8 +554,11 @@ private struct TokenmonNowCampHeroCard: View {
             Button {
                 model.trainNowCampLead()
             } label: {
-                Label(TokenmonL10n.string("now.camp.train"), systemImage: "figure.strengthtraining.traditional")
-                    .labelStyle(.iconOnly)
+                actionIcon(
+                    variant: .trainFX16,
+                    fallbackSystemImage: "figure.strengthtraining.traditional",
+                    accessibilityLabel: TokenmonL10n.string("now.camp.train")
+                )
             }
             .disabled(canTrain == false)
             .help(TokenmonL10n.string("now.camp.train.help"))
@@ -562,8 +566,11 @@ private struct TokenmonNowCampHeroCard: View {
             Button {
                 model.applyNowCampCareToLead()
             } label: {
-                Label(TokenmonL10n.string("now.camp.care"), systemImage: "heart.fill")
-                    .labelStyle(.iconOnly)
+                actionIcon(
+                    variant: .careFX16,
+                    fallbackSystemImage: "heart.fill",
+                    accessibilityLabel: TokenmonL10n.string("now.camp.care")
+                )
             }
             .disabled(canCare == false)
             .help(TokenmonL10n.string("now.camp.care.help"))
@@ -583,6 +590,26 @@ private struct TokenmonNowCampHeroCard: View {
         return nowCamp.focusEnergy >= 10
             && lead.training.careCharge == false
             && lead.training.trainingRank.rawValue < Int(lead.affinityLevel)
+    }
+
+    @ViewBuilder
+    private func actionIcon(
+        variant: NowCampEffectSpriteVariant,
+        fallbackSystemImage: String,
+        accessibilityLabel: String
+    ) -> some View {
+        ZStack {
+            if let lead {
+                NowCampEffectSpriteImage(scope: .field(lead.field), variant: variant)
+                    .frame(width: 16, height: 16)
+            } else {
+                Image(systemName: fallbackSystemImage)
+                    .font(.system(size: 13, weight: .semibold))
+            }
+        }
+        .frame(width: 22, height: 22)
+        .contentShape(Rectangle())
+        .accessibilityLabel(Text(accessibilityLabel))
     }
 
     private func trainingLine(for lead: NowCampLeadSummary) -> String {
