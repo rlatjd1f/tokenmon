@@ -511,7 +511,7 @@ private struct TokenmonNowCampHeroCard: View {
 
                 NowCampEffectSpriteImage(scope: .field(lead.field), variant: .campProp32)
                     .frame(width: 38, height: 38)
-                    .position(x: width * 0.57, y: 92)
+                    .position(x: width * 0.72, y: 84)
 
                 TokenmonDexSpritePreview(
                     status: .captured,

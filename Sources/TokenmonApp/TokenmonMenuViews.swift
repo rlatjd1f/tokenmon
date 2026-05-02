@@ -477,7 +477,7 @@ private struct TokenmonNowCampSceneDebugPreview: View {
 
                 NowCampEffectSpriteImage(scope: .field(field), variant: .campProp32)
                     .frame(width: 38, height: 38)
-                    .position(x: width * 0.57, y: 92)
+                    .position(x: width * 0.72, y: 84)
 
                 debugSpeciesSprite(lead, cardSize: 62, spriteSize: 46)
                     .position(x: width * 0.52, y: 73)
