@@ -90,6 +90,8 @@ struct TokenmonNowTab: View {
                 fallbackCompanionAssetKeys: heroCompanionAssetKeys
             )
 
+            TokenmonNowCampActionStrip(model: model)
+
             TokenProgressBar(
                 currentTokens: currentTokensInEncounter,
                 totalTokens: totalTokensPerEncounter,
@@ -423,7 +425,6 @@ private struct TokenmonNowCampHeroCard: View {
                 HStack(alignment: .bottom, spacing: 8) {
                     trainingBadge
                     Spacer(minLength: 0)
-                    actionStack
                 }
             }
             .padding(10)
@@ -584,10 +585,34 @@ private struct TokenmonNowCampHeroCard: View {
         .frame(maxWidth: 150, alignment: .leading)
     }
 
-    private var actionStack: some View {
-        VStack(alignment: .trailing, spacing: 4) {
+    private func trainingLine(for lead: NowCampLeadSummary) -> String {
+        let rank = lead.training.trainingRank.romanNumeral
+        let resonance = lead.training.trainingResonance
+        return TokenmonL10n.format(
+            "now.camp.training_line",
+            rank,
+            lead.trainingTrait.displayName,
+            Int64(resonance)
+        )
+    }
+}
+
+private struct TokenmonNowCampActionStrip: View {
+    @ObservedObject var model: TokenmonMenuModel
+
+    private var nowCamp: NowCampSummary? {
+        model.nowCampSummary
+    }
+
+    private var lead: NowCampLeadSummary? {
+        nowCamp?.lead
+    }
+
+    var body: some View {
+        HStack(spacing: 8) {
             actionButton(
                 title: TokenmonL10n.string("now.camp.train"),
+                cost: 30,
                 variant: .trainFX16,
                 fallbackSystemImage: "figure.strengthtraining.traditional",
                 isEnabled: canTrain,
@@ -599,6 +624,7 @@ private struct TokenmonNowCampHeroCard: View {
 
             actionButton(
                 title: TokenmonL10n.string("now.camp.care"),
+                cost: 10,
                 variant: .careFX16,
                 fallbackSystemImage: "heart.fill",
                 isEnabled: canCare,
@@ -607,47 +633,90 @@ private struct TokenmonNowCampHeroCard: View {
                     model.applyNowCampCareToLead()
                 }
             )
+
+            Spacer(minLength: 0)
+
+            focusStatus
         }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 7)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .fill(Color.secondary.opacity(0.08))
+        )
     }
 
     private func actionButton(
         title: String,
+        cost: Int,
         variant: NowCampEffectSpriteVariant,
         fallbackSystemImage: String,
         isEnabled: Bool,
         help: String,
         action: @escaping () -> Void
     ) -> some View {
-        Button {
-            guard isEnabled else { return }
-            action()
-        } label: {
-            HStack(spacing: 4) {
-                actionIcon(
+        Group {
+            if isEnabled {
+                Button(action: action) {
+                    actionButtonChrome(
+                        title: title,
+                        cost: cost,
+                        variant: variant,
+                        fallbackSystemImage: fallbackSystemImage,
+                        isEnabled: true
+                    )
+                }
+                .buttonStyle(.plain)
+                .help(help)
+                .accessibilityLabel(Text(title))
+            } else {
+                actionButtonChrome(
+                    title: title,
+                    cost: cost,
                     variant: variant,
-                    fallbackSystemImage: fallbackSystemImage
+                    fallbackSystemImage: fallbackSystemImage,
+                    isEnabled: false
                 )
-                Text(title)
-                    .font(.system(size: 9, weight: .bold, design: .rounded))
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.78)
+                .help(help)
             }
-            .foregroundStyle(.primary)
-            .padding(.horizontal, 7)
-            .frame(width: 58, height: 23)
-            .background(
-                Capsule(style: .continuous)
-                    .fill(Color(nsColor: .controlBackgroundColor).opacity(0.82))
-            )
-            .overlay(
-                Capsule(style: .continuous)
-                    .stroke(Color.secondary.opacity(0.18), lineWidth: 0.8)
-            )
-            .opacity(isEnabled ? 1 : 0.84)
         }
-        .buttonStyle(.plain)
-        .help(help)
-        .accessibilityLabel(Text(title))
+    }
+
+    private func actionButtonChrome(
+        title: String,
+        cost: Int,
+        variant: NowCampEffectSpriteVariant,
+        fallbackSystemImage: String,
+        isEnabled: Bool
+    ) -> some View {
+        HStack(spacing: 5) {
+            actionIcon(variant: variant, fallbackSystemImage: fallbackSystemImage)
+
+            Text(title)
+                .font(.system(size: 10, weight: .bold, design: .rounded))
+                .lineLimit(1)
+                .minimumScaleFactor(0.78)
+
+            HStack(spacing: 2) {
+                Image(systemName: "bolt.fill")
+                    .font(.system(size: 8, weight: .black))
+                Text("\(cost)")
+                    .font(.system(size: 9, weight: .bold, design: .rounded).monospacedDigit())
+            }
+            .foregroundStyle(.secondary)
+        }
+        .foregroundStyle(isEnabled ? .primary : .secondary)
+        .frame(width: 84, height: 28)
+        .background(
+            Capsule(style: .continuous)
+                .fill(Color(nsColor: .controlBackgroundColor).opacity(isEnabled ? 0.80 : 0.58))
+        )
+        .overlay(
+            Capsule(style: .continuous)
+                .stroke(Color.secondary.opacity(isEnabled ? 0.16 : 0.10), lineWidth: 0.8)
+        )
+        .opacity(isEnabled ? 1 : 0.72)
     }
 
     @ViewBuilder
@@ -657,12 +726,29 @@ private struct TokenmonNowCampHeroCard: View {
     ) -> some View {
         if let lead {
             NowCampEffectSpriteImage(scope: .field(lead.field), variant: variant)
-                .frame(width: 14, height: 14)
+                .frame(width: 15, height: 15)
         } else {
             Image(systemName: fallbackSystemImage)
                 .font(.system(size: 11, weight: .semibold))
-                .frame(width: 14, height: 14)
+                .frame(width: 15, height: 15)
         }
+    }
+
+    private var focusStatus: some View {
+        HStack(spacing: 5) {
+            NowCampEffectSpriteImage(scope: .common, variant: .resonanceOrb16)
+                .frame(width: 14, height: 14)
+            Text("\(nowCamp?.focusEnergy ?? 0)")
+                .font(.caption.weight(.bold).monospacedDigit())
+                .foregroundStyle(.secondary)
+        }
+        .padding(.horizontal, 7)
+        .frame(height: 28)
+        .background(
+            Capsule(style: .continuous)
+                .fill(Color(nsColor: .controlBackgroundColor).opacity(0.66))
+        )
+        .help(TokenmonL10n.string("now.camp.focus.help"))
     }
 
     private var canTrain: Bool {
@@ -676,17 +762,6 @@ private struct TokenmonNowCampHeroCard: View {
         return nowCamp.focusEnergy >= 10
             && lead.training.careCharge == false
             && lead.training.trainingRank.rawValue < Int(lead.affinityLevel)
-    }
-
-    private func trainingLine(for lead: NowCampLeadSummary) -> String {
-        let rank = lead.training.trainingRank.romanNumeral
-        let resonance = lead.training.trainingResonance
-        return TokenmonL10n.format(
-            "now.camp.training_line",
-            rank,
-            lead.trainingTrait.displayName,
-            Int64(resonance)
-        )
     }
 }
 

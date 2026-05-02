@@ -432,17 +432,6 @@ private struct TokenmonNowCampSceneDebugPreview: View {
                         )
 
                         Spacer(minLength: 0)
-
-                        VStack(alignment: .trailing, spacing: 4) {
-                            debugActionLabel(
-                                title: TokenmonL10n.string("now.camp.train"),
-                                variant: .trainFX16
-                            )
-                            debugActionLabel(
-                                title: TokenmonL10n.string("now.camp.care"),
-                                variant: .careFX16
-                            )
-                        }
                     }
                 }
                 .padding(10)
@@ -501,30 +490,6 @@ private struct TokenmonNowCampSceneDebugPreview: View {
             spriteSize: spriteSize,
             showsBackground: false,
             showsBorder: false
-        )
-    }
-
-    private func debugActionLabel(
-        title: String,
-        variant: NowCampEffectSpriteVariant
-    ) -> some View {
-        HStack(spacing: 4) {
-            NowCampEffectSpriteImage(scope: .field(field), variant: variant)
-                .frame(width: 14, height: 14)
-            Text(title)
-                .font(.system(size: 9, weight: .bold, design: .rounded))
-                .lineLimit(1)
-                .minimumScaleFactor(0.78)
-        }
-        .padding(.horizontal, 7)
-        .frame(width: 58, height: 23)
-        .background(
-            Capsule(style: .continuous)
-                .fill(Color(nsColor: .controlBackgroundColor).opacity(0.82))
-        )
-        .overlay(
-            Capsule(style: .continuous)
-                .stroke(Color.secondary.opacity(0.18), lineWidth: 0.8)
         )
     }
 }
