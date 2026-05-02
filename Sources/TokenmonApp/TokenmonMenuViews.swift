@@ -402,41 +402,22 @@ private struct TokenmonNowCampSceneDebugPreview: View {
     }
 
     var body: some View {
-        ZStack(alignment: .topLeading) {
-            TokenmonPopoverHeroSceneCard(
-                context: sceneContext,
-                companionAssetKeys: [],
-                animates: animates
-            )
+        let presentation = NowCampHeroPresentation.preview(
+            sceneContext: sceneContext,
+            lead: sampleSpecies.first,
+            supports: Array(sampleSpecies.dropFirst()),
+            focusEnergy: 68
+        )
 
-            if let lead = sampleSpecies.first {
-                debugCampScene(lead: lead, supports: Array(sampleSpecies.dropFirst()))
-
-                VStack {
-                    Spacer(minLength: 0)
-                    HStack(alignment: .bottom) {
-                        Text(TokenmonL10n.format(
-                            "now.camp.training_line",
-                            TrainingRank.rankI.romanNumeral,
-                            lead.trainingTrait.displayName,
-                            Int64(0)
-                        ))
-                        .font(.system(size: 9, weight: .bold, design: .rounded))
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.72)
-                        .padding(.horizontal, 7)
-                        .padding(.vertical, 4)
-                        .background(
-                            Capsule(style: .continuous)
-                                .fill(Color(nsColor: .controlBackgroundColor).opacity(0.72))
-                        )
-
-                        Spacer(minLength: 0)
-                    }
-                }
-                .padding(10)
+        TokenmonNowCampHeroPresentationCard(
+            presentation: presentation,
+            animates: animates,
+            feedback: nil,
+            onTrain: {},
+            headerAccessory: {
+                TokenmonNowCampHeaderLeadLabel(presentation: presentation)
             }
-        }
+        )
         .accessibilityElement(children: .combine)
         .accessibilityLabel(TokenmonL10n.string("developer.visual.now_camp.preview_accessibility"))
     }
@@ -496,11 +477,30 @@ private struct TokenmonNowCampSceneDebugPreview: View {
 
 private struct TokenmonNowCampFieldAssetPreview: View {
     let field: FieldType
+    private let columns = Array(repeating: GridItem(.fixed(48), spacing: 8), count: 3)
 
     var body: some View {
-        HStack(spacing: 10) {
+        LazyVGrid(columns: columns, spacing: 8) {
             TokenmonNowCampAssetTile(
-                title: TokenmonL10n.string("developer.visual.now_camp.asset.camp_prop"),
+                title: TokenmonL10n.string("developer.visual.now_camp.asset.camp_mat"),
+                scope: .field(field),
+                variant: .campMat64,
+                imageSize: 34
+            )
+            TokenmonNowCampAssetTile(
+                title: TokenmonL10n.string("developer.visual.now_camp.asset.camp_primary"),
+                scope: .field(field),
+                variant: .campPropPrimary32,
+                imageSize: 28
+            )
+            TokenmonNowCampAssetTile(
+                title: TokenmonL10n.string("developer.visual.now_camp.asset.camp_secondary"),
+                scope: .field(field),
+                variant: .campPropSecondary32,
+                imageSize: 28
+            )
+            TokenmonNowCampAssetTile(
+                title: TokenmonL10n.string("developer.visual.now_camp.asset.camp_fallback"),
                 scope: .field(field),
                 variant: .campProp32,
                 imageSize: 30

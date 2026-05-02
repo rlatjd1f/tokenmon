@@ -17,6 +17,16 @@ struct TokenmonDexNavigationRequest: Equatable {
     }
 }
 
+enum TokenmonNowCampCareActionResult: Equatable {
+    case applied(NowCampCareResult)
+    case failed(String)
+}
+
+enum TokenmonNowCampTrainActionResult: Equatable {
+    case resolved(NowCampTrainingAttemptResult)
+    case failed(String)
+}
+
 @MainActor
 final class TokenmonMenuModel: ObservableObject {
     private static let inboxRefreshDebounceNanoseconds: UInt64 = 150_000_000
@@ -700,25 +710,33 @@ final class TokenmonMenuModel: ObservableObject {
         }
     }
 
-    func applyNowCampCareToLead() {
+    @discardableResult
+    func applyNowCampCareToLead() -> TokenmonNowCampCareActionResult {
         do {
-            _ = try databaseManager.applyLeadCare()
+            let result = try databaseManager.applyLeadCare()
             loadError = nil
             refresh(reason: .partyChanged)
+            return .applied(result)
         } catch {
-            loadError = error.localizedDescription
+            let message = error.localizedDescription
+            loadError = message
             refresh(reason: .partyChanged)
+            return .failed(message)
         }
     }
 
-    func trainNowCampLead() {
+    @discardableResult
+    func trainNowCampLead() -> TokenmonNowCampTrainActionResult {
         do {
-            _ = try databaseManager.trainNowCampLead()
+            let result = try databaseManager.trainNowCampLead()
             loadError = nil
             refresh(reason: .partyChanged)
+            return .resolved(result)
         } catch {
-            loadError = error.localizedDescription
+            let message = error.localizedDescription
+            loadError = message
             refresh(reason: .partyChanged)
+            return .failed(message)
         }
     }
 

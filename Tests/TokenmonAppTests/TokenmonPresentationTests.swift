@@ -208,6 +208,203 @@ struct TokenmonPresentationTests {
     }
 
     @Test
+    func nowCampHeroPresentationBuildsLeadAndSupportSlots() {
+        let lead = sampleSpecies(field: .grassland, offset: 0)
+        let supportOne = sampleSpecies(field: .grassland, offset: 1)
+        let supportTwo = sampleSpecies(field: .grassland, offset: 2)
+        let presentation = NowCampHeroPresentation.make(
+            nowCamp: makeNowCampSummary(
+                lead: lead,
+                supports: [supportOne, supportTwo],
+                focusEnergy: 68,
+                affinityLevel: 3,
+                trainingRank: .rankII
+            ),
+            partyMembers: [],
+            sceneContext: makeNowCampSceneContext(field: .grassland)
+        )
+
+        #expect(presentation.lead?.speciesID == lead.id)
+        #expect(presentation.supportSlots.count == 2)
+        #expect(presentation.trainAction.isEnabled)
+        #expect(presentation.careAction.isEnabled)
+        #expect(presentation.careStatusLine == nil)
+        #expect(presentation.trainTargetLine == TokenmonL10n.format("now.camp.train.target", "II", "III"))
+        #expect(presentation.trainRewardLine == TokenmonL10n.format(
+            "now.camp.train.reward",
+            expectedNowCampRewardName(for: lead.trainingTrait)
+        ))
+        #expect(presentation.trainRewardShortLine == expectedNowCampRewardShortName(for: lead.trainingTrait))
+        #expect(presentation.trainRewardSystemImage == expectedNowCampRewardSystemImage(for: lead.trainingTrait))
+        #expect(presentation.trainBenefitLine == TokenmonL10n.format(
+            "now.camp.train.benefit",
+            expectedNowCampRewardShortName(for: lead.trainingTrait)
+        ))
+        #expect(presentation.campStatusLine == TokenmonL10n.string("now.camp.status.ready"))
+        #expect(presentation.energySourceLine == TokenmonL10n.string("now.camp.energy.source.ready"))
+
+        guard case .occupied(let firstSupport, index: 0) = presentation.supportSlots[0] else {
+            Issue.record("expected occupied first support slot")
+            return
+        }
+        #expect(firstSupport.speciesID == supportOne.id)
+
+        guard case .occupied(let secondSupport, index: 1) = presentation.supportSlots[1] else {
+            Issue.record("expected occupied second support slot")
+            return
+        }
+        #expect(secondSupport.speciesID == supportTwo.id)
+    }
+
+    @Test
+    func nowCampHeroPresentationKeepsEmptySupportSlotsWhenPartyIsShort() {
+        let lead = sampleSpecies(field: .coast, offset: 0)
+        let presentation = NowCampHeroPresentation.make(
+            nowCamp: makeNowCampSummary(
+                lead: lead,
+                supports: [],
+                focusEnergy: 44,
+                affinityLevel: 2,
+                trainingRank: .rankI
+            ),
+            partyMembers: [makePartyMember(from: lead)],
+            sceneContext: makeNowCampSceneContext(field: .coast)
+        )
+
+        #expect(presentation.supportSlots.count == 2)
+        #expect(presentation.supportSlots.allSatisfy { slot in
+            if case .empty = slot {
+                return true
+            }
+            return false
+        })
+    }
+
+    @Test
+    func nowCampHeroPresentationExplainsFocusAndRankLimitedActions() {
+        let lead = sampleSpecies(field: .ice, offset: 0)
+        let focusLimited = NowCampHeroPresentation.make(
+            nowCamp: makeNowCampSummary(
+                lead: lead,
+                supports: [],
+                focusEnergy: 12,
+                affinityLevel: 3,
+                trainingRank: .rankI
+            ),
+            partyMembers: [],
+            sceneContext: makeNowCampSceneContext(field: .ice)
+        )
+        #expect(focusLimited.trainAction.availability == .insufficientFocus(current: 12, required: 30))
+        #expect(focusLimited.trainTargetLine == TokenmonL10n.format("now.camp.train.target", "I", "II"))
+        #expect(focusLimited.trainRewardShortLine == expectedNowCampRewardShortName(for: lead.trainingTrait))
+        #expect(focusLimited.trainRewardSystemImage == expectedNowCampRewardSystemImage(for: lead.trainingTrait))
+        #expect(focusLimited.campStatusLine == TokenmonL10n.string("now.camp.status.gathering"))
+        #expect(focusLimited.energySourceLine == TokenmonL10n.string("now.camp.energy.source.live"))
+
+        let rankLimited = NowCampHeroPresentation.make(
+            nowCamp: makeNowCampSummary(
+                lead: lead,
+                supports: [],
+                focusEnergy: 88,
+                affinityLevel: 2,
+                trainingRank: .rankII
+            ),
+            partyMembers: [],
+            sceneContext: makeNowCampSceneContext(field: .ice)
+        )
+        #expect(rankLimited.trainAction.availability == .rankAtAffinityGate(current: 2, required: 3))
+        #expect(rankLimited.campStatusLine == TokenmonL10n.string("now.camp.status.bond_gate"))
+
+        let careCharged = NowCampHeroPresentation.make(
+            nowCamp: makeNowCampSummary(
+                lead: lead,
+                supports: [],
+                focusEnergy: 88,
+                affinityLevel: 3,
+                trainingRank: .rankI,
+                careCharge: true
+            ),
+            partyMembers: [],
+            sceneContext: makeNowCampSceneContext(field: .ice)
+        )
+        #expect(careCharged.careAction.availability == .careCharged)
+        #expect(careCharged.careStatusLine == TokenmonL10n.string("now.camp.care.ready.short"))
+        #expect(careCharged.campStatusLine == TokenmonL10n.string("now.camp.status.care_ready"))
+    }
+
+    @Test
+    func nowCampEffectLoaderResolvesSplitFieldRuntimeAssets() {
+        for field in FieldType.allCases {
+            #expect(NowCampEffectSpriteLoader.image(scope: .field(field), variant: .campMat64) != nil)
+            #expect(NowCampEffectSpriteLoader.image(scope: .field(field), variant: .campPropPrimary32) != nil)
+            #expect(NowCampEffectSpriteLoader.image(scope: .field(field), variant: .campPropSecondary32) != nil)
+            #expect(NowCampEffectSpriteLoader.image(scope: .field(field), variant: .campProp32) != nil)
+        }
+    }
+
+    @Test
+    func nowCampMenuModelReturnsActionResultsForHeroFeedback() async throws {
+        let directory = try makeTemporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+
+        let databasePath = directory.appendingPathComponent("tokenmon.sqlite").path
+        let manager = TokenmonDatabaseManager(path: databasePath)
+        try manager.bootstrap()
+        try manager.resetProgress(startedAt: "2026-04-01T00:00:00Z")
+        _ = try manager.forgeEncounter(
+            TokenmonDeveloperEncounterForgeRequest(
+                provider: .codex,
+                field: .grassland,
+                rarity: .common,
+                speciesID: "GRS_001",
+                outcome: .captured,
+                occurredAt: "2026-04-24T00:00:00Z"
+            )
+        )
+        try manager.addToParty(speciesID: "GRS_001")
+
+        let database = try manager.open()
+        try database.execute(
+            """
+            UPDATE dex_captured
+            SET affinity_level = 2
+            WHERE species_id = 'GRS_001';
+            """
+        )
+        try database.execute(
+            """
+            UPDATE now_camp_state
+            SET focus_energy = 40,
+                updated_at = '2026-04-24T00:01:00Z'
+            WHERE singleton_id = 1;
+            """
+        )
+
+        let model = TokenmonMenuModel(
+            databasePath: databasePath,
+            providerInspector: { _, _, _ in [] },
+            launchAtLoginStateProvider: {
+                .unsupported(reason: "tests")
+            }
+        )
+        await model.waitForRefreshToFinish()
+
+        let careResult = model.applyNowCampCareToLead()
+        guard case .applied(let care) = careResult else {
+            Issue.record("expected care action result")
+            return
+        }
+        #expect(care.focusEnergyAfter == 30)
+
+        let trainResult = model.trainNowCampLead()
+        guard case .resolved(let train) = trainResult else {
+            Issue.record("expected train action result")
+            return
+        }
+        #expect(train.focusEnergyAfter == 0)
+    }
+
+    @Test
     func statusItemRendererRendersEveryFieldAndKeyEffectStates() {
         let fields: [TokenmonSceneFieldKind] = [.grassland, .ice, .coast, .sky]
         let states: [TokenmonEffectState] = [.none, .alert, .captureSnap, .escapeDash]
@@ -5146,6 +5343,148 @@ struct TokenmonPresentationTests {
         #expect(TokenmonRaidArtLoader.image(artKey: "reward_2026_10_october_relic") != nil)
         #expect(TokenmonRaidArtLoader.image(artKey: "reward_2026_11_november_relic") != nil)
         #expect(TokenmonRaidArtLoader.image(artKey: "reward_2026_12_december_relic") != nil)
+    }
+
+    private func sampleSpecies(field: FieldType, offset: Int) -> SpeciesDefinition {
+        let species = SpeciesCatalog.all.filter { $0.isActive && $0.field == field }
+        guard offset < species.count else {
+            preconditionFailure("missing sample species for \(field)")
+        }
+        return species[offset]
+    }
+
+    private func expectedNowCampRewardName(for trait: TrainingTrait) -> String {
+        switch trait {
+        case .trail:
+            return TokenmonL10n.string("now.camp.train.reward.trail")
+        case .scout:
+            return TokenmonL10n.string("now.camp.train.reward.scout")
+        case .capture:
+            return TokenmonL10n.string("now.camp.train.reward.capture")
+        case .raider:
+            return TokenmonL10n.string("now.camp.train.reward.raider")
+        }
+    }
+
+    private func expectedNowCampRewardShortName(for trait: TrainingTrait) -> String {
+        switch trait {
+        case .trail:
+            return TokenmonL10n.string("now.camp.train.reward.trail.short")
+        case .scout:
+            return TokenmonL10n.string("now.camp.train.reward.scout.short")
+        case .capture:
+            return TokenmonL10n.string("now.camp.train.reward.capture.short")
+        case .raider:
+            return TokenmonL10n.string("now.camp.train.reward.raider.short")
+        }
+    }
+
+    private func expectedNowCampRewardSystemImage(for trait: TrainingTrait) -> String {
+        switch trait {
+        case .trail:
+            return "map.fill"
+        case .scout:
+            return "star.fill"
+        case .capture:
+            return "scope"
+        case .raider:
+            return "bolt.fill"
+        }
+    }
+
+    private func makeNowCampSceneContext(field: FieldType) -> TokenmonSceneContext {
+        TokenmonSceneContext(
+            sceneState: .exploring,
+            fieldKind: sceneFieldKind(for: field),
+            fieldState: .exploring,
+            effectState: .none,
+            wildState: .hidden
+        )
+    }
+
+    private func sceneFieldKind(for field: FieldType) -> TokenmonSceneFieldKind {
+        switch field {
+        case .grassland:
+            return .grassland
+        case .ice:
+            return .ice
+        case .coast:
+            return .coast
+        case .sky:
+            return .sky
+        }
+    }
+
+    private func makeNowCampSummary(
+        lead: SpeciesDefinition?,
+        supports: [SpeciesDefinition],
+        focusEnergy: Int,
+        affinityLevel: Int64,
+        trainingRank: TrainingRank,
+        careCharge: Bool = false
+    ) -> NowCampSummary {
+        NowCampSummary(
+            leadSpeciesID: lead?.id,
+            focusEnergy: focusEnergy,
+            focusRemainderTokens: 12_000,
+            focusEarnedLocalDate: "2026-04-24",
+            focusEarnedToday: 24,
+            lead: lead.map {
+                makeLeadSummary(
+                    from: $0,
+                    affinityLevel: affinityLevel,
+                    trainingRank: trainingRank,
+                    careCharge: careCharge
+                )
+            },
+            supports: supports.enumerated().map { index, species in
+                makePartyMember(from: species, slotOrder: index + 2)
+            }
+        )
+    }
+
+    private func makeLeadSummary(
+        from species: SpeciesDefinition,
+        affinityLevel: Int64,
+        trainingRank: TrainingRank,
+        careCharge: Bool
+    ) -> NowCampLeadSummary {
+        NowCampLeadSummary(
+            speciesID: species.id,
+            displayName: species.name,
+            assetKey: species.assetKey,
+            field: species.field,
+            rarity: species.rarity,
+            trainingTrait: species.trainingTrait,
+            affinityLevel: affinityLevel,
+            slotOrder: 1,
+            training: NowCampTrainingSummary(
+                trainingRank: trainingRank,
+                trainingResonance: 2,
+                trainingAttemptCount: 4,
+                careCharge: careCharge
+            )
+        )
+    }
+
+    private func makePartyMember(
+        from species: SpeciesDefinition,
+        slotOrder: Int = 1
+    ) -> PartyMemberSummary {
+        PartyMemberSummary(
+            speciesID: species.id,
+            assetKey: species.assetKey,
+            field: species.field,
+            rarity: species.rarity,
+            displayName: species.name,
+            addedAt: "2026-04-24T00:00:00Z",
+            slotOrder: slotOrder,
+            capturedCount: 1,
+            affinityLevel: 1,
+            trainingTrait: species.trainingTrait,
+            trainingRank: .rankI,
+            stats: species.stats
+        )
     }
 
     private func gameplayDeltaSum(_ manager: TokenmonDatabaseManager) throws -> Int64 {

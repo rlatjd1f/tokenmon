@@ -4135,7 +4135,14 @@ struct TokenmonDataContractTests {
             .deletingLastPathComponent()
             .deletingLastPathComponent()
         let runtimeRoot = repoRoot.appendingPathComponent("assets/sprites/effects/now-camp/runtime", isDirectory: true)
-        let fieldFiles = ["camp_prop_32.png", "care_fx_16.png", "train_fx_16.png"]
+        let fieldFiles = [
+            "camp_mat_64.png",
+            "camp_prop_primary_32.png",
+            "camp_prop_secondary_32.png",
+            "camp_prop_32.png",
+            "care_fx_16.png",
+            "train_fx_16.png",
+        ]
         let commonFiles = ["resonance_orb_16.png", "training_success_16.png", "training_fail_16.png"]
 
         for field in FieldType.allCases {

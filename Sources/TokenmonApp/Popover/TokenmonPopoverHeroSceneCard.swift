@@ -72,7 +72,7 @@ struct TokenmonPopoverHeroSceneCard: View {
     }
 }
 
-private struct TokenmonPopoverHeroFieldStage: View {
+struct TokenmonPopoverHeroFieldStage: View {
     @Environment(\.accessibilityReduceMotion) private var accessibilityReduceMotion
 
     let context: TokenmonSceneContext
