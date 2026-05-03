@@ -356,6 +356,47 @@ public struct LeaderTraitBonusApplication: Equatable, Codable, Sendable {
     }
 }
 
+public enum LeaderTraitBonusPreviewUnit: String, Codable, Sendable {
+    case fieldWeight
+    case rarityWeightShift
+    case probabilityPoints
+    case raidPower
+}
+
+public struct LeaderTraitBonusPreview: Equatable, Codable, Sendable {
+    public let kind: LeaderTraitBonusKind
+    public let speciesID: String
+    public let trait: TrainingTrait
+    public let field: FieldType
+    public let trainingRank: TrainingRank
+    public let bonusAmount: Double
+    public let unit: LeaderTraitBonusPreviewUnit
+    public let isActive: Bool
+    public let capApplied: Double?
+
+    public init(
+        kind: LeaderTraitBonusKind,
+        speciesID: String,
+        trait: TrainingTrait,
+        field: FieldType,
+        trainingRank: TrainingRank,
+        bonusAmount: Double,
+        unit: LeaderTraitBonusPreviewUnit,
+        isActive: Bool,
+        capApplied: Double? = nil
+    ) {
+        self.kind = kind
+        self.speciesID = speciesID
+        self.trait = trait
+        self.field = field
+        self.trainingRank = trainingRank
+        self.bonusAmount = bonusAmount
+        self.unit = unit
+        self.isActive = isActive
+        self.capApplied = capApplied
+    }
+}
+
 public struct LeaderTraitFieldBonusResult: Equatable, Sendable {
     public let weights: [EncounterFieldWeight]
     public let application: LeaderTraitBonusApplication?
@@ -379,6 +420,79 @@ public struct LeaderTraitRaidBonusResult: Equatable, Sendable {
 
 public struct LeaderTraitBonusResolver: Sendable {
     public init() {}
+
+    public func previewBonus(
+        lead: LeaderTraitContext,
+        encounterField: FieldType? = nil,
+        encounterRarity: RarityTier? = nil,
+        raidField: FieldType? = nil
+    ) -> LeaderTraitBonusPreview {
+        switch lead.trait {
+        case .trail:
+            let baseWeights = EncounterGenerationConfig().baseFieldWeights.map { field, weight in
+                EncounterFieldWeight(field: field, weight: weight)
+            }
+            let result = applyTrail(weights: baseWeights, lead: lead)
+            return preview(
+                kind: .trail,
+                lead: lead,
+                field: lead.homeField,
+                application: result.application,
+                fallbackAmount: 0,
+                unit: .fieldWeight,
+                capApplied: 8
+            )
+        case .scout:
+            let selectedField = encounterField ?? lead.homeField
+            let baseWeights = RarityTier.allCases.map { rarity in
+                EncounterRarityWeight(
+                    rarity: rarity,
+                    weight: EncounterGenerationConfig().baseRarityWeights[rarity] ?? 0
+                )
+            }
+            let result = applyScout(weights: baseWeights, selectedField: selectedField, lead: lead)
+            return preview(
+                kind: .scout,
+                lead: lead,
+                field: selectedField,
+                application: result.application,
+                fallbackAmount: 0,
+                unit: .rarityWeightShift,
+                capApplied: 6
+            )
+        case .capture:
+            let selectedField = encounterField ?? lead.homeField
+            let selectedRarity = encounterRarity ?? lead.rarity
+            let baseProbability = (try? CaptureResolver().captureProbability(for: selectedRarity)) ?? 0
+            let result = applyCapture(
+                baseProbability: baseProbability,
+                encounterField: selectedField,
+                encounterRarity: selectedRarity,
+                lead: lead
+            )
+            return preview(
+                kind: .capture,
+                lead: lead,
+                field: selectedField,
+                application: result.application,
+                fallbackAmount: 0,
+                unit: .probabilityPoints,
+                capApplied: captureProbabilityCap(selectedRarity)
+            )
+        case .raider:
+            let selectedField = raidField ?? lead.homeField
+            let result = raidBonuses(raidField: selectedField, partyMembers: [lead])
+            return preview(
+                kind: .raider,
+                lead: lead,
+                field: selectedField,
+                application: result.applications.first,
+                fallbackAmount: 0,
+                unit: .raidPower,
+                capApplied: 8
+            )
+        }
+    }
 
     public func applyTrail(
         weights: [EncounterFieldWeight],
@@ -540,6 +654,28 @@ public struct LeaderTraitBonusResolver: Sendable {
             memberBonuses: memberBonuses,
             applications: applications,
             totalBonus: 8 - remainingCap
+        )
+    }
+
+    private func preview(
+        kind: LeaderTraitBonusKind,
+        lead: LeaderTraitContext,
+        field: FieldType,
+        application: LeaderTraitBonusApplication?,
+        fallbackAmount: Double,
+        unit: LeaderTraitBonusPreviewUnit,
+        capApplied: Double?
+    ) -> LeaderTraitBonusPreview {
+        LeaderTraitBonusPreview(
+            kind: kind,
+            speciesID: lead.speciesID,
+            trait: lead.trait,
+            field: field,
+            trainingRank: lead.trainingRank,
+            bonusAmount: application?.bonusAmount ?? fallbackAmount,
+            unit: unit,
+            isActive: application != nil,
+            capApplied: application?.capApplied ?? capApplied
         )
     }
 

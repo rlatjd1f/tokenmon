@@ -55,7 +55,10 @@ struct TokenmonNowStatusSummary: Equatable {
 
 struct TokenmonNowTab: View {
     @ObservedObject var model: TokenmonMenuModel
+    let layoutStyle: TokenmonPopoverLayoutStyle
+    let contentWidth: CGFloat
     let onOpenProviderSettings: () -> Void
+    let onOpenScout: () -> Void
 
     private static let explorationConfig = ExplorationAccumulatorConfig()
     private static let progressSegmentCount = 10
@@ -69,6 +72,42 @@ struct TokenmonNowTab: View {
     }
 
     var body: some View {
+        switch layoutStyle {
+        case .heroV2:
+            heroV2Body
+        case .compact:
+            compactBody
+        }
+    }
+
+    private var heroV2Body: some View {
+        ScrollView(.vertical, showsIndicators: false) {
+            VStack(alignment: .leading, spacing: 10) {
+                if model.shouldShowUsageAnalyticsPrompt {
+                    usageAnalyticsPromptCard
+                }
+
+                TokenmonNowCampHeroV2Card(
+                    model: model,
+                    sceneContext: model.popoverSceneContext,
+                    onScout: onOpenScout
+                )
+
+                TokenProgressBar(
+                    currentTokens: currentTokensInEncounter,
+                    totalTokens: totalTokensPerEncounter,
+                    segmentCount: Self.progressSegmentCount
+                )
+                .help(TokenmonL10n.string("now.camp.v2.encounter_progress.help"))
+            }
+            .padding(.horizontal, 16)
+            .padding(.top, 12)
+            .padding(.bottom, 10)
+            .frame(width: contentWidth, alignment: .topLeading)
+        }
+    }
+
+    private var compactBody: some View {
         VStack(alignment: .leading, spacing: 12) {
             if model.shouldShowUsageAnalyticsPrompt {
                 usageAnalyticsPromptCard
@@ -96,7 +135,7 @@ struct TokenmonNowTab: View {
         .padding(.horizontal, 14)
         .padding(.top, 12)
         .padding(.bottom, 10)
-        .frame(width: 300, alignment: .topLeading)
+        .frame(width: contentWidth, alignment: .topLeading)
     }
 
     private var usageAnalyticsPromptCard: some View {

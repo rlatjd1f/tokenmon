@@ -252,6 +252,30 @@ struct TokenmonPresentationTests {
         #expect(presentation.campStatusLine == TokenmonL10n.string("now.camp.status.ready"))
         #expect(presentation.energySourceLine == TokenmonL10n.string("now.camp.energy.source.ready"))
         #expect(presentation.trainingLevelPipCount == 2)
+        #expect(presentation.v2.focusValueText == "68/100")
+        #expect(presentation.v2.practiceChanceText == expectedNowCampV2PracticeChance(
+            rarity: lead.rarity,
+            trainingRank: .rankII
+        ))
+        #expect(presentation.v2.resonanceValueText == expectedNowCampV2Resonance(
+            rarity: lead.rarity,
+            trainingRank: .rankII
+        ))
+        #expect(presentation.v2.scoutActionTitleText == TokenmonL10n.string("now.camp.v2.scout"))
+        #expect(presentation.v2.scoutActionHelpText == TokenmonL10n.string("now.camp.v2.scout.help"))
+
+        let rewardPreview = LeaderTraitBonusResolver().previewBonus(
+            lead: LeaderTraitContext(
+                speciesID: lead.id,
+                homeField: lead.field,
+                rarity: lead.rarity,
+                trait: lead.trainingTrait,
+                trainingRank: .rankII
+            )
+        )
+        #expect(presentation.v2.rewardPreview.valueText == expectedNowCampV2RewardValue(for: rewardPreview))
+        #expect(presentation.v2.rewardPreview.detailText == expectedNowCampV2RewardDetail(for: rewardPreview))
+        #expect(presentation.v2.rewardPreview.isActive == rewardPreview.isActive)
 
         guard case .occupied(let firstSupport, index: 0) = presentation.supportSlots[0] else {
             Issue.record("expected occupied first support slot")
@@ -305,6 +329,12 @@ struct TokenmonPresentationTests {
         #expect(presentation.campStatusLine == TokenmonL10n.string("now.camp.status.no_lead"))
         #expect(presentation.trainingLevelPipCount == 0)
         #expect(presentation.practiceProgressFraction == 0.0)
+        #expect(presentation.v2.focusValueText == "0/100")
+        #expect(presentation.v2.practiceChanceText == TokenmonL10n.string("now.camp.v2.unavailable"))
+        #expect(presentation.v2.resonanceValueText == TokenmonL10n.string("now.camp.v2.unavailable"))
+        #expect(presentation.v2.rewardPreview.valueText == TokenmonL10n.string("now.camp.v2.unavailable"))
+        #expect(presentation.v2.rewardPreview.isActive == false)
+        #expect(presentation.v2.scoutActionHelpText.contains("Dex"))
     }
 
     @Test
@@ -338,6 +368,16 @@ struct TokenmonPresentationTests {
         #expect(focusLimited.campStatusLine == TokenmonL10n.string("now.camp.status.gathering"))
         #expect(focusLimited.energySourceLine == TokenmonL10n.string("now.camp.energy.source.live"))
         #expect(focusLimited.attemptHelpText.contains("Need 18"))
+        #expect(focusLimited.v2.focusValueText == "12/100")
+        #expect(focusLimited.v2.practiceChanceText == expectedNowCampV2PracticeChance(
+            rarity: lead.rarity,
+            trainingRank: .rankI
+        ))
+        #expect(focusLimited.v2.resonanceValueText == expectedNowCampV2Resonance(
+            rarity: lead.rarity,
+            trainingRank: .rankI
+        ))
+        #expect(focusLimited.v2.rewardPreview.detailText == TokenmonL10n.string("now.camp.v2.reward.inactive"))
 
         let rankLimited = NowCampHeroPresentation.make(
             nowCamp: makeNowCampSummary(
@@ -355,6 +395,8 @@ struct TokenmonPresentationTests {
         #expect(rankLimited.practiceControlTitleText == TokenmonL10n.string("now.camp.practice.status.bond_gate"))
         #expect(rankLimited.practiceControlDetailText == TokenmonL10n.format("now.camp.action.rank_gate.short", Int64(2), Int64(3)))
         #expect(rankLimited.campStatusLine == TokenmonL10n.string("now.camp.status.gathering"))
+        #expect(rankLimited.v2.practiceChanceText == TokenmonL10n.string("now.camp.v2.bond_gate"))
+        #expect(rankLimited.v2.resonanceValueText == TokenmonL10n.string("now.camp.v2.bond_gate"))
 
         let careCharged = NowCampHeroPresentation.make(
             nowCamp: makeNowCampSummary(
@@ -373,6 +415,25 @@ struct TokenmonPresentationTests {
         #expect(careCharged.practiceControlTitleText == TokenmonL10n.string("now.camp.practice.action"))
         #expect(careCharged.campStatusLine == TokenmonL10n.string("now.camp.status.care_ready"))
         #expect(careCharged.attemptHelpText.contains("Cheer +5"))
+        #expect(careCharged.v2.practiceChanceText == expectedNowCampV2PracticeChance(
+            rarity: lead.rarity,
+            trainingRank: .rankI,
+            careCharge: true
+        ))
+
+        let maxRank = NowCampHeroPresentation.make(
+            nowCamp: makeNowCampSummary(
+                lead: lead,
+                supports: [],
+                focusEnergy: 88,
+                affinityLevel: 5,
+                trainingRank: .rankV
+            ),
+            partyMembers: [],
+            sceneContext: makeNowCampSceneContext(field: .ice)
+        )
+        #expect(maxRank.v2.practiceChanceText == TokenmonL10n.string("now.camp.v2.max"))
+        #expect(maxRank.v2.resonanceValueText == TokenmonL10n.string("now.camp.v2.max"))
     }
 
     @Test
@@ -5520,6 +5581,76 @@ struct TokenmonPresentationTests {
             return "scope"
         case .raider:
             return "bolt.fill"
+        }
+    }
+
+    private func expectedNowCampV2PracticeChance(
+        rarity: RarityTier,
+        trainingRank: TrainingRank,
+        careCharge: Bool = false
+    ) -> String {
+        guard let targetRank = trainingRank.next else {
+            return TokenmonL10n.string("now.camp.v2.max")
+        }
+        let probability = try! LeaderTrainingResolver().successProbability(
+            rarity: rarity,
+            targetRank: targetRank,
+            careCharge: careCharge
+        )
+        return TokenmonL10n.format(
+            "now.camp.v2.percent",
+            Int64((probability * 100).rounded())
+        )
+    }
+
+    private func expectedNowCampV2Resonance(
+        rarity: RarityTier,
+        trainingRank: TrainingRank,
+        careCharge: Bool = false,
+        resonance: Int = 2
+    ) -> String {
+        guard let targetRank = trainingRank.next else {
+            return TokenmonL10n.string("now.camp.v2.max")
+        }
+        let resolver = LeaderTrainingResolver()
+        let probability = try! resolver.successProbability(
+            rarity: rarity,
+            targetRank: targetRank,
+            careCharge: careCharge
+        )
+        let ceiling = try! resolver.ceilingFailures(probability: probability)
+        return TokenmonL10n.format(
+            "now.camp.v2.resonance.value",
+            Int64(min(max(resonance, 0), ceiling)),
+            Int64(ceiling)
+        )
+    }
+
+    private func expectedNowCampV2RewardValue(for preview: LeaderTraitBonusPreview) -> String {
+        guard preview.isActive, preview.bonusAmount > 0 else {
+            return TokenmonL10n.string("now.camp.v2.unavailable")
+        }
+        switch preview.unit {
+        case .fieldWeight, .rarityWeightShift, .raidPower:
+            return TokenmonL10n.format("now.camp.v2.signed_integer", Int64(preview.bonusAmount.rounded()))
+        case .probabilityPoints:
+            return TokenmonL10n.format("now.camp.v2.points", Int64((preview.bonusAmount * 100).rounded()))
+        }
+    }
+
+    private func expectedNowCampV2RewardDetail(for preview: LeaderTraitBonusPreview) -> String {
+        guard preview.isActive else {
+            return TokenmonL10n.string("now.camp.v2.reward.inactive")
+        }
+        switch preview.kind {
+        case .trail:
+            return TokenmonL10n.format("now.camp.v2.reward.trail.detail", preview.field.displayName)
+        case .scout:
+            return TokenmonL10n.format("now.camp.v2.reward.scout.detail", preview.field.displayName)
+        case .capture:
+            return TokenmonL10n.format("now.camp.v2.reward.capture.detail", preview.field.displayName)
+        case .raider:
+            return TokenmonL10n.format("now.camp.v2.reward.raider.detail", preview.field.displayName)
         }
     }
 

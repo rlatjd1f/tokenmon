@@ -6,6 +6,7 @@ import TokenmonPersistence
 /// rolling 24h hourly bars, and a scrollable recent-sessions list.
 struct TokenmonTokensTab: View {
     @ObservedObject var model: TokenmonMenuModel
+    let contentWidth: CGFloat
 
     private var totals: TokenUsageTotals {
         model.tokenTotals ?? TokenUsageTotals(todayTokens: 0, allTimeTokens: 0)
@@ -25,7 +26,7 @@ struct TokenmonTokensTab: View {
         .padding(.horizontal, 14)
         .padding(.top, 12)
         .padding(.bottom, 10)
-        .frame(width: 300, alignment: .topLeading)
+        .frame(width: contentWidth, alignment: .topLeading)
     }
 
     private var tokenSourceNote: String {

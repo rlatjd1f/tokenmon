@@ -5,6 +5,7 @@ import TokenmonPersistence
 /// Stats tab content: dex completion donut, rarity distribution, field distribution, 7-day trend.
 struct TokenmonStatsTab: View {
     @ObservedObject var model: TokenmonMenuModel
+    let contentWidth: CGFloat
 
     private var totalSpecies: Int { model.dexEntries.count }
     private var seenCount: Int { model.dexEntries.filter { $0.status != .unknown }.count }
@@ -46,7 +47,7 @@ struct TokenmonStatsTab: View {
         .padding(.horizontal, 14)
         .padding(.top, 12)
         .padding(.bottom, 10)
-        .frame(width: 300, alignment: .topLeading)
+        .frame(width: contentWidth, alignment: .topLeading)
     }
 
     @ViewBuilder

@@ -5,6 +5,7 @@ import TokenmonPersistence
 
 struct TokenmonRaidTab: View {
     @ObservedObject var model: TokenmonMenuModel
+    let contentWidth: CGFloat
     let onOpenRewardArchive: () -> Void
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var highlightedAttackID: Int64?
@@ -38,7 +39,7 @@ struct TokenmonRaidTab: View {
             .padding(.horizontal, 14)
             .padding(.top, 12)
             .padding(.bottom, 14)
-            .frame(width: TokenmonPopoverContainer.contentWidth, alignment: .topLeading)
+            .frame(width: contentWidth, alignment: .topLeading)
         }
         .onAppear {
             guard let attack = dashboard?.currentRaid?.recentAttacks.first else { return }
@@ -338,7 +339,7 @@ struct TokenmonRaidTab: View {
             systemImage: "shield.slash",
             description: Text(TokenmonL10n.string("raid.empty.description"))
         )
-        .frame(width: TokenmonPopoverContainer.contentWidth)
+        .frame(width: contentWidth)
         .frame(minHeight: 360)
     }
 

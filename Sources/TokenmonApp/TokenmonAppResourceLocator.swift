@@ -64,7 +64,12 @@ enum TokenmonAppAssetResolver {
         }
 
         let fm = FileManager.default
-        var roots = [URL(fileURLWithPath: fm.currentDirectoryPath, isDirectory: true)]
+        var roots: [URL] = []
+        var currentDirectoryCandidate = URL(fileURLWithPath: fm.currentDirectoryPath, isDirectory: true)
+        for _ in 0..<6 {
+            roots.append(currentDirectoryCandidate)
+            currentDirectoryCandidate.deleteLastPathComponent()
+        }
         if let executableURL = Bundle.main.executableURL {
             var candidate = executableURL.deletingLastPathComponent()
             for _ in 0..<8 {
