@@ -829,7 +829,7 @@
 "now.camp.action.ready" = "준비됨";
 "now.camp.action.no_lead.short" = "리드 없음";
 "now.camp.action.need_more.short" = "%1$lld 부족";
-"now.camp.action.rank_gate.short" = "Bond %1$lld/%2$lld";
+"now.camp.action.rank_gate.short" = "친밀도 %1$lld/%2$lld";
 "now.camp.action.missing_lead" = "먼저 파티에서 리드를 선택하세요.";
 "now.camp.action.insufficient_focus" = "훈련 준비가 %1$lld 더 필요합니다. Tokenmon을 켠 상태로 Claude/Codex를 사용하면 채워집니다 (%2$lld/%3$lld).";
 "now.camp.action.insufficient_care_focus" = "훈련 준비 %1$lld/%2$lld.";

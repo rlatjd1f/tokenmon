@@ -243,11 +243,15 @@ struct TokenmonPresentationTests {
             expectedNowCampRewardShortName(for: lead.trainingTrait)
         ))
         #expect(presentation.benefitText == expectedNowCampBenefitText(for: lead))
+        #expect(presentation.practiceControlTitleText == TokenmonL10n.string("now.camp.practice.action"))
+        #expect(presentation.practiceControlDetailText == TokenmonL10n.format("now.camp.practice.target_level", Int64(2), Int64(3)))
+        #expect(presentation.practiceProgressFraction == 1.0)
         #expect(presentation.practiceReadinessText == TokenmonL10n.format("now.camp.practice.readiness", Int64(30), Int64(30)))
         #expect(presentation.practiceStatusText == TokenmonL10n.string("now.camp.practice.status.ready"))
         #expect(presentation.attemptHelpText.contains("success rate"))
         #expect(presentation.campStatusLine == TokenmonL10n.string("now.camp.status.ready"))
         #expect(presentation.energySourceLine == TokenmonL10n.string("now.camp.energy.source.ready"))
+        #expect(presentation.trainingLevelPipCount == 2)
 
         guard case .occupied(let firstSupport, index: 0) = presentation.supportSlots[0] else {
             Issue.record("expected occupied first support slot")
@@ -287,6 +291,23 @@ struct TokenmonPresentationTests {
     }
 
     @Test
+    func nowCampHeroPresentationExplainsMissingLeadForExternalPracticeControl() {
+        let presentation = NowCampHeroPresentation.make(
+            nowCamp: nil,
+            partyMembers: [],
+            sceneContext: makeNowCampSceneContext(field: .grassland)
+        )
+
+        #expect(presentation.lead == nil)
+        #expect(presentation.trainAction.availability == .missingLead)
+        #expect(presentation.practiceControlTitleText == TokenmonL10n.string("now.camp.practice.status.no_lead"))
+        #expect(presentation.practiceControlDetailText == TokenmonL10n.string("now.camp.action.no_lead.short"))
+        #expect(presentation.campStatusLine == TokenmonL10n.string("now.camp.status.no_lead"))
+        #expect(presentation.trainingLevelPipCount == 0)
+        #expect(presentation.practiceProgressFraction == 0.0)
+    }
+
+    @Test
     func nowCampHeroPresentationExplainsFocusAndRankLimitedActions() {
         let lead = sampleSpecies(field: .ice, offset: 0)
         let focusLimited = NowCampHeroPresentation.make(
@@ -304,6 +325,12 @@ struct TokenmonPresentationTests {
         #expect(focusLimited.trainTargetLine == TokenmonL10n.format("now.camp.train.target", "I", "II"))
         #expect(focusLimited.trainingLevelText == TokenmonL10n.format("now.camp.training_level", Int64(1), Int64(5)))
         #expect(focusLimited.targetLevelText == TokenmonL10n.format("now.camp.practice.target_level", Int64(1), Int64(2)))
+        #expect(focusLimited.practiceControlTitleText == TokenmonL10n.string("now.camp.practice.status.preparing"))
+        #expect(focusLimited.practiceControlDetailText == TokenmonL10n.format(
+            "now.camp.practice.preparing.detail",
+            TokenmonL10n.format("now.camp.practice.need_more", Int64(18))
+        ))
+        #expect(abs(focusLimited.practiceProgressFraction - 0.4) < 0.0001)
         #expect(focusLimited.practiceReadinessText == TokenmonL10n.format("now.camp.practice.need_more", Int64(18)))
         #expect(focusLimited.practiceStatusText == TokenmonL10n.string("now.camp.practice.status.preparing"))
         #expect(focusLimited.trainRewardShortLine == expectedNowCampRewardShortName(for: lead.trainingTrait))
@@ -325,7 +352,9 @@ struct TokenmonPresentationTests {
         )
         #expect(rankLimited.trainAction.availability == .rankAtAffinityGate(current: 2, required: 3))
         #expect(rankLimited.practiceStatusText == TokenmonL10n.string("now.camp.practice.status.bond_gate"))
-        #expect(rankLimited.campStatusLine == TokenmonL10n.string("now.camp.status.bond_gate"))
+        #expect(rankLimited.practiceControlTitleText == TokenmonL10n.string("now.camp.practice.status.bond_gate"))
+        #expect(rankLimited.practiceControlDetailText == TokenmonL10n.format("now.camp.action.rank_gate.short", Int64(2), Int64(3)))
+        #expect(rankLimited.campStatusLine == TokenmonL10n.string("now.camp.status.gathering"))
 
         let careCharged = NowCampHeroPresentation.make(
             nowCamp: makeNowCampSummary(
@@ -341,6 +370,7 @@ struct TokenmonPresentationTests {
         )
         #expect(careCharged.careAction.availability == .careCharged)
         #expect(careCharged.careStatusLine == TokenmonL10n.string("now.camp.care.ready.short"))
+        #expect(careCharged.practiceControlTitleText == TokenmonL10n.string("now.camp.practice.action"))
         #expect(careCharged.campStatusLine == TokenmonL10n.string("now.camp.status.care_ready"))
         #expect(careCharged.attemptHelpText.contains("Cheer +5"))
     }
@@ -367,6 +397,7 @@ struct TokenmonPresentationTests {
                 Int64(rank.rawValue),
                 Int64(TrainingRank.rankV.rawValue)
             ))
+            #expect(presentation.trainingLevelPipCount == rank.rawValue)
 
             if let next = rank.next {
                 #expect(presentation.targetLevelText == TokenmonL10n.format(
