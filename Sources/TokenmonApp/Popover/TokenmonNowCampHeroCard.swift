@@ -2227,21 +2227,6 @@ struct TokenmonNowCampHeroPresentationCard<HeaderAccessory: View>: View {
 
                 trainingRing(size: size)
 
-                ForEach(presentation.supportSlots) { slot in
-                    supportSlot(slot)
-                        .scaleEffect(0.80)
-                        .opacity(0.88)
-                        .offset(
-                            x: supportIdleXOffset(for: slot.index),
-                            y: supportIdleYOffset(for: slot.index)
-                        )
-                        .rotationEffect(.degrees(supportIdleRotation(for: slot.index)))
-                        .position(
-                            x: supportX(for: slot.index, width: size.width),
-                            y: size.height * 0.69
-                        )
-                }
-
                 if let lead = presentation.lead {
                     petLifeCues(size: size)
 
@@ -2666,30 +2651,6 @@ struct TokenmonNowCampHeroPresentationCard<HeaderAccessory: View>: View {
         state.isEnabled ? Color.white.opacity(0.96) : Color.white.opacity(0.70)
     }
 
-    private func supportSlot(_ slot: NowCampHeroSupportSlot) -> some View {
-        switch slot {
-        case .occupied(let member, _):
-            return AnyView(
-                TokenmonDexSpritePreview(
-                    status: .captured,
-                    revealStage: .revealed,
-                    field: member.field,
-                    rarity: member.rarity,
-                    assetKey: member.assetKey,
-                    cardSize: 46,
-                    spriteSize: 34,
-                    showsBackground: false,
-                    showsBorder: false
-                )
-                .opacity(0.78)
-                .shadow(color: Color.black.opacity(0.22), radius: 2, y: 1)
-                .help(member.displayName)
-            )
-        case .empty:
-            return AnyView(emptySupportSlot)
-        }
-    }
-
     private func leadSprite(_ lead: NowCampHeroMemberPresentation) -> some View {
         TokenmonDexSpritePreview(
             status: .captured,
@@ -2720,38 +2681,6 @@ struct TokenmonNowCampHeroPresentationCard<HeaderAccessory: View>: View {
             Circle()
                 .stroke(Color.white.opacity(0.12), lineWidth: 0.8)
         )
-    }
-
-    private var emptySupportSlot: some View {
-        ZStack(alignment: .topTrailing) {
-            Circle()
-                .fill(Color.black.opacity(0.20))
-                .frame(width: 38, height: 38)
-                .overlay(
-                    Circle()
-                        .stroke(Color.white.opacity(0.18), lineWidth: 0.8)
-                )
-
-            Image(systemName: "plus")
-                .font(.system(size: 8, weight: .black))
-                .foregroundStyle(Color.white.opacity(0.88))
-                .frame(width: 15, height: 15)
-                .background(
-                    RoundedRectangle(cornerRadius: 4, style: .continuous)
-                        .fill(Color.black.opacity(0.46))
-                )
-                .overlay(
-                    RoundedRectangle(cornerRadius: 4, style: .continuous)
-                        .stroke(Color.white.opacity(0.24), lineWidth: 0.6)
-                )
-                .offset(x: 3, y: -3)
-        }
-        .opacity(0.72)
-        .help(TokenmonL10n.string("now.camp.lead_picker.help"))
-    }
-
-    private func supportX(for index: Int, width: CGFloat) -> CGFloat {
-        index == 0 ? width * 0.33 : width * 0.70
     }
 
     private var propOpacity: Double {
@@ -2820,27 +2749,6 @@ struct TokenmonNowCampHeroPresentationCard<HeaderAccessory: View>: View {
         case .none:
             return leadIdleRotation
         }
-    }
-
-    private func supportIdleYOffset(for index: Int) -> CGFloat {
-        guard animates else {
-            return 0
-        }
-        return idlePulse == index.isMultiple(of: 2) ? -1.3 : 1.1
-    }
-
-    private func supportIdleXOffset(for index: Int) -> CGFloat {
-        guard animates else {
-            return 0
-        }
-        return idlePulse == index.isMultiple(of: 2) ? -1.2 : 1.2
-    }
-
-    private func supportIdleRotation(for index: Int) -> Double {
-        guard animates else {
-            return 0
-        }
-        return idlePulse == index.isMultiple(of: 2) ? -2.0 : 2.0
     }
 
     private func startIdleAnimation() {
