@@ -108,34 +108,35 @@ struct TokenmonNowTab: View {
     }
 
     private var compactBody: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            if model.shouldShowUsageAnalyticsPrompt {
-                usageAnalyticsPromptCard
+        ScrollView(.vertical, showsIndicators: false) {
+            VStack(alignment: .leading, spacing: 12) {
+                if model.shouldShowUsageAnalyticsPrompt {
+                    usageAnalyticsPromptCard
+                }
+
+                TokenmonNowCampHeroCard(
+                    model: model,
+                    sceneContext: model.popoverSceneContext,
+                    onScout: onOpenScout
+                )
+
+                TokenProgressBar(
+                    currentTokens: currentTokensInEncounter,
+                    totalTokens: totalTokensPerEncounter,
+                    segmentCount: Self.progressSegmentCount
+                )
+
+                latestEncounterCard
+
+                statsBlock
+
+                providerActionChips
             }
-
-            TokenmonNowCampHeroCard(
-                model: model,
-                sceneContext: model.popoverSceneContext
-            )
-
-            TokenProgressBar(
-                currentTokens: currentTokensInEncounter,
-                totalTokens: totalTokensPerEncounter,
-                segmentCount: Self.progressSegmentCount
-            )
-
-            latestEncounterCard
-
-            statsBlock
-
-            providerActionChips
-
-            Spacer(minLength: 0)
+            .padding(.horizontal, 14)
+            .padding(.top, 12)
+            .padding(.bottom, 10)
+            .frame(width: contentWidth, alignment: .topLeading)
         }
-        .padding(.horizontal, 14)
-        .padding(.top, 12)
-        .padding(.bottom, 10)
-        .frame(width: contentWidth, alignment: .topLeading)
     }
 
     private var usageAnalyticsPromptCard: some View {

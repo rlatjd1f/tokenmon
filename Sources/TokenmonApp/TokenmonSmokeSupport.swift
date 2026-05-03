@@ -1071,7 +1071,7 @@ private func pumpRunLoop(for duration: TimeInterval) {
 @MainActor
 private func actualPopoverRootView(
     model: TokenmonMenuModel,
-    layoutStyle: TokenmonPopoverLayoutStyle = .heroV2
+    layoutStyle: TokenmonPopoverLayoutStyle = .compact
 ) -> AnyView {
     AnyView(
         TokenmonPopoverContainer(
@@ -1096,7 +1096,7 @@ private func actualPopoverRootView(
 private func actualPopoverRootView(
     model: TokenmonMenuModel,
     initialActiveTab: TokenmonPopoverTab,
-    layoutStyle: TokenmonPopoverLayoutStyle = .heroV2
+    layoutStyle: TokenmonPopoverLayoutStyle = .compact
 ) -> AnyView {
     AnyView(
         TokenmonPopoverContainer(
@@ -1133,8 +1133,8 @@ private func captureReadmePopoverScreenshots(
         }
 
         try captureHostedWindowRootView(
-            actualPopoverRootView(model: model, initialActiveTab: output.tab, layoutStyle: .heroV2),
-            size: NSSize(width: TokenmonPopoverLayoutStyle.heroV2.width, height: TokenmonPopoverLayoutStyle.heroV2.height),
+            actualPopoverRootView(model: model, initialActiveTab: output.tab, layoutStyle: .compact),
+            size: NSSize(width: TokenmonPopoverLayoutStyle.compact.width, height: TokenmonPopoverLayoutStyle.compact.height),
             captureWholeWindow: true,
             styleMask: [.borderless],
             to: output.url

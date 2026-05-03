@@ -936,6 +936,7 @@ struct TokenmonNowCampHeroCard: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     let sceneContext: TokenmonSceneContext
+    let onScout: () -> Void
 
     @State private var feedback: NowCampHeroFeedback?
     @State private var feedbackToken = UUID()
@@ -961,6 +962,7 @@ struct TokenmonNowCampHeroCard: View {
             feedback: feedback,
             actionPulse: !reduceMotion && leadActionPulse,
             onTrain: handleTrain,
+            onScout: onScout,
             headerAccessory: {
                 leadPicker
             }
@@ -2094,6 +2096,7 @@ struct TokenmonNowCampHeroPresentationCard<HeaderAccessory: View>: View {
     let actionPulse: Bool
     let feedbackMotion: NowCampHeroFeedbackMotion
     let onTrain: () -> Void
+    let onScout: () -> Void
     let headerAccessory: HeaderAccessory
 
     @State private var idlePulse = false
@@ -2104,6 +2107,7 @@ struct TokenmonNowCampHeroPresentationCard<HeaderAccessory: View>: View {
         feedback: NowCampHeroFeedback?,
         actionPulse: Bool = false,
         onTrain: @escaping () -> Void,
+        onScout: @escaping () -> Void = {},
         @ViewBuilder headerAccessory: () -> HeaderAccessory
     ) {
         self.presentation = presentation
@@ -2112,6 +2116,7 @@ struct TokenmonNowCampHeroPresentationCard<HeaderAccessory: View>: View {
         self.actionPulse = actionPulse
         self.feedbackMotion = feedback?.motion ?? .none
         self.onTrain = onTrain
+        self.onScout = onScout
         self.headerAccessory = headerAccessory()
     }
 
@@ -2147,18 +2152,19 @@ struct TokenmonNowCampHeroPresentationCard<HeaderAccessory: View>: View {
 
                 campStage
             }
-            .frame(height: 150)
+            .frame(height: 146)
             .clipped()
 
-            practiceControl(
-                state: presentation.trainAction,
-                action: onTrain
-            )
-            .padding(.horizontal, 8)
-            .padding(.top, 5)
-            .padding(.bottom, 7)
+            compactTelemetry
+                .padding(.horizontal, 8)
+                .padding(.top, 6)
+
+            compactActionRow
+                .padding(.horizontal, 8)
+                .padding(.top, 6)
+                .padding(.bottom, 8)
         }
-        .frame(height: 236)
+        .frame(height: 304)
         .background(Color(nsColor: .windowBackgroundColor).opacity(0.92))
         .clipShape(clipShape)
         .overlay(
@@ -2204,31 +2210,10 @@ struct TokenmonNowCampHeroPresentationCard<HeaderAccessory: View>: View {
 
                 trainingRing(size: size)
 
-                Ellipse()
-                    .fill(Color.black.opacity(0.26))
-                    .frame(width: 176, height: 15)
-                    .position(x: size.width * 0.52, y: 123)
-
-                NowCampEffectSpriteImage(scope: .field(presentation.field), variant: .campMat64)
-                    .frame(width: 144, height: 64)
-                    .opacity(0.96)
-                    .shadow(color: Color.black.opacity(0.18), radius: 3, y: 1)
-                    .position(x: size.width * 0.52, y: 120)
-
-                NowCampEffectSpriteImage(scope: .field(presentation.field), variant: .campPropPrimary32)
-                    .frame(width: 56, height: 56)
-                    .opacity(propOpacity * 0.88)
-                    .shadow(color: Color.black.opacity(0.14), radius: 2, y: 1)
-                    .position(x: size.width * 0.20, y: 111)
-
-                NowCampEffectSpriteImage(scope: .field(presentation.field), variant: .campPropSecondary32)
-                    .frame(width: 54, height: 54)
-                    .opacity(propOpacity * 0.84)
-                    .shadow(color: Color.black.opacity(0.14), radius: 2, y: 1)
-                    .position(x: size.width * 0.82, y: 112)
-
                 ForEach(presentation.supportSlots) { slot in
                     supportSlot(slot)
+                        .scaleEffect(0.78)
+                        .opacity(0.58)
                         .offset(
                             x: supportIdleXOffset(for: slot.index),
                             y: supportIdleYOffset(for: slot.index)
@@ -2236,7 +2221,7 @@ struct TokenmonNowCampHeroPresentationCard<HeaderAccessory: View>: View {
                         .rotationEffect(.degrees(supportIdleRotation(for: slot.index)))
                         .position(
                             x: supportX(for: slot.index, width: size.width),
-                            y: 88
+                            y: 100
                         )
                 }
 
@@ -2244,13 +2229,14 @@ struct TokenmonNowCampHeroPresentationCard<HeaderAccessory: View>: View {
                     petLifeCues(size: size)
 
                     leadMarker(lead)
-                        .position(x: size.width * 0.52, y: 25)
+                        .position(x: size.width * 0.52, y: 30)
 
                     leadSprite(lead)
+                        .scaleEffect(0.88)
                         .scaleEffect(actionPulseScale)
                         .offset(x: actionPulseXOffset, y: leadIdleYOffset + actionPulseYOffset)
                         .rotationEffect(.degrees(actionPulseRotation))
-                        .position(x: size.width * 0.52, y: 68)
+                        .position(x: size.width * 0.52, y: 84)
                         .animation(.easeInOut(duration: 1.35).repeatForever(autoreverses: true), value: idlePulse)
                         .animation(.spring(response: 0.22, dampingFraction: 0.62), value: actionPulse)
 
@@ -2260,7 +2246,7 @@ struct TokenmonNowCampHeroPresentationCard<HeaderAccessory: View>: View {
                     }
                 } else {
                     emptyLead
-                        .position(x: size.width * 0.52, y: 68)
+                        .position(x: size.width * 0.52, y: 84)
 
                     if feedback == nil {
                         campStatusBubble
@@ -2269,7 +2255,7 @@ struct TokenmonNowCampHeroPresentationCard<HeaderAccessory: View>: View {
                 }
 
                 trainingLevelPips
-                    .position(x: size.width * 0.76, y: 132)
+                    .position(x: size.width * 0.76, y: 130)
 
                 if let feedback {
                     feedbackLine(feedback)
@@ -2283,10 +2269,21 @@ struct TokenmonNowCampHeroPresentationCard<HeaderAccessory: View>: View {
     private func campFoundation(size: CGSize) -> some View {
         return ZStack {
             Ellipse()
-                .fill(Color.black.opacity(0.24))
-                .frame(width: 206, height: 16)
-                .blur(radius: 0.5)
-                .position(x: size.width * 0.52, y: 134)
+                .fill(
+                    RadialGradient(
+                        colors: [
+                            Color.black.opacity(0.26),
+                            Color.black.opacity(0.10),
+                            Color.clear,
+                        ],
+                        center: .center,
+                        startRadius: 4,
+                        endRadius: 78
+                    )
+                )
+                .frame(width: 164, height: 18)
+                .blur(radius: 2.0)
+                .position(x: size.width * 0.52, y: 126)
         }
     }
 
@@ -2294,21 +2291,21 @@ struct TokenmonNowCampHeroPresentationCard<HeaderAccessory: View>: View {
         ZStack {
             Ellipse()
                 .stroke(
-                    presentation.field.nowCampTint.opacity(0.24),
+                    presentation.field.nowCampTint.opacity(0.08),
                     style: StrokeStyle(lineWidth: 1.0, lineCap: .round, dash: [5, 5])
                 )
-                .frame(width: 152, height: 38)
-                .position(x: size.width * 0.52, y: 109)
+                .frame(width: 124, height: 28)
+                .position(x: size.width * 0.52, y: 118)
 
             NowCampEffectSpriteImage(scope: .field(presentation.field), variant: .trainFX16)
-                .frame(width: 22, height: 22)
-                .opacity(animates && idlePulse ? 0.86 : 0.48)
-                .position(x: size.width * 0.34, y: 93)
+                .frame(width: 18, height: 18)
+                .opacity(animates && idlePulse ? 0.48 : 0.18)
+                .position(x: size.width * 0.37, y: 107)
 
             NowCampEffectSpriteImage(scope: .common, variant: .trainingSuccess16)
-                .frame(width: 20, height: 20)
-                .opacity(animates && idlePulse ? 0.72 : 0.34)
-                .position(x: size.width * 0.70, y: 92)
+                .frame(width: 17, height: 17)
+                .opacity(animates && idlePulse ? 0.42 : 0.16)
+                .position(x: size.width * 0.67, y: 105)
         }
     }
 
@@ -2353,16 +2350,16 @@ struct TokenmonNowCampHeroPresentationCard<HeaderAccessory: View>: View {
     private func petLifeCues(size: CGSize) -> some View {
         ZStack {
             NowCampEffectSpriteImage(scope: .field(presentation.field), variant: .careFX16)
-                .frame(width: 20, height: 20)
-                .opacity(animates && idlePulse ? 0.90 : 0.48)
-                .offset(y: animates && idlePulse ? -4 : 1)
-                .position(x: size.width * 0.39, y: 34)
+                .frame(width: 18, height: 18)
+                .opacity(animates && idlePulse ? 0.48 : 0.18)
+                .offset(y: animates && idlePulse ? -3 : 1)
+                .position(x: size.width * 0.37, y: 44)
 
             NowCampEffectSpriteImage(scope: .common, variant: .trainingSuccess16)
-                .frame(width: 18, height: 18)
-                .opacity(animates && idlePulse ? 0.76 : 0.38)
+                .frame(width: 16, height: 16)
+                .opacity(animates && idlePulse ? 0.40 : 0.16)
                 .offset(y: animates && idlePulse ? -2 : 2)
-                .position(x: size.width * 0.64, y: 30)
+                .position(x: size.width * 0.66, y: 42)
         }
     }
 
@@ -2432,128 +2429,143 @@ struct TokenmonNowCampHeroPresentationCard<HeaderAccessory: View>: View {
         )
     }
 
-    private var focusRequirementProgress: CGFloat {
-        CGFloat(presentation.practiceProgressFraction)
-    }
-
-    private func practiceControl(
-        state: NowCampHeroActionState,
-        action: @escaping () -> Void
-    ) -> some View {
-        Button {
-            guard state.isEnabled else {
-                return
-            }
-            action()
-        } label: {
-            HStack(spacing: 8) {
-                ZStack {
-                    Circle()
-                        .fill(Color.white.opacity(state.isEnabled ? 0.22 : 0.12))
-                    Image(systemName: practiceIcon(for: state))
-                        .font(.system(size: 11, weight: .black))
-                }
-                .frame(width: 24, height: 24)
-
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(presentation.practiceControlTitleText)
-                        .font(.system(size: 11, weight: .black, design: .rounded))
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.72)
-
-                    Text(presentation.practiceControlDetailText)
-                        .font(.system(size: 8, weight: .heavy, design: .rounded))
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.66)
-                }
-                .layoutPriority(1)
-
-                Spacer(minLength: 4)
-
-                VStack(alignment: .trailing, spacing: 3) {
-                    HStack(spacing: 4) {
-                        if let careStatusLine = presentation.careStatusLine {
-                            careReadyBadge(careStatusLine)
-                        }
-
-                        if state.isEnabled {
-                            rewardBadge
-                        }
-                    }
-                }
-            }
-            .padding(.horizontal, 10)
-            .padding(.vertical, 5)
-            .frame(maxWidth: .infinity, minHeight: 42, maxHeight: 42)
-            .foregroundStyle(actionForeground(for: state))
-            .background(practiceControlBackground(for: state))
-            .overlay(
-                RoundedRectangle(cornerRadius: 9, style: .continuous)
-                    .stroke(actionButtonStroke(for: state), lineWidth: state.isEnabled ? 1.1 : 0.8)
+    private var compactTelemetry: some View {
+        HStack(spacing: 0) {
+            compactTelemetryCell(
+                icon: "bolt.fill",
+                title: presentation.v2.focusTitleText,
+                value: presentation.v2.focusValueText,
+                tint: .green
             )
-            .shadow(
-                color: actionButtonShadow(for: state),
-                radius: state.isEnabled ? 7 : 2,
-                y: state.isEnabled ? 2 : 1
+
+            Divider()
+                .padding(.vertical, 5)
+
+            compactTelemetryCell(
+                icon: "scope",
+                title: presentation.v2.practiceTitleText,
+                value: presentation.v2.practiceChanceText,
+                tint: .blue
+            )
+
+            Divider()
+                .padding(.vertical, 5)
+
+            compactTelemetryCell(
+                icon: presentation.v2.rewardPreview.systemImage,
+                title: presentation.v2.rewardPreview.titleText,
+                value: presentation.v2.rewardPreview.valueText,
+                tint: presentation.field.nowCampTint
             )
         }
-        .buttonStyle(.plain)
-        .help(presentation.attemptHelpText)
-        .accessibilityValue(presentation.attemptHelpText)
+        .frame(height: 54)
+        .background(
+            RoundedRectangle(cornerRadius: 9, style: .continuous)
+                .fill(Color.secondary.opacity(0.08))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 9, style: .continuous)
+                .stroke(Color.secondary.opacity(0.12), lineWidth: 0.8)
+        )
     }
 
-    private func practiceControlBackground(for state: NowCampHeroActionState) -> some View {
+    private func compactTelemetryCell(
+        icon: String,
+        title: String,
+        value: String,
+        tint: Color
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Label {
+                Text(title)
+                    .font(.system(size: 8, weight: .heavy, design: .rounded))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.58)
+            } icon: {
+                Image(systemName: icon)
+                    .font(.system(size: 9, weight: .black))
+                    .foregroundStyle(tint)
+            }
+            .foregroundStyle(.secondary)
+
+            Text(value)
+                .font(.system(size: 15, weight: .heavy, design: .rounded))
+                .monospacedDigit()
+                .lineLimit(1)
+                .minimumScaleFactor(0.54)
+        }
+        .padding(.horizontal, 8)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
+    }
+
+    private var compactActionRow: some View {
+        HStack(spacing: 8) {
+            Button {
+                guard presentation.trainAction.isEnabled else {
+                    return
+                }
+                onTrain()
+            } label: {
+                Label {
+                    Text(TokenmonL10n.string("now.camp.v2.train"))
+                        .font(.system(size: 13, weight: .heavy, design: .rounded))
+                        .lineLimit(1)
+                } icon: {
+                    Image(systemName: practiceIcon(for: presentation.trainAction))
+                        .font(.system(size: 12, weight: .black))
+                }
+                .frame(maxWidth: .infinity, minHeight: 39)
+            }
+            .buttonStyle(.plain)
+            .foregroundStyle(actionForeground(for: presentation.trainAction))
+            .background(compactActionBackground(for: presentation.trainAction))
+            .overlay(
+                RoundedRectangle(cornerRadius: 9, style: .continuous)
+                    .stroke(actionButtonStroke(for: presentation.trainAction), lineWidth: 0.9)
+            )
+            .clipShape(RoundedRectangle(cornerRadius: 9, style: .continuous))
+            .help(presentation.attemptHelpText)
+
+            Button(action: onScout) {
+                Label {
+                    Text(presentation.v2.scoutActionTitleText)
+                        .font(.system(size: 13, weight: .heavy, design: .rounded))
+                        .lineLimit(1)
+                } icon: {
+                    Image(systemName: "binoculars.fill")
+                        .font(.system(size: 12, weight: .black))
+                }
+                .frame(maxWidth: .infinity, minHeight: 39)
+            }
+            .buttonStyle(.plain)
+            .foregroundStyle(Color.accentColor)
+            .background(
+                RoundedRectangle(cornerRadius: 9, style: .continuous)
+                    .fill(Color.accentColor.opacity(0.10))
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 9, style: .continuous)
+                    .stroke(Color.accentColor.opacity(0.30), lineWidth: 0.8)
+            )
+            .help(presentation.v2.scoutActionHelpText)
+        }
+    }
+
+    private func compactActionBackground(for state: NowCampHeroActionState) -> some View {
         GeometryReader { geometry in
             ZStack(alignment: .leading) {
                 RoundedRectangle(cornerRadius: 9, style: .continuous)
                     .fill(actionButtonFill(for: state))
 
                 RoundedRectangle(cornerRadius: 9, style: .continuous)
-                    .fill(presentation.field.nowCampTint.opacity(state.isEnabled ? 0.34 : 0.20))
-                    .frame(width: max(10, geometry.size.width * focusRequirementProgress))
-                    .opacity(state.kind == .train ? 1.0 : 0.0)
+                    .fill(presentation.field.nowCampTint.opacity(state.isEnabled ? 0.34 : 0.12))
+                    .frame(width: max(8, geometry.size.width * focusRequirementProgress))
             }
         }
     }
 
-    private var rewardBadge: some View {
-        HStack(spacing: 2) {
-            Image(systemName: presentation.trainRewardSystemImage)
-                .font(.system(size: 6, weight: .black))
-            Text(presentation.benefitText)
-                .font(.system(size: 7, weight: .heavy, design: .rounded))
-                .lineLimit(1)
-                .minimumScaleFactor(0.62)
-        }
-        .padding(.horizontal, 5)
-        .padding(.vertical, 1)
-        .background(
-            Capsule(style: .continuous)
-                .fill(actionRequirementFill(for: presentation.trainAction))
-        )
-        .help(TokenmonL10n.format(
-            "now.camp.train.reward.help",
-            presentation.targetLevelText,
-            presentation.benefitText
-        ))
-    }
-
-    private func careReadyBadge(_ text: String) -> some View {
-        HStack(spacing: 2) {
-            Image(systemName: "heart.fill")
-                .font(.system(size: 6, weight: .black))
-            Text(text)
-                .font(.system(size: 7, weight: .heavy, design: .rounded))
-                .lineLimit(1)
-                .minimumScaleFactor(0.68)
-        }
-        .padding(.horizontal, 4)
-        .padding(.vertical, 1)
-        .background(
-            Capsule(style: .continuous)
-                .fill(Color.black.opacity(0.16))
-        )
-        .help(TokenmonL10n.string("now.camp.care.help"))
+    private var focusRequirementProgress: CGFloat {
+        CGFloat(presentation.practiceProgressFraction)
     }
 
     private func practiceIcon(for state: NowCampHeroActionState) -> String {
@@ -2591,25 +2603,8 @@ struct TokenmonNowCampHeroPresentationCard<HeaderAccessory: View>: View {
         return Color.white.opacity(0.62)
     }
 
-    private func actionButtonShadow(for state: NowCampHeroActionState) -> Color {
-        guard state.isEnabled else {
-            return Color.black.opacity(0.18)
-        }
-        if state.kind == .care {
-            return Color(red: 1.0, green: 0.68, blue: 0.24).opacity(0.36)
-        }
-        return presentation.field.nowCampTint.opacity(0.26)
-    }
-
     private func actionForeground(for state: NowCampHeroActionState) -> Color {
         state.isEnabled ? Color.white.opacity(0.96) : Color.white.opacity(0.70)
-    }
-
-    private func actionRequirementFill(for state: NowCampHeroActionState) -> Color {
-        guard state.isEnabled else {
-            return Color.black.opacity(0.18)
-        }
-        return Color.black.opacity(0.16)
     }
 
     private func supportSlot(_ slot: NowCampHeroSupportSlot) -> some View {

@@ -45,10 +45,12 @@ enum TokenmonPopoverLayoutStyle: String, CaseIterable {
         switch option?.lowercased() {
         case "compact":
             return .compact
-        case "hero-v2", "herov2", "wide", nil:
+        case "hero-v2", "herov2", "wide":
             return .heroV2
+        case nil:
+            return .compact
         default:
-            return .heroV2
+            return .compact
         }
     }
 }
@@ -63,9 +65,9 @@ struct TokenmonPopoverContainerActions {
 }
 
 struct TokenmonPopoverContainer: View {
-    static let width: CGFloat = TokenmonPopoverLayoutStyle.heroV2.width
-    static let height: CGFloat = TokenmonPopoverLayoutStyle.heroV2.height
-    static let contentWidth: CGFloat = TokenmonPopoverLayoutStyle.heroV2.contentWidth
+    static let width: CGFloat = TokenmonPopoverLayoutStyle.compact.width
+    static let height: CGFloat = TokenmonPopoverLayoutStyle.compact.height
+    static let contentWidth: CGFloat = TokenmonPopoverLayoutStyle.compact.contentWidth
     static let compactWidth: CGFloat = TokenmonPopoverLayoutStyle.compact.width
     static let compactHeight: CGFloat = TokenmonPopoverLayoutStyle.compact.height
     static let compactContentWidth: CGFloat = TokenmonPopoverLayoutStyle.compact.contentWidth
@@ -80,7 +82,7 @@ struct TokenmonPopoverContainer: View {
         model: TokenmonMenuModel,
         actions: TokenmonPopoverContainerActions,
         initialActiveTab: TokenmonPopoverTab = .now,
-        layoutStyle: TokenmonPopoverLayoutStyle = .heroV2
+        layoutStyle: TokenmonPopoverLayoutStyle = .compact
     ) {
         self.model = model
         self.actions = actions

@@ -56,6 +56,11 @@ struct TokenmonSurfaceCompatibilityTests {
             actions: popoverActions,
             initialActiveTab: .raid
         )
+        let heroV2PopoverContainer = TokenmonPopoverContainer(
+            model: model,
+            actions: popoverActions,
+            layoutStyle: .heroV2
+        )
         let compactPopoverContainer = TokenmonPopoverContainer(
             model: model,
             actions: popoverActions,
@@ -86,8 +91,9 @@ struct TokenmonSurfaceCompatibilityTests {
         assertHostedRender(developerPanel, size: CGSize(width: 1040, height: 760))
         assertHostedRender(dexPanel, size: CGSize(width: 1040, height: 720))
         assertHostedRender(rewardArchivePanel, size: CGSize(width: 1120, height: 720))
-        assertHostedRender(popoverContainer, size: CGSize(width: 560, height: 720))
-        assertHostedRender(raidPopoverContainer, size: CGSize(width: 560, height: 720))
+        assertHostedRender(popoverContainer, size: CGSize(width: 360, height: 520))
+        assertHostedRender(raidPopoverContainer, size: CGSize(width: 360, height: 520))
+        assertHostedRender(heroV2PopoverContainer, size: CGSize(width: 560, height: 720))
         assertHostedRender(compactPopoverContainer, size: CGSize(width: 360, height: 520))
         assertHostedRender(reducedMotionHeroCard, size: CGSize(width: 528, height: 586))
     }
