@@ -845,11 +845,11 @@
 "now.camp.v2.title" = "Now";
 "now.camp.v2.subtitle" = "리드 훈련";
 "now.camp.v2.focus.title" = "집중 에너지";
-"now.camp.v2.practice.title" = "다음 연습";
-"now.camp.v2.reward.title" = "보상 미리보기";
+"now.camp.v2.practice.title" = "성공률";
+"now.camp.v2.reward.title" = "보너스";
 "now.camp.v2.train" = "훈련";
-"now.camp.v2.scout" = "정찰";
-"now.camp.v2.scout.help" = "Dex 정찰 컨텍스트만 엽니다. 조우를 바꾸거나 집중 에너지를 쓰지 않습니다.";
+"now.camp.v2.scout" = "도감 보기";
+"now.camp.v2.scout.help" = "Dex 도감을 열어 현재 필드와 리드 보너스를 확인합니다. 조우를 만들거나 집중 에너지를 쓰지 않습니다.";
 "now.camp.v2.encounter_progress.help" = "다음 자동 조우까지의 진행도입니다.";
 "now.camp.v2.unavailable" = "—";
 "now.camp.v2.max" = "Max";
@@ -860,6 +860,10 @@
 "now.camp.v2.signed_integer" = "+%1$lld";
 "now.camp.v2.points" = "+%1$lldpp";
 "now.camp.v2.reward.inactive" = "Rank II 해금";
+"now.camp.v2.reward.trail.title" = "조우 보너스";
+"now.camp.v2.reward.scout.title" = "희귀도 보너스";
+"now.camp.v2.reward.capture.title" = "포획 보너스";
+"now.camp.v2.reward.raider.title" = "레이드 보너스";
 "now.camp.v2.reward.trail.detail" = "%1$@ 필드 가중치";
 "now.camp.v2.reward.scout.detail" = "%1$@ 희귀도 보정";
 "now.camp.v2.reward.capture.detail" = "%1$@ 포획률";

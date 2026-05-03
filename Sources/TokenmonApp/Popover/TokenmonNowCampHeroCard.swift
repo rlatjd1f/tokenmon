@@ -826,12 +826,25 @@ struct NowCampHeroPresentation: Equatable {
         )
 
         return NowCampHeroV2RewardPreview(
-            titleText: trainRewardShortName(for: lead.trainingTrait),
+            titleText: v2RewardTitleText(for: lead.trainingTrait),
             valueText: v2RewardValueText(for: preview),
             detailText: v2RewardDetailText(for: preview),
             systemImage: trainRewardSystemImage(for: lead),
             isActive: preview.isActive
         )
+    }
+
+    private static func v2RewardTitleText(for trait: TrainingTrait) -> String {
+        switch trait {
+        case .trail:
+            return TokenmonL10n.string("now.camp.v2.reward.trail.title")
+        case .scout:
+            return TokenmonL10n.string("now.camp.v2.reward.scout.title")
+        case .capture:
+            return TokenmonL10n.string("now.camp.v2.reward.capture.title")
+        case .raider:
+            return TokenmonL10n.string("now.camp.v2.reward.raider.title")
+        }
     }
 
     private static func v2RewardValueText(for preview: LeaderTraitBonusPreview) -> String {
@@ -2216,8 +2229,8 @@ struct TokenmonNowCampHeroPresentationCard<HeaderAccessory: View>: View {
 
                 ForEach(presentation.supportSlots) { slot in
                     supportSlot(slot)
-                        .scaleEffect(0.72)
-                        .opacity(0.50)
+                        .scaleEffect(0.80)
+                        .opacity(0.88)
                         .offset(
                             x: supportIdleXOffset(for: slot.index),
                             y: supportIdleYOffset(for: slot.index)
@@ -2668,7 +2681,8 @@ struct TokenmonNowCampHeroPresentationCard<HeaderAccessory: View>: View {
                     showsBackground: false,
                     showsBorder: false
                 )
-                .opacity(0.62)
+                .opacity(0.78)
+                .shadow(color: Color.black.opacity(0.22), radius: 2, y: 1)
                 .help(member.displayName)
             )
         case .empty:
