@@ -921,11 +921,11 @@ struct TokenmonNowCampHeroPresentationCard<HeaderAccessory: View>: View {
     }
 
     var body: some View {
-        let clipShape = RoundedRectangle(cornerRadius: 14, style: .continuous)
+        let clipShape = RoundedRectangle(cornerRadius: 12, style: .continuous)
 
         VStack(spacing: 0) {
             header
-                .frame(height: 34)
+                .frame(height: 32)
 
             ZStack {
                 TokenmonPopoverHeroFieldStage(
@@ -946,14 +946,12 @@ struct TokenmonNowCampHeroPresentationCard<HeaderAccessory: View>: View {
 
                 campStage
 
-                dockBand
-
                 bottomDock
             }
-            .frame(height: 154)
+            .frame(height: 158)
             .clipped()
         }
-        .frame(height: 188)
+        .frame(height: 190)
         .background(Color(nsColor: .windowBackgroundColor).opacity(0.92))
         .clipShape(clipShape)
         .overlay(
@@ -1001,28 +999,29 @@ struct TokenmonNowCampHeroPresentationCard<HeaderAccessory: View>: View {
 
                 Ellipse()
                     .fill(Color.black.opacity(0.26))
-                    .frame(width: 122, height: 12)
-                    .position(x: size.width * 0.52, y: 82)
+                    .frame(width: 136, height: 13)
+                    .position(x: size.width * 0.52, y: 96)
 
                 NowCampEffectSpriteImage(scope: .field(presentation.field), variant: .campMat64)
-                    .frame(width: 96, height: 35)
+                    .frame(width: 118, height: 52)
                     .opacity(0.96)
                     .shadow(color: Color.black.opacity(0.18), radius: 3, y: 1)
-                    .position(x: size.width * 0.52, y: 86)
+                    .position(x: size.width * 0.52, y: 95)
 
-                campCareTray(size: size)
+                trainingLevelPips
+                    .position(x: size.width * 0.22, y: 24)
 
                 NowCampEffectSpriteImage(scope: .field(presentation.field), variant: .campPropPrimary32)
-                    .frame(width: 27, height: 27)
-                    .opacity(propOpacity * 0.74)
+                    .frame(width: 40, height: 40)
+                    .opacity(propOpacity * 0.88)
                     .shadow(color: Color.black.opacity(0.14), radius: 2, y: 1)
-                    .position(x: size.width * 0.25, y: 74)
+                    .position(x: size.width * 0.23, y: 86)
 
                 NowCampEffectSpriteImage(scope: .field(presentation.field), variant: .campPropSecondary32)
-                    .frame(width: 28, height: 28)
-                    .opacity(propOpacity * 0.76)
+                    .frame(width: 38, height: 38)
+                    .opacity(propOpacity * 0.84)
                     .shadow(color: Color.black.opacity(0.14), radius: 2, y: 1)
-                    .position(x: size.width * 0.78, y: 76)
+                    .position(x: size.width * 0.79, y: 88)
 
                 ForEach(presentation.supportSlots) { slot in
                     supportSlot(slot)
@@ -1033,7 +1032,7 @@ struct TokenmonNowCampHeroPresentationCard<HeaderAccessory: View>: View {
                         .rotationEffect(.degrees(supportIdleRotation(for: slot.index)))
                         .position(
                             x: supportX(for: slot.index, width: size.width),
-                            y: 58
+                            y: 66
                         )
                 }
 
@@ -1048,14 +1047,18 @@ struct TokenmonNowCampHeroPresentationCard<HeaderAccessory: View>: View {
                         .animation(.easeInOut(duration: 1.35).repeatForever(autoreverses: true), value: idlePulse)
                         .animation(.spring(response: 0.22, dampingFraction: 0.62), value: actionPulse)
 
-                    leadBadge
-                        .position(x: size.width * 0.52, y: 14)
-
-                    campStatusBubble
-                        .position(x: size.width * 0.73, y: 25)
+                    if feedback == nil {
+                        campStatusBubble
+                            .position(x: size.width * 0.72, y: 24)
+                    }
                 } else {
                     emptyLead
                         .position(x: size.width * 0.52, y: 46)
+                }
+
+                if let feedback {
+                    feedbackLine(feedback)
+                        .position(x: size.width * 0.50, y: 20)
                 }
             }
         }
@@ -1066,32 +1069,9 @@ struct TokenmonNowCampHeroPresentationCard<HeaderAccessory: View>: View {
         return ZStack {
             Ellipse()
                 .fill(Color.black.opacity(0.24))
-                .frame(width: 150, height: 14)
+                .frame(width: 166, height: 14)
                 .blur(radius: 0.5)
-                .position(x: size.width * 0.52, y: 98)
-
-            HStack(spacing: 4) {
-                ForEach(0..<5, id: \.self) { index in
-                    RoundedRectangle(cornerRadius: 4, style: .continuous)
-                        .fill(
-                            LinearGradient(
-                                colors: [
-                                    presentation.field.nowCampTint.opacity(index.isMultiple(of: 2) ? 0.30 : 0.20),
-                                    Color.black.opacity(0.34),
-                                ],
-                                startPoint: .top,
-                                endPoint: .bottom
-                            )
-                        )
-                        .frame(width: index == 2 ? 34 : 28, height: 10)
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 4, style: .continuous)
-                                .stroke(Color.white.opacity(0.13), lineWidth: 0.6)
-                        )
-                }
-            }
-            .rotationEffect(.degrees(-2.2))
-            .position(x: size.width * 0.52, y: 92)
+                .position(x: size.width * 0.52, y: 107)
         }
     }
 
@@ -1099,59 +1079,67 @@ struct TokenmonNowCampHeroPresentationCard<HeaderAccessory: View>: View {
         ZStack {
             Ellipse()
                 .stroke(
-                    presentation.field.nowCampTint.opacity(0.34),
-                    style: StrokeStyle(lineWidth: 1.2, lineCap: .round, dash: [5, 4])
+                    presentation.field.nowCampTint.opacity(0.24),
+                    style: StrokeStyle(lineWidth: 1.0, lineCap: .round, dash: [5, 5])
                 )
-                .frame(width: 108, height: 24)
-                .position(x: size.width * 0.52, y: 76)
+                .frame(width: 124, height: 30)
+                .position(x: size.width * 0.52, y: 84)
 
-            Image(systemName: "sparkle")
-                .font(.system(size: 9, weight: .black))
-                .foregroundStyle(presentation.field.nowCampTint.opacity(animates && idlePulse ? 0.80 : 0.46))
-                .position(x: size.width * 0.38, y: 68)
+            NowCampEffectSpriteImage(scope: .field(presentation.field), variant: .trainFX16)
+                .frame(width: 22, height: 22)
+                .opacity(animates && idlePulse ? 0.86 : 0.48)
+                .position(x: size.width * 0.38, y: 72)
 
-            Image(systemName: "sparkle")
-                .font(.system(size: 7, weight: .bold))
-                .foregroundStyle(Color.white.opacity(animates && idlePulse ? 0.70 : 0.38))
-                .position(x: size.width * 0.65, y: 66)
+            NowCampEffectSpriteImage(scope: .common, variant: .trainingSuccess16)
+                .frame(width: 20, height: 20)
+                .opacity(animates && idlePulse ? 0.72 : 0.34)
+                .position(x: size.width * 0.66, y: 70)
         }
     }
 
-    private func campCareTray(size: CGSize) -> some View {
+    private var trainingLevelPips: some View {
         HStack(spacing: 4) {
-            Image(systemName: "leaf.fill")
-                .foregroundStyle(presentation.field.nowCampTint.opacity(0.88))
-            Image(systemName: "heart.fill")
-                .foregroundStyle(Color(red: 1.0, green: 0.50, blue: 0.62).opacity(0.88))
-            Image(systemName: "sparkles")
-                .foregroundStyle(Color.white.opacity(0.84))
+            ForEach(0..<TrainingRank.rankV.rawValue, id: \.self) { index in
+                trainingPip(isLit: index < trainingLevelPipCount)
+            }
         }
-        .font(.system(size: 8, weight: .black))
         .padding(.horizontal, 7)
         .padding(.vertical, 3)
         .background(
             Capsule(style: .continuous)
-                .fill(Color.black.opacity(0.28))
+                .fill(Color.black.opacity(0.26))
         )
         .overlay(
             Capsule(style: .continuous)
-                .stroke(Color.white.opacity(0.14), lineWidth: 0.7)
+                .stroke(Color.white.opacity(0.13), lineWidth: 0.7)
         )
-        .shadow(color: Color.black.opacity(0.14), radius: 2, y: 1)
-        .position(x: size.width * 0.52, y: 93)
+        .shadow(color: Color.black.opacity(0.18), radius: 2, y: 1)
+        .help(presentation.trainingLevelText)
+    }
+
+    private func trainingPip(isLit: Bool) -> some View {
+        NowCampEffectSpriteImage(scope: .common, variant: .resonanceOrb16)
+            .frame(width: 12, height: 12)
+            .saturation(isLit ? 1.0 : 0.0)
+            .brightness(isLit ? 0.04 : -0.16)
+            .opacity(isLit ? 0.96 : 0.36)
+            .shadow(
+                color: isLit ? presentation.field.nowCampTint.opacity(0.42) : Color.clear,
+                radius: isLit ? 3 : 0
+            )
     }
 
     private func petLifeCues(size: CGSize) -> some View {
         ZStack {
-            Image(systemName: "heart.fill")
-                .font(.system(size: 8, weight: .black))
-                .foregroundStyle(Color(red: 1.0, green: 0.48, blue: 0.60).opacity(animates && idlePulse ? 0.86 : 0.48))
-                .offset(y: animates && idlePulse ? -3 : 1)
+            NowCampEffectSpriteImage(scope: .field(presentation.field), variant: .careFX16)
+                .frame(width: 20, height: 20)
+                .opacity(animates && idlePulse ? 0.90 : 0.48)
+                .offset(y: animates && idlePulse ? -4 : 1)
                 .position(x: size.width * 0.39, y: 34)
 
-            Image(systemName: "sparkles")
-                .font(.system(size: 9, weight: .black))
-                .foregroundStyle(Color.white.opacity(animates && idlePulse ? 0.78 : 0.42))
+            NowCampEffectSpriteImage(scope: .common, variant: .trainingSuccess16)
+                .frame(width: 18, height: 18)
+                .opacity(animates && idlePulse ? 0.76 : 0.38)
                 .offset(y: animates && idlePulse ? -2 : 2)
                 .position(x: size.width * 0.64, y: 30)
         }
@@ -1176,37 +1164,9 @@ struct TokenmonNowCampHeroPresentationCard<HeaderAccessory: View>: View {
             .shadow(color: Color.black.opacity(0.14), radius: 2, y: 1)
     }
 
-    private var dockBand: some View {
+    private var bottomDock: some View {
         VStack(spacing: 0) {
             Spacer(minLength: 0)
-
-            LinearGradient(
-                colors: [
-                    Color.black.opacity(0.34),
-                    Color.black.opacity(0.50),
-                ],
-                startPoint: .top,
-                endPoint: .bottom
-            )
-            .background(.ultraThinMaterial)
-            .overlay(alignment: .top) {
-                Rectangle()
-                    .fill(Color.white.opacity(0.16))
-                    .frame(height: 0.8)
-            }
-            .frame(height: 58)
-        }
-        .allowsHitTesting(false)
-    }
-
-    private var bottomDock: some View {
-        VStack(spacing: 5) {
-            Spacer(minLength: 0)
-
-            if let feedback {
-                feedbackLine(feedback)
-                    .frame(height: 18)
-            }
 
             trainingControl(
                 state: presentation.trainAction,
@@ -1214,7 +1174,7 @@ struct TokenmonNowCampHeroPresentationCard<HeaderAccessory: View>: View {
             )
         }
         .padding(.horizontal, 10)
-        .padding(.bottom, 5)
+        .padding(.bottom, 7)
     }
 
     private func feedbackLine(_ feedback: NowCampHeroFeedback) -> some View {
@@ -1228,10 +1188,14 @@ struct TokenmonNowCampHeroPresentationCard<HeaderAccessory: View>: View {
                 .minimumScaleFactor(0.72)
         }
         .padding(.horizontal, 7)
-        .frame(maxWidth: .infinity, alignment: .leading)
+        .frame(width: 132, height: 20, alignment: .center)
         .background(
             Capsule(style: .continuous)
-                .fill(Color(nsColor: .controlBackgroundColor).opacity(0.82))
+                .fill(Color.black.opacity(0.38))
+        )
+        .overlay(
+            Capsule(style: .continuous)
+                .stroke(Color.white.opacity(0.15), lineWidth: 0.7)
         )
     }
 
@@ -1240,20 +1204,6 @@ struct TokenmonNowCampHeroPresentationCard<HeaderAccessory: View>: View {
             return 0
         }
         return CGFloat(min(1.0, Double(presentation.focusEnergy) / Double(presentation.trainAction.cost)))
-    }
-
-    private var trainingReadinessText: String {
-        "\(min(presentation.focusEnergy, presentation.trainAction.cost))/\(presentation.trainAction.cost)"
-    }
-
-    private var focusHelpText: String {
-        TokenmonL10n.format(
-            "now.camp.focus.help",
-            Int64(min(presentation.focusEnergy, presentation.trainAction.cost)),
-            Int64(presentation.trainAction.cost),
-            Int64(presentation.focusEnergy),
-            Int64(NowCampHeroPresentation.focusCapacity)
-        )
     }
 
     private func trainingControl(
@@ -1266,48 +1216,56 @@ struct TokenmonNowCampHeroPresentationCard<HeaderAccessory: View>: View {
             }
             action()
         } label: {
-            VStack(alignment: .leading, spacing: 4) {
-                HStack(spacing: 6) {
+            HStack(spacing: 8) {
+                ZStack {
+                    Circle()
+                        .fill(Color.white.opacity(state.isEnabled ? 0.22 : 0.12))
                     Image(systemName: practiceIcon(for: state))
-                        .font(.system(size: 10, weight: .black))
-
-                    Text(practiceTitleText(for: state))
-                        .font(.system(size: 11, weight: .heavy, design: .rounded))
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.72)
-
-                    Spacer(minLength: 6)
-
-                    Text(practiceTrailingText(for: state))
-                        .font(.system(size: 9, weight: .heavy, design: .rounded).monospacedDigit())
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.72)
+                        .font(.system(size: 11, weight: .black))
                 }
+                .frame(width: 24, height: 24)
 
-                trainingControlGauge
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(practiceTitleText(for: state))
+                        .font(.system(size: 11, weight: .black, design: .rounded))
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.72)
 
-                HStack(spacing: 4) {
                     Text(trainingControlStatusText(for: state))
                         .font(.system(size: 8, weight: .heavy, design: .rounded))
                         .lineLimit(1)
-                        .minimumScaleFactor(0.68)
+                        .minimumScaleFactor(0.66)
+                }
+                .layoutPriority(1)
 
-                    Spacer(minLength: 6)
+                Spacer(minLength: 4)
 
-                    if let careStatusLine = presentation.careStatusLine {
-                        careReadyBadge(careStatusLine)
+                VStack(alignment: .trailing, spacing: 3) {
+                    if state.isEnabled {
+                        Text(practiceTrailingText(for: state))
+                            .font(.system(size: 8, weight: .black, design: .rounded).monospacedDigit())
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.68)
                     }
 
-                    rewardBadge
+                    HStack(spacing: 4) {
+                        if let careStatusLine = presentation.careStatusLine {
+                            careReadyBadge(careStatusLine)
+                        }
+
+                        if state.isEnabled {
+                            rewardBadge
+                        }
+                    }
                 }
             }
             .padding(.horizontal, 10)
-            .padding(.vertical, 6)
-            .frame(maxWidth: .infinity, minHeight: 48, maxHeight: 48)
+            .padding(.vertical, 5)
+            .frame(maxWidth: .infinity, minHeight: 40, maxHeight: 40)
             .foregroundStyle(actionForeground(for: state))
             .background(trainingControlBackground(for: state))
             .overlay(
-                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                RoundedRectangle(cornerRadius: 9, style: .continuous)
                     .stroke(actionButtonStroke(for: state), lineWidth: state.isEnabled ? 1.1 : 0.8)
             )
             .shadow(
@@ -1321,36 +1279,13 @@ struct TokenmonNowCampHeroPresentationCard<HeaderAccessory: View>: View {
         .accessibilityValue(presentation.attemptHelpText)
     }
 
-    private var trainingControlGauge: some View {
-        GeometryReader { geometry in
-            ZStack(alignment: .leading) {
-                Capsule(style: .continuous)
-                    .fill(Color.white.opacity(0.17))
-
-                Capsule(style: .continuous)
-                    .fill(
-                        LinearGradient(
-                            colors: [
-                                Color.white.opacity(0.92),
-                                presentation.field.nowCampTint.opacity(0.95),
-                            ],
-                            startPoint: .leading,
-                            endPoint: .trailing
-                        )
-                    )
-                    .frame(width: max(6, geometry.size.width * focusRequirementProgress))
-            }
-        }
-        .frame(height: 6)
-    }
-
     private func trainingControlBackground(for state: NowCampHeroActionState) -> some View {
         GeometryReader { geometry in
             ZStack(alignment: .leading) {
-                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                RoundedRectangle(cornerRadius: 9, style: .continuous)
                     .fill(actionButtonFill(for: state))
 
-                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                RoundedRectangle(cornerRadius: 9, style: .continuous)
                     .fill(presentation.field.nowCampTint.opacity(state.isEnabled ? 0.34 : 0.20))
                     .frame(width: max(10, geometry.size.width * focusRequirementProgress))
                     .opacity(state.kind == .train ? 1.0 : 0.0)
@@ -1379,9 +1314,9 @@ struct TokenmonNowCampHeroPresentationCard<HeaderAccessory: View>: View {
             Text(presentation.benefitText)
                 .font(.system(size: 7, weight: .heavy, design: .rounded))
                 .lineLimit(1)
-                .minimumScaleFactor(0.68)
+                .minimumScaleFactor(0.62)
         }
-        .padding(.horizontal, 4)
+        .padding(.horizontal, 5)
         .padding(.vertical, 1)
         .background(
             Capsule(style: .continuous)
@@ -1503,7 +1438,7 @@ struct TokenmonNowCampHeroPresentationCard<HeaderAccessory: View>: View {
                     showsBackground: false,
                     showsBorder: false
                 )
-                .opacity(0.76)
+                .opacity(0.66)
                 .help(member.displayName)
             )
         case .empty:
@@ -1518,8 +1453,8 @@ struct TokenmonNowCampHeroPresentationCard<HeaderAccessory: View>: View {
             field: lead.field,
             rarity: lead.rarity,
             assetKey: lead.assetKey,
-            cardSize: 64,
-            spriteSize: 48,
+            cardSize: 68,
+            spriteSize: 52,
             showsBackground: false,
             showsBorder: false
         )
@@ -1569,23 +1504,7 @@ struct TokenmonNowCampHeroPresentationCard<HeaderAccessory: View>: View {
                 )
                 .offset(x: 3, y: -3)
         }
-        .opacity(0.80)
-    }
-
-    private var leadBadge: some View {
-        Text(TokenmonL10n.string("now.camp.lead_badge"))
-            .font(.system(size: 9, weight: .black, design: .rounded))
-            .foregroundStyle(presentation.field.nowCampTint)
-            .padding(.horizontal, 7)
-            .padding(.vertical, 3)
-            .background(
-                RoundedRectangle(cornerRadius: 6, style: .continuous)
-                    .fill(Color(nsColor: .controlBackgroundColor).opacity(0.88))
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: 6, style: .continuous)
-                    .stroke(presentation.field.nowCampTint.opacity(0.32), lineWidth: 0.8)
-            )
+        .opacity(0.52)
     }
 
     private func supportX(for index: Int, width: CGFloat) -> CGFloat {
@@ -1613,52 +1532,6 @@ struct TokenmonNowCampHeroPresentationCard<HeaderAccessory: View>: View {
             return TokenmonL10n.format("now.camp.action.rank_gate.short", Int64(current), Int64(required))
         case .careCharged:
             return TokenmonL10n.string("now.camp.action.ready")
-        }
-    }
-
-    private func actionDetailIcon(for state: NowCampHeroActionState) -> String? {
-        switch state.availability {
-        case .enabled:
-            return nil
-        case .missingLead:
-            return "crown"
-        case .insufficientFocus:
-            return "bolt.fill"
-        case .rankAtAffinityGate:
-            return "heart.circle.fill"
-        case .careCharged:
-            return "checkmark.circle.fill"
-        }
-    }
-
-    private func helpText(for state: NowCampHeroActionState) -> String {
-        switch state.availability {
-        case .enabled:
-            if state.kind == .train {
-                return TokenmonL10n.format(
-                    "now.camp.train.help",
-                    Int64(state.cost),
-                    presentation.trainTargetLine,
-                    presentation.trainRewardShortLine
-                )
-            }
-            return TokenmonL10n.string("now.camp.care.help")
-        case .missingLead:
-            return TokenmonL10n.string("now.camp.action.missing_lead")
-        case .insufficientFocus(let current, let required):
-            if state.kind == .train {
-                return TokenmonL10n.format(
-                    "now.camp.action.insufficient_focus",
-                    Int64(max(0, required - current)),
-                    Int64(current),
-                    Int64(required)
-                )
-            }
-            return TokenmonL10n.format("now.camp.action.insufficient_care_focus", Int64(current), Int64(required))
-        case .rankAtAffinityGate(let current, let required):
-            return TokenmonL10n.format("now.camp.action.rank_gate", Int64(current), Int64(required))
-        case .careCharged:
-            return TokenmonL10n.string("now.camp.action.care_charged")
         }
     }
 
@@ -1759,6 +1632,10 @@ struct TokenmonNowCampHeroPresentationCard<HeaderAccessory: View>: View {
         withAnimation(.easeInOut(duration: 1.55).repeatForever(autoreverses: true)) {
             idlePulse = true
         }
+    }
+
+    private var trainingLevelPipCount: Int {
+        presentation.lead?.trainingRank.rawValue ?? 0
     }
 }
 
