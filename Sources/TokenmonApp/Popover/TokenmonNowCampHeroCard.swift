@@ -2152,7 +2152,7 @@ struct TokenmonNowCampHeroPresentationCard<HeaderAccessory: View>: View {
 
                 campStage
             }
-            .frame(height: 146)
+            .frame(height: 156)
             .clipped()
 
             compactTelemetry
@@ -2164,7 +2164,7 @@ struct TokenmonNowCampHeroPresentationCard<HeaderAccessory: View>: View {
                 .padding(.top, 6)
                 .padding(.bottom, 8)
         }
-        .frame(height: 304)
+        .frame(height: 314)
         .background(Color(nsColor: .windowBackgroundColor).opacity(0.92))
         .clipShape(clipShape)
         .overlay(
@@ -2206,14 +2206,18 @@ struct TokenmonNowCampHeroPresentationCard<HeaderAccessory: View>: View {
         GeometryReader { geometry in
             let size = geometry.size
             ZStack {
+                campForegroundWash(size: size)
+
+                campEdgeProps(size: size)
+
                 campFoundation(size: size)
 
                 trainingRing(size: size)
 
                 ForEach(presentation.supportSlots) { slot in
                     supportSlot(slot)
-                        .scaleEffect(0.78)
-                        .opacity(0.58)
+                        .scaleEffect(0.72)
+                        .opacity(0.50)
                         .offset(
                             x: supportIdleXOffset(for: slot.index),
                             y: supportIdleYOffset(for: slot.index)
@@ -2221,7 +2225,7 @@ struct TokenmonNowCampHeroPresentationCard<HeaderAccessory: View>: View {
                         .rotationEffect(.degrees(supportIdleRotation(for: slot.index)))
                         .position(
                             x: supportX(for: slot.index, width: size.width),
-                            y: 100
+                            y: size.height * 0.69
                         )
                 }
 
@@ -2232,11 +2236,11 @@ struct TokenmonNowCampHeroPresentationCard<HeaderAccessory: View>: View {
                         .position(x: size.width * 0.52, y: 30)
 
                     leadSprite(lead)
-                        .scaleEffect(0.88)
+                        .scaleEffect(0.90)
                         .scaleEffect(actionPulseScale)
                         .offset(x: actionPulseXOffset, y: leadIdleYOffset + actionPulseYOffset)
                         .rotationEffect(.degrees(actionPulseRotation))
-                        .position(x: size.width * 0.52, y: 84)
+                        .position(x: size.width * 0.52, y: size.height * 0.58)
                         .animation(.easeInOut(duration: 1.35).repeatForever(autoreverses: true), value: idlePulse)
                         .animation(.spring(response: 0.22, dampingFraction: 0.62), value: actionPulse)
 
@@ -2246,7 +2250,7 @@ struct TokenmonNowCampHeroPresentationCard<HeaderAccessory: View>: View {
                     }
                 } else {
                     emptyLead
-                        .position(x: size.width * 0.52, y: 84)
+                        .position(x: size.width * 0.52, y: size.height * 0.58)
 
                     if feedback == nil {
                         campStatusBubble
@@ -2255,7 +2259,7 @@ struct TokenmonNowCampHeroPresentationCard<HeaderAccessory: View>: View {
                 }
 
                 trainingLevelPips
-                    .position(x: size.width * 0.76, y: 130)
+                    .position(x: size.width * 0.76, y: size.height - 17)
 
                 if let feedback {
                     feedbackLine(feedback)
@@ -2264,6 +2268,48 @@ struct TokenmonNowCampHeroPresentationCard<HeaderAccessory: View>: View {
             }
         }
         .allowsHitTesting(false)
+    }
+
+    private func campForegroundWash(size: CGSize) -> some View {
+        ZStack {
+            LinearGradient(
+                colors: [
+                    Color.clear,
+                    Color.black.opacity(0.07),
+                    Color.black.opacity(0.22),
+                ],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+            .frame(width: size.width, height: 70)
+            .position(x: size.width * 0.5, y: size.height - 35)
+
+            Capsule(style: .continuous)
+                .fill(presentation.field.nowCampTint.opacity(0.10))
+                .frame(width: 190, height: 28)
+                .blur(radius: 8)
+                .position(x: size.width * 0.52, y: size.height - 25)
+        }
+    }
+
+    private func campEdgeProps(size: CGSize) -> some View {
+        ZStack {
+            NowCampEffectSpriteImage(scope: .field(presentation.field), variant: .campPropPrimary32)
+                .frame(width: 46, height: 46)
+                .opacity(propOpacity * 0.36)
+                .saturation(0.82)
+                .brightness(-0.08)
+                .shadow(color: Color.black.opacity(0.14), radius: 2, y: 1)
+                .position(x: size.width * 0.14, y: size.height - 21)
+
+            NowCampEffectSpriteImage(scope: .field(presentation.field), variant: .campPropSecondary32)
+                .frame(width: 44, height: 44)
+                .opacity(propOpacity * 0.34)
+                .saturation(0.82)
+                .brightness(-0.08)
+                .shadow(color: Color.black.opacity(0.14), radius: 2, y: 1)
+                .position(x: size.width * 0.88, y: size.height - 22)
+        }
     }
 
     private func campFoundation(size: CGSize) -> some View {
@@ -2283,7 +2329,7 @@ struct TokenmonNowCampHeroPresentationCard<HeaderAccessory: View>: View {
                 )
                 .frame(width: 164, height: 18)
                 .blur(radius: 2.0)
-                .position(x: size.width * 0.52, y: 126)
+                .position(x: size.width * 0.52, y: size.height - 27)
         }
     }
 
@@ -2295,17 +2341,17 @@ struct TokenmonNowCampHeroPresentationCard<HeaderAccessory: View>: View {
                     style: StrokeStyle(lineWidth: 1.0, lineCap: .round, dash: [5, 5])
                 )
                 .frame(width: 124, height: 28)
-                .position(x: size.width * 0.52, y: 118)
+                .position(x: size.width * 0.52, y: size.height - 37)
 
             NowCampEffectSpriteImage(scope: .field(presentation.field), variant: .trainFX16)
                 .frame(width: 18, height: 18)
                 .opacity(animates && idlePulse ? 0.48 : 0.18)
-                .position(x: size.width * 0.37, y: 107)
+                .position(x: size.width * 0.37, y: size.height - 49)
 
             NowCampEffectSpriteImage(scope: .common, variant: .trainingSuccess16)
                 .frame(width: 17, height: 17)
                 .opacity(animates && idlePulse ? 0.42 : 0.16)
-                .position(x: size.width * 0.67, y: 105)
+                .position(x: size.width * 0.67, y: size.height - 51)
         }
     }
 
