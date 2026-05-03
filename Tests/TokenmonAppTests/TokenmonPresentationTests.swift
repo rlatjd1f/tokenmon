@@ -229,7 +229,9 @@ struct TokenmonPresentationTests {
         #expect(presentation.trainAction.isEnabled)
         #expect(presentation.careAction.isEnabled)
         #expect(presentation.careStatusLine == nil)
+        #expect(presentation.trainingLevelText == TokenmonL10n.format("now.camp.training_level", Int64(2), Int64(5)))
         #expect(presentation.trainTargetLine == TokenmonL10n.format("now.camp.train.target", "II", "III"))
+        #expect(presentation.targetLevelText == TokenmonL10n.format("now.camp.practice.target_level", Int64(2), Int64(3)))
         #expect(presentation.trainRewardLine == TokenmonL10n.format(
             "now.camp.train.reward",
             expectedNowCampRewardName(for: lead.trainingTrait)
@@ -240,6 +242,10 @@ struct TokenmonPresentationTests {
             "now.camp.train.benefit",
             expectedNowCampRewardShortName(for: lead.trainingTrait)
         ))
+        #expect(presentation.benefitText == expectedNowCampBenefitText(for: lead))
+        #expect(presentation.practiceReadinessText == TokenmonL10n.format("now.camp.practice.readiness", Int64(30), Int64(30)))
+        #expect(presentation.practiceStatusText == TokenmonL10n.string("now.camp.practice.status.ready"))
+        #expect(presentation.attemptHelpText.contains("success rate"))
         #expect(presentation.campStatusLine == TokenmonL10n.string("now.camp.status.ready"))
         #expect(presentation.energySourceLine == TokenmonL10n.string("now.camp.energy.source.ready"))
 
@@ -296,10 +302,15 @@ struct TokenmonPresentationTests {
         )
         #expect(focusLimited.trainAction.availability == .insufficientFocus(current: 12, required: 30))
         #expect(focusLimited.trainTargetLine == TokenmonL10n.format("now.camp.train.target", "I", "II"))
+        #expect(focusLimited.trainingLevelText == TokenmonL10n.format("now.camp.training_level", Int64(1), Int64(5)))
+        #expect(focusLimited.targetLevelText == TokenmonL10n.format("now.camp.practice.target_level", Int64(1), Int64(2)))
+        #expect(focusLimited.practiceReadinessText == TokenmonL10n.format("now.camp.practice.need_more", Int64(18)))
+        #expect(focusLimited.practiceStatusText == TokenmonL10n.string("now.camp.practice.status.preparing"))
         #expect(focusLimited.trainRewardShortLine == expectedNowCampRewardShortName(for: lead.trainingTrait))
         #expect(focusLimited.trainRewardSystemImage == expectedNowCampRewardSystemImage(for: lead.trainingTrait))
         #expect(focusLimited.campStatusLine == TokenmonL10n.string("now.camp.status.gathering"))
         #expect(focusLimited.energySourceLine == TokenmonL10n.string("now.camp.energy.source.live"))
+        #expect(focusLimited.attemptHelpText.contains("Need 18"))
 
         let rankLimited = NowCampHeroPresentation.make(
             nowCamp: makeNowCampSummary(
@@ -313,6 +324,7 @@ struct TokenmonPresentationTests {
             sceneContext: makeNowCampSceneContext(field: .ice)
         )
         #expect(rankLimited.trainAction.availability == .rankAtAffinityGate(current: 2, required: 3))
+        #expect(rankLimited.practiceStatusText == TokenmonL10n.string("now.camp.practice.status.bond_gate"))
         #expect(rankLimited.campStatusLine == TokenmonL10n.string("now.camp.status.bond_gate"))
 
         let careCharged = NowCampHeroPresentation.make(
@@ -330,6 +342,87 @@ struct TokenmonPresentationTests {
         #expect(careCharged.careAction.availability == .careCharged)
         #expect(careCharged.careStatusLine == TokenmonL10n.string("now.camp.care.ready.short"))
         #expect(careCharged.campStatusLine == TokenmonL10n.string("now.camp.status.care_ready"))
+        #expect(careCharged.attemptHelpText.contains("Cheer +5"))
+    }
+
+    @Test
+    func nowCampHeroPresentationMapsTrainingRanksToLevels() {
+        let lead = sampleSpecies(field: .grassland, offset: 0)
+
+        for rank in TrainingRank.allCases {
+            let presentation = NowCampHeroPresentation.make(
+                nowCamp: makeNowCampSummary(
+                    lead: lead,
+                    supports: [],
+                    focusEnergy: 88,
+                    affinityLevel: 5,
+                    trainingRank: rank
+                ),
+                partyMembers: [],
+                sceneContext: makeNowCampSceneContext(field: .grassland)
+            )
+
+            #expect(presentation.trainingLevelText == TokenmonL10n.format(
+                "now.camp.training_level",
+                Int64(rank.rawValue),
+                Int64(TrainingRank.rankV.rawValue)
+            ))
+
+            if let next = rank.next {
+                #expect(presentation.targetLevelText == TokenmonL10n.format(
+                    "now.camp.practice.target_level",
+                    Int64(rank.rawValue),
+                    Int64(next.rawValue)
+                ))
+            } else {
+                #expect(presentation.targetLevelText == TokenmonL10n.string("now.camp.train.target.empty"))
+            }
+        }
+    }
+
+    @Test
+    func nowCampHeroPresentationUsesReadableBenefitTextForEachTrait() {
+        for trait in TrainingTrait.allCases {
+            let lead = sampleSpecies(trait: trait)
+            let presentation = NowCampHeroPresentation.make(
+                nowCamp: makeNowCampSummary(
+                    lead: lead,
+                    supports: [],
+                    focusEnergy: 68,
+                    affinityLevel: 3,
+                    trainingRank: .rankI
+                ),
+                partyMembers: [],
+                sceneContext: makeNowCampSceneContext(field: lead.field)
+            )
+
+            #expect(presentation.benefitText == expectedNowCampBenefitText(for: lead))
+        }
+    }
+
+    @Test
+    func nowCampTrainingFailureFeedbackReadsAsGettingTheFeel() {
+        let resolution = LeaderTrainingResolution(
+            speciesID: "GRS_001",
+            rarity: .common,
+            previousRank: .rankI,
+            newRank: .rankI,
+            targetRank: .rankII,
+            affinityGateRank: .rankV,
+            probability: 0.68,
+            roll: 0.99,
+            resonanceBefore: 0,
+            resonanceAfter: 1,
+            ceilingFailures: 2,
+            careChargeConsumed: false,
+            attemptCountAfter: 1,
+            outcome: .failure
+        )
+        let result = NowCampTrainingAttemptResult(resolution: resolution, focusEnergyAfter: 0)
+        let feedback = NowCampHeroFeedback.trainingAttempt(result)
+
+        #expect(feedback.message == TokenmonL10n.string("now.camp.feedback.train_failure"))
+        #expect(feedback.motion == .tilt)
     }
 
     @Test
@@ -5353,6 +5446,13 @@ struct TokenmonPresentationTests {
         return species[offset]
     }
 
+    private func sampleSpecies(trait: TrainingTrait) -> SpeciesDefinition {
+        guard let species = SpeciesCatalog.all.first(where: { $0.isActive && $0.trainingTrait == trait }) else {
+            preconditionFailure("missing sample species for \(trait)")
+        }
+        return species
+    }
+
     private func expectedNowCampRewardName(for trait: TrainingTrait) -> String {
         switch trait {
         case .trail:
@@ -5389,6 +5489,19 @@ struct TokenmonPresentationTests {
             return "scope"
         case .raider:
             return "bolt.fill"
+        }
+    }
+
+    private func expectedNowCampBenefitText(for species: SpeciesDefinition) -> String {
+        switch species.trainingTrait {
+        case .trail:
+            return TokenmonL10n.format("now.camp.practice.benefit.trail", species.field.displayName)
+        case .scout:
+            return TokenmonL10n.string("now.camp.practice.benefit.scout")
+        case .capture:
+            return TokenmonL10n.format("now.camp.practice.benefit.capture", species.field.displayName)
+        case .raider:
+            return TokenmonL10n.string("now.camp.practice.benefit.raider")
         }
     }
 
