@@ -846,7 +846,7 @@
 "now.camp.v2.subtitle" = "리드 훈련";
 "now.camp.v2.focus.title" = "집중 에너지";
 "now.camp.v2.practice.title" = "다음 훈련";
-"now.camp.v2.reward.title" = "보너스";
+"now.camp.v2.reward.title" = "보상 미리보기";
 "now.camp.v2.train" = "훈련";
 "now.camp.v2.scout" = "도감 보기";
 "now.camp.v2.scout.help" = "Dex 도감을 열어 현재 필드와 리드 보너스를 확인합니다. 조우를 만들거나 집중 에너지를 쓰지 않습니다.";
