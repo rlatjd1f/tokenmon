@@ -116,14 +116,6 @@ struct NowCampHeroActionState: Equatable {
         guard let lead else {
             return NowCampHeroActionState(kind: .train, cost: cost, focusEnergy: focusEnergy, availability: .missingLead)
         }
-        guard focusEnergy >= cost else {
-            return NowCampHeroActionState(
-                kind: .train,
-                cost: cost,
-                focusEnergy: focusEnergy,
-                availability: .insufficientFocus(current: focusEnergy, required: cost)
-            )
-        }
         guard lead.trainingRank.rawValue < Int(lead.affinityLevel) else {
             return NowCampHeroActionState(
                 kind: .train,
@@ -133,6 +125,14 @@ struct NowCampHeroActionState: Equatable {
                     current: Int(lead.affinityLevel),
                     required: min(TrainingRank.rankV.rawValue, lead.trainingRank.rawValue + 1)
                 )
+            )
+        }
+        guard focusEnergy >= cost else {
+            return NowCampHeroActionState(
+                kind: .train,
+                cost: cost,
+                focusEnergy: focusEnergy,
+                availability: .insufficientFocus(current: focusEnergy, required: cost)
             )
         }
         return NowCampHeroActionState(kind: .train, cost: cost, focusEnergy: focusEnergy, availability: .enabled)
@@ -1877,6 +1877,7 @@ struct TokenmonNowCampHeroV2PresentationCard<HeaderAccessory: View>: View {
             .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
             .shadow(color: actionButtonShadow(for: presentation.trainAction), radius: 7, y: 2)
             .help(presentation.attemptHelpText)
+            .disabled(!presentation.trainAction.isEnabled)
 
             Button(action: onScout) {
                 Label {
@@ -2603,33 +2604,8 @@ struct TokenmonNowCampHeroPresentationCard<HeaderAccessory: View>: View {
                 )
                 .clipShape(RoundedRectangle(cornerRadius: 9, style: .continuous))
                 .help(presentation.attemptHelpText)
+                .disabled(!presentation.trainAction.isEnabled)
 
-                Button(action: onScout) {
-                    HStack(spacing: 7) {
-                        Image(systemName: "book.fill")
-                            .font(.system(size: 12, weight: .black))
-                            .frame(width: 22, height: 22)
-                            .background(
-                                Circle()
-                                    .fill(Color.accentColor.opacity(0.13))
-                            )
-                        Text(presentation.v2.scoutActionTitleText)
-                            .font(.system(size: 12, weight: .heavy, design: .rounded))
-                            .lineLimit(1)
-                    }
-                    .frame(width: 110, height: 42)
-                }
-                .buttonStyle(.plain)
-                .foregroundStyle(Color.accentColor.opacity(0.92))
-                .background(
-                    RoundedRectangle(cornerRadius: 9, style: .continuous)
-                        .fill(Color.accentColor.opacity(0.07))
-                )
-                .overlay(
-                    RoundedRectangle(cornerRadius: 9, style: .continuous)
-                        .stroke(Color.accentColor.opacity(0.20), lineWidth: 0.8)
-                )
-                .help(presentation.v2.scoutActionHelpText)
             }
             .padding(.horizontal, 10)
             .padding(.vertical, 10)
@@ -2690,10 +2666,16 @@ struct TokenmonNowCampHeroPresentationCard<HeaderAccessory: View>: View {
     }
 
     private var compactFooterText: String {
-        if let careStatusLine = presentation.careStatusLine {
-            return "\(presentation.practiceStatusText) · \(careStatusLine)"
+        switch presentation.trainAction.availability {
+        case .enabled, .careCharged:
+            return "\(presentation.practiceStatusText) · \(presentation.targetLevelText)"
+        case .insufficientFocus:
+            return "\(presentation.practiceReadinessText) · \(presentation.energySourceLine)"
+        case .rankAtAffinityGate:
+            return "\(presentation.practiceStatusText) · \(presentation.targetLevelText)"
+        case .missingLead:
+            return presentation.practiceStatusText
         }
-        return "\(presentation.practiceStatusText) · \(presentation.targetLevelText)"
     }
     private func compactActionBackground(for state: NowCampHeroActionState) -> some View {
         GeometryReader { geometry in

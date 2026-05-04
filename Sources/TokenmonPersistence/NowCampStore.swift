@@ -405,17 +405,17 @@ public extension TokenmonDatabaseManager {
             }
             let lead = try requireNowCampLead(speciesID: leadSpeciesID, database: database)
             let resolver = LeaderTrainingResolver()
-            guard state.focusEnergy >= resolver.trainFocusCost else {
-                throw NowCampStoreError.insufficientFocus(
-                    required: resolver.trainFocusCost,
-                    available: state.focusEnergy
-                )
-            }
             guard lead.training.trainingRank.rawValue < Int(lead.affinityLevel) else {
                 throw NowCampStoreError.rankAtAffinityGate(
                     speciesID: leadSpeciesID,
                     rank: lead.training.trainingRank,
                     affinityLevel: lead.affinityLevel
+                )
+            }
+            guard state.focusEnergy >= resolver.trainFocusCost else {
+                throw NowCampStoreError.insufficientFocus(
+                    required: resolver.trainFocusCost,
+                    available: state.focusEnergy
                 )
             }
 

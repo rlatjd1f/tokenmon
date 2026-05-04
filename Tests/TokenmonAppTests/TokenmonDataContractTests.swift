@@ -4297,15 +4297,23 @@ struct TokenmonDataContractTests {
         try database.execute(
             """
             UPDATE now_camp_state
-            SET focus_energy = 40,
+            SET focus_energy = 100,
                 updated_at = '2026-04-14T00:01:00Z'
             WHERE singleton_id = 1;
             """
         )
 
         let care = try manager.applyLeadCare()
-        #expect(care.focusEnergyAfter == 30)
+        #expect(care.focusEnergyAfter == 90)
         #expect(try manager.nowCampSummary().lead?.training.careCharge == true)
+        try database.execute(
+            """
+            UPDATE now_camp_state
+            SET focus_energy = 100,
+                updated_at = '2026-04-14T00:02:00Z'
+            WHERE singleton_id = 1;
+            """
+        )
 
         let train = try manager.trainNowCampLead()
         let summary = try manager.nowCampSummary()
@@ -4315,6 +4323,39 @@ struct TokenmonDataContractTests {
         #expect(summary.lead?.training.trainingAttemptCount == 1)
         #expect((summary.lead?.training.trainingRank.rawValue ?? 0) >= TrainingRank.rankI.rawValue)
         #expect((summary.lead?.training.trainingRank.rawValue ?? 0) <= TrainingRank.rankII.rawValue)
+    }
+
+    @Test
+    func nowCampTrainRequiresFullFocus() throws {
+        let manager = try makeManager(prefix: "now-camp-train-full-focus")
+        let database = try manager.open()
+        _ = try manager.forgeEncounter(
+            TokenmonDeveloperEncounterForgeRequest(
+                provider: .codex, field: .grassland, rarity: .common,
+                speciesID: "GRS_001", outcome: .captured,
+                occurredAt: "2026-04-14T00:00:00Z"
+            )
+        )
+        try database.execute(
+            """
+            UPDATE dex_captured
+            SET affinity_level = 2
+            WHERE species_id = 'GRS_001';
+            """
+        )
+        try manager.addToParty(speciesID: "GRS_001")
+        try database.execute(
+            """
+            UPDATE now_camp_state
+            SET focus_energy = 99,
+                updated_at = '2026-04-14T00:01:00Z'
+            WHERE singleton_id = 1;
+            """
+        )
+
+        #expect(throws: NowCampStoreError.insufficientFocus(required: 100, available: 99)) {
+            try manager.trainNowCampLead()
+        }
     }
 
     @Test

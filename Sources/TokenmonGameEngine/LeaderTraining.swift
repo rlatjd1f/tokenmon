@@ -150,7 +150,7 @@ public struct LeaderTrainingResolver: Sendable {
     public let trainFocusCost: Int
     public let careFocusCost: Int
 
-    public init(trainFocusCost: Int = 30, careFocusCost: Int = 10) {
+    public init(trainFocusCost: Int = 100, careFocusCost: Int = 10) {
         self.trainFocusCost = trainFocusCost
         self.careFocusCost = careFocusCost
     }

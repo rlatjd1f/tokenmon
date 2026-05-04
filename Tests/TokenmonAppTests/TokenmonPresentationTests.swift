@@ -216,7 +216,7 @@ struct TokenmonPresentationTests {
             nowCamp: makeNowCampSummary(
                 lead: lead,
                 supports: [supportOne, supportTwo],
-                focusEnergy: 68,
+                focusEnergy: 100,
                 affinityLevel: 3,
                 trainingRank: .rankII
             ),
@@ -246,13 +246,13 @@ struct TokenmonPresentationTests {
         #expect(presentation.practiceControlTitleText == TokenmonL10n.string("now.camp.practice.action"))
         #expect(presentation.practiceControlDetailText == TokenmonL10n.format("now.camp.practice.target_level", Int64(2), Int64(3)))
         #expect(presentation.practiceProgressFraction == 1.0)
-        #expect(presentation.practiceReadinessText == TokenmonL10n.format("now.camp.practice.readiness", Int64(30), Int64(30)))
+        #expect(presentation.practiceReadinessText == TokenmonL10n.format("now.camp.practice.readiness", Int64(100), Int64(100)))
         #expect(presentation.practiceStatusText == TokenmonL10n.string("now.camp.practice.status.ready"))
         #expect(presentation.attemptHelpText.contains("success rate"))
         #expect(presentation.campStatusLine == TokenmonL10n.string("now.camp.status.ready"))
         #expect(presentation.energySourceLine == TokenmonL10n.string("now.camp.energy.source.ready"))
         #expect(presentation.trainingLevelPipCount == 2)
-        #expect(presentation.v2.focusValueText == "68/100")
+        #expect(presentation.v2.focusValueText == "100/100")
         #expect(presentation.v2.practiceTitleText == TokenmonL10n.string("now.camp.v2.practice.title"))
         #expect(presentation.v2.practiceChanceText == expectedNowCampV2PracticeChance(
             rarity: lead.rarity,
@@ -374,23 +374,23 @@ struct TokenmonPresentationTests {
             partyMembers: [],
             sceneContext: makeNowCampSceneContext(field: .ice)
         )
-        #expect(focusLimited.trainAction.availability == .insufficientFocus(current: 12, required: 30))
+        #expect(focusLimited.trainAction.availability == .insufficientFocus(current: 12, required: 100))
         #expect(focusLimited.trainTargetLine == TokenmonL10n.format("now.camp.train.target", "I", "II"))
         #expect(focusLimited.trainingLevelText == TokenmonL10n.format("now.camp.training_level", Int64(1), Int64(5)))
         #expect(focusLimited.targetLevelText == TokenmonL10n.format("now.camp.practice.target_level", Int64(1), Int64(2)))
         #expect(focusLimited.practiceControlTitleText == TokenmonL10n.string("now.camp.practice.status.preparing"))
         #expect(focusLimited.practiceControlDetailText == TokenmonL10n.format(
             "now.camp.practice.preparing.detail",
-            TokenmonL10n.format("now.camp.practice.need_more", Int64(18))
+            TokenmonL10n.format("now.camp.practice.need_more", Int64(88))
         ))
-        #expect(abs(focusLimited.practiceProgressFraction - 0.4) < 0.0001)
-        #expect(focusLimited.practiceReadinessText == TokenmonL10n.format("now.camp.practice.need_more", Int64(18)))
+        #expect(abs(focusLimited.practiceProgressFraction - 0.12) < 0.0001)
+        #expect(focusLimited.practiceReadinessText == TokenmonL10n.format("now.camp.practice.need_more", Int64(88)))
         #expect(focusLimited.practiceStatusText == TokenmonL10n.string("now.camp.practice.status.preparing"))
         #expect(focusLimited.trainRewardShortLine == expectedNowCampRewardShortName(for: lead.trainingTrait))
         #expect(focusLimited.trainRewardSystemImage == expectedNowCampRewardSystemImage(for: lead.trainingTrait))
         #expect(focusLimited.campStatusLine == TokenmonL10n.string("now.camp.status.gathering"))
         #expect(focusLimited.energySourceLine == TokenmonL10n.string("now.camp.energy.source.live"))
-        #expect(focusLimited.attemptHelpText.contains("Need 18"))
+        #expect(focusLimited.attemptHelpText.contains("Need 88"))
         #expect(focusLimited.v2.focusValueText == "12/100")
         #expect(focusLimited.v2.practiceChanceText == expectedNowCampV2PracticeChance(
             rarity: lead.rarity,
@@ -496,9 +496,9 @@ struct TokenmonPresentationTests {
         )
         #expect(careCharged.careAction.availability == .careCharged)
         #expect(careCharged.careStatusLine == TokenmonL10n.string("now.camp.care.ready.short"))
-        #expect(careCharged.practiceControlTitleText == TokenmonL10n.string("now.camp.practice.action"))
+        #expect(careCharged.practiceControlTitleText == TokenmonL10n.string("now.camp.practice.status.preparing"))
         #expect(careCharged.campStatusLine == TokenmonL10n.string("now.camp.status.care_ready"))
-        #expect(careCharged.attemptHelpText.contains("Cheer +5"))
+        #expect(careCharged.attemptHelpText.contains("Cheer"))
         #expect(careCharged.v2.practiceChanceText == expectedNowCampV2PracticeChance(
             rarity: lead.rarity,
             trainingRank: .rankI,
@@ -590,7 +590,7 @@ struct TokenmonPresentationTests {
     }
 
     @Test
-    func nowCampTrainingFailureFeedbackReadsAsGettingTheFeel() {
+    func nowCampTrainingFailureFeedbackShowsFailureBuffer() {
         let resolution = LeaderTrainingResolution(
             speciesID: "GRS_001",
             rarity: .common,
@@ -656,7 +656,7 @@ struct TokenmonPresentationTests {
         try database.execute(
             """
             UPDATE now_camp_state
-            SET focus_energy = 40,
+            SET focus_energy = 100,
                 updated_at = '2026-04-24T00:01:00Z'
             WHERE singleton_id = 1;
             """
@@ -676,7 +676,18 @@ struct TokenmonPresentationTests {
             Issue.record("expected care action result")
             return
         }
-        #expect(care.focusEnergyAfter == 30)
+        #expect(care.focusEnergyAfter == 90)
+
+        try database.execute(
+            """
+            UPDATE now_camp_state
+            SET focus_energy = 100,
+                updated_at = '2026-04-24T00:02:00Z'
+            WHERE singleton_id = 1;
+            """
+        )
+        model.refresh()
+        await model.waitForRefreshToFinish()
 
         let trainResult = model.trainNowCampLead()
         guard case .resolved(let train) = trainResult else {
