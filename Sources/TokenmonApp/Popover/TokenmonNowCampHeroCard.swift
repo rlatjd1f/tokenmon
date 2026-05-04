@@ -1589,7 +1589,8 @@ struct TokenmonNowCampHeroV2PresentationCard<HeaderAccessory: View>: View {
                 context: presentation.sceneContext,
                 companionAssetKeys: [],
                 backgroundDate: nil,
-                animates: animates
+                animates: animates,
+                showsAmbientLayer: false
             )
 
             presentation.field.nowCampTint
@@ -2314,7 +2315,8 @@ struct TokenmonNowCampHeroPresentationCard<HeaderAccessory: View>: View {
                     context: presentation.sceneContext,
                     companionAssetKeys: [],
                     backgroundDate: nil,
-                    animates: animates
+                    animates: animates,
+                    showsAmbientLayer: false
                 )
 
                 presentation.field.nowCampTint
@@ -2337,7 +2339,7 @@ struct TokenmonNowCampHeroPresentationCard<HeaderAccessory: View>: View {
             .frame(height: 156)
             .clipped()
 
-            compactTelemetry
+            compactEffectPreviewPanel
                 .padding(.horizontal, 8)
                 .padding(.top, 7)
 
@@ -2453,36 +2455,59 @@ struct TokenmonNowCampHeroPresentationCard<HeaderAccessory: View>: View {
         }
     }
 
-    private var compactTelemetry: some View {
-        HStack(spacing: 0) {
-            compactTelemetryCell(
-                icon: "bolt.fill",
-                title: TokenmonL10n.string("now.camp.v2.readiness.title"),
-                value: compactFocusStatusText,
-                detail: "",
-                tint: .green
-            ) {
-                compactMeter(fraction: compactFocusFraction, tint: .green)
+    private var compactEffectPreviewPanel: some View {
+        HStack(spacing: 12) {
+            ZStack {
+                Circle()
+                    .fill(presentation.field.nowCampTint.opacity(0.14))
+                Image(systemName: presentation.v2.rewardPreview.systemImage)
+                    .font(.system(size: 16, weight: .black))
+                    .foregroundStyle(presentation.field.nowCampTint)
+            }
+            .frame(width: 40, height: 40)
+
+            VStack(alignment: .leading, spacing: 6) {
+                HStack(spacing: 6) {
+                    Text(TokenmonL10n.string("now.camp.v2.reward.compact.title"))
+                        .font(.system(size: 9, weight: .semibold, design: .rounded))
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+
+                    Text(presentation.v2.rewardPreview.titleText)
+                        .font(.system(size: 8, weight: .bold, design: .rounded))
+                        .foregroundStyle(presentation.field.nowCampTint)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.62)
+                        .padding(.horizontal, 6)
+                        .frame(height: 17)
+                        .background(
+                            Capsule(style: .continuous)
+                                .fill(presentation.field.nowCampTint.opacity(0.12))
+                        )
+                }
+
+                Text(presentation.v2.rewardPreview.compactValueText)
+                    .font(.system(size: 19, weight: .heavy, design: .rounded))
+                    .monospacedDigit()
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.46)
+
+                HStack(spacing: 5) {
+                    Image(systemName: "arrow.up.forward")
+                        .font(.system(size: 9, weight: .black))
+                        .foregroundStyle(presentation.field.nowCampTint)
+
+                    Text(presentation.v2.rewardPreview.compactDetailText)
+                        .font(.system(size: 10, weight: .semibold, design: .rounded))
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.52)
+                }
             }
 
-            Divider()
-                .padding(.vertical, 8)
-
-            compactTelemetryCell(
-                icon: "scope",
-                title: presentation.v2.practiceTitleText,
-                value: presentation.v2.practiceChanceText,
-                detail: TokenmonL10n.format("now.camp.v2.resonance", presentation.v2.resonanceValueText),
-                tint: .blue
-            ) {
-                compactMeter(fraction: compactResonanceFraction, tint: .blue)
-            }
-
-            Divider()
-                .padding(.vertical, 8)
-
-            compactRewardPreviewCell
+            Spacer(minLength: 0)
         }
+        .padding(.horizontal, 14)
         .frame(height: 92)
         .background(
             RoundedRectangle(cornerRadius: 9, style: .continuous)
@@ -2492,86 +2517,6 @@ struct TokenmonNowCampHeroPresentationCard<HeaderAccessory: View>: View {
             RoundedRectangle(cornerRadius: 9, style: .continuous)
                 .stroke(Color.secondary.opacity(0.12), lineWidth: 0.8)
         )
-    }
-
-    private func compactTelemetryCell(
-        icon: String,
-        title: String,
-        value: String,
-        detail: String,
-        tint: Color,
-        @ViewBuilder footer: () -> some View
-    ) -> some View {
-        VStack(alignment: .leading, spacing: 7) {
-            Label {
-                Text(title)
-                    .font(.system(size: 9, weight: .semibold, design: .rounded))
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.58)
-            } icon: {
-                Image(systemName: icon)
-                    .font(.system(size: 11, weight: .black))
-                    .foregroundStyle(tint)
-            }
-            .foregroundStyle(.secondary)
-
-            Text(value)
-                .font(.system(size: 18, weight: .heavy, design: .rounded))
-                .monospacedDigit()
-                .lineLimit(1)
-                .minimumScaleFactor(0.48)
-
-            Text(detail.isEmpty ? " " : detail)
-                .font(.system(size: 8, weight: .semibold, design: .rounded))
-                .foregroundStyle(.secondary)
-                .lineLimit(1)
-                .minimumScaleFactor(0.50)
-                .opacity(detail.isEmpty ? 0 : 1)
-
-            footer()
-        }
-        .padding(.horizontal, 10)
-        .padding(.vertical, 9)
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-    }
-
-    private var compactRewardPreviewCell: some View {
-        VStack(alignment: .leading, spacing: 7) {
-            Label {
-                Text(TokenmonL10n.string("now.camp.v2.reward.compact.title"))
-                    .font(.system(size: 9, weight: .semibold, design: .rounded))
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.58)
-            } icon: {
-                Image(systemName: presentation.v2.rewardPreview.systemImage)
-                    .font(.system(size: 11, weight: .black))
-                    .foregroundStyle(presentation.field.nowCampTint)
-            }
-            .foregroundStyle(.secondary)
-
-            Text(presentation.v2.rewardPreview.compactValueText)
-                .font(.system(size: 15, weight: .heavy, design: .rounded))
-                .monospacedDigit()
-                .lineLimit(1)
-                .minimumScaleFactor(0.46)
-
-            HStack(spacing: 4) {
-                Image(systemName: "arrow.up.forward")
-                    .font(.system(size: 8, weight: .black))
-                    .foregroundStyle(presentation.field.nowCampTint)
-                Text(presentation.v2.rewardPreview.compactDetailText)
-                    .font(.system(size: 8, weight: .semibold, design: .rounded))
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.50)
-            }
-
-            Color.clear
-                .frame(height: 6)
-        }
-        .padding(.horizontal, 10)
-        .padding(.vertical, 9)
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
     }
 
     private var compactActionRow: some View {
@@ -2639,34 +2584,6 @@ struct TokenmonNowCampHeroPresentationCard<HeaderAccessory: View>: View {
         )
     }
 
-    private func compactMeter(fraction: CGFloat, tint: Color) -> some View {
-        GeometryReader { geometry in
-            ZStack(alignment: .leading) {
-                Capsule()
-                    .fill(Color.secondary.opacity(0.16))
-                Capsule()
-                    .fill(tint.opacity(0.72))
-                    .frame(width: max(0, geometry.size.width * fraction))
-            }
-        }
-        .frame(height: 6)
-    }
-
-    private var compactFocusFraction: CGFloat {
-        CGFloat(min(1.0, max(0.0, Double(presentation.focusEnergy) / Double(NowCampHeroPresentation.focusCapacity))))
-    }
-
-    private var compactResonanceFraction: CGFloat {
-        let components = presentation.v2.resonanceValueText.split(separator: "/")
-        guard components.count == 2,
-              let value = Double(components[0]),
-              let total = Double(components[1]),
-              total > 0 else {
-            return 0
-        }
-        return CGFloat(min(1.0, max(0.0, value / total)))
-    }
-
     private var compactFooterText: String {
         switch presentation.trainAction.availability {
         case .enabled, .careCharged:
@@ -2680,16 +2597,6 @@ struct TokenmonNowCampHeroPresentationCard<HeaderAccessory: View>: View {
         }
     }
 
-    private var compactFocusStatusText: String {
-        switch presentation.trainAction.availability {
-        case .enabled, .careCharged:
-            return presentation.energySourceLine
-        case .insufficientFocus:
-            return presentation.practiceStatusText
-        case .rankAtAffinityGate, .missingLead:
-            return presentation.practiceStatusText
-        }
-    }
     private func compactActionBackground(for state: NowCampHeroActionState) -> some View {
         GeometryReader { geometry in
             ZStack(alignment: .leading) {

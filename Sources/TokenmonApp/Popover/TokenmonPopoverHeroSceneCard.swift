@@ -79,6 +79,7 @@ struct TokenmonPopoverHeroFieldStage: View {
     let companionAssetKeys: [String]
     let backgroundDate: Date?
     let animates: Bool
+    var showsAmbientLayer: Bool = true
 
     var body: some View {
         GeometryReader { geometry in
@@ -162,14 +163,16 @@ struct TokenmonPopoverHeroFieldStage: View {
                 )
             }
 
-            TokenmonPopoverAmbientFieldLayer(
-                context: context,
-                layout: layout,
-                phase: phase,
-                reduceMotion: reduceMotion,
-                showsFieldSprites: popoverBackground == nil
-            )
-            .allowsHitTesting(false)
+            if showsAmbientLayer {
+                TokenmonPopoverAmbientFieldLayer(
+                    context: context,
+                    layout: layout,
+                    phase: phase,
+                    reduceMotion: reduceMotion,
+                    showsFieldSprites: popoverBackground == nil
+                )
+                .allowsHitTesting(false)
+            }
 
             if let selectedCompanionAssetKey {
                 TokenmonAmbientCompanionPortrait(
