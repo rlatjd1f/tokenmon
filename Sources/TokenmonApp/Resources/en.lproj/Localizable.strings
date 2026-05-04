@@ -468,7 +468,7 @@
 "now.camp.care" = "Cheer";
 "now.camp.care.detail" = "+5% next";
 "now.camp.care.help" = "Spend 10 readiness to prepare +5 percentage points for the next practice.";
-"now.camp.care.ready.short" = "Cheer +5%";
+"now.camp.care.ready.short" = "Success +5%";
 "now.camp.care.menu.prepare" = "Prepare Cheer (+5%)";
 "now.camp.care.menu.ready" = "Cheer ready (+5%)";
 "now.camp.care.menu.insufficient_focus" = "Cheer · Readiness %1$lld/%2$lld";
@@ -498,7 +498,7 @@
 "now.camp.status.ready" = "wants practice";
 "now.camp.status.gathering" = "getting ready";
 "now.camp.status.bond_gate" = "needs bond";
-"now.camp.status.care_ready" = "cheered up";
+"now.camp.status.care_ready" = "Success +5%";
 "now.camp.status.no_lead" = "getting ready";
 "now.camp.energy.source.live" = "Use Claude/Codex";
 "now.camp.energy.source.ready" = "Practice ready";
@@ -510,9 +510,9 @@
 "now.camp.action.insufficient_focus" = "Need %1$lld more readiness. Keep Tokenmon running while using Claude/Codex to fill it (%2$lld/%3$lld).";
 "now.camp.action.insufficient_care_focus" = "Readiness %1$lld/%2$lld.";
 "now.camp.action.rank_gate" = "Bond %1$lld/%2$lld required.";
-"now.camp.action.care_charged" = "Cheer is already ready for the next practice.";
+"now.camp.action.care_charged" = "Success +5% is already ready for the next practice.";
 "now.camp.action.rank_max" = "Training is Lv.5/5.";
-"now.camp.feedback.care_applied" = "Cheered up · Readiness %1$lld/100";
+"now.camp.feedback.care_applied" = "Success +5% ready · Readiness %1$lld/100";
 "now.camp.feedback.train_success" = "Lv.%1$lld practice landed";
 "now.camp.feedback.train_guaranteed_success" = "Lv.%1$lld fully clicked";
 "now.camp.feedback.train_failure" = "getting the feel";
