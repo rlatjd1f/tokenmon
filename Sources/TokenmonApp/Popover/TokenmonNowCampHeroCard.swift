@@ -707,10 +707,10 @@ struct NowCampHeroPresentation: Equatable {
     }
 
     private static func headerLeadDetail(for lead: NowCampHeroMemberPresentation?) -> String {
-        guard let lead else {
+        guard lead != nil else {
             return TokenmonL10n.string("now.camp.header.no_rank")
         }
-        return trainingLevelText(for: lead)
+        return TokenmonL10n.string("now.camp.v2.subtitle")
     }
 
     private static func careStatusLine(for lead: NowCampHeroMemberPresentation?) -> String? {
@@ -2261,9 +2261,6 @@ struct TokenmonNowCampHeroPresentationCard<HeaderAccessory: View>: View {
                 campFoundation(size: size)
 
                 if let lead = presentation.lead {
-                    leadMarker(lead)
-                        .position(x: size.width * 0.52, y: 30)
-
                     leadSprite(lead)
                         .scaleEffect(0.90)
                         .scaleEffect(actionPulseScale)
@@ -2272,27 +2269,9 @@ struct TokenmonNowCampHeroPresentationCard<HeaderAccessory: View>: View {
                         .position(x: size.width * 0.52, y: size.height * 0.58)
                         .animation(.easeInOut(duration: 1.35).repeatForever(autoreverses: true), value: idlePulse)
                         .animation(.spring(response: 0.22, dampingFraction: 0.62), value: actionPulse)
-
-                    if feedback == nil {
-                        campStatusBubble
-                            .position(x: size.width * 0.77, y: 30)
-                    }
                 } else {
                     emptyLead
                         .position(x: size.width * 0.52, y: size.height * 0.58)
-
-                    if feedback == nil {
-                        campStatusBubble
-                            .position(x: size.width * 0.77, y: 30)
-                    }
-                }
-
-                trainingLevelPips
-                    .position(x: size.width * 0.76, y: size.height - 17)
-
-                if let feedback {
-                    feedbackLine(feedback)
-                        .position(x: size.width * 0.50, y: 22)
                 }
             }
         }
@@ -2340,110 +2319,6 @@ struct TokenmonNowCampHeroPresentationCard<HeaderAccessory: View>: View {
                 .blur(radius: 2.0)
                 .position(x: size.width * 0.52, y: size.height - 27)
         }
-    }
-
-    private var trainingLevelPips: some View {
-        HStack(spacing: 5) {
-            Text("\(presentation.trainingLevelPipCount)/\(TrainingRank.rankV.rawValue)")
-                .font(.system(size: 8, weight: .black, design: .rounded).monospacedDigit())
-                .foregroundStyle(Color.white.opacity(0.86))
-
-            HStack(spacing: 4) {
-                ForEach(0..<TrainingRank.rankV.rawValue, id: \.self) { index in
-                    trainingPip(isLit: index < presentation.trainingLevelPipCount)
-                }
-            }
-        }
-        .padding(.horizontal, 8)
-        .padding(.vertical, 4)
-        .background(
-            Capsule(style: .continuous)
-                .fill(Color.black.opacity(0.42))
-        )
-        .overlay(
-            Capsule(style: .continuous)
-                .stroke(Color.white.opacity(0.18), lineWidth: 0.7)
-        )
-        .shadow(color: Color.black.opacity(0.18), radius: 2, y: 1)
-        .help(presentation.trainingLevelText)
-    }
-
-    private func trainingPip(isLit: Bool) -> some View {
-        NowCampEffectSpriteImage(scope: .common, variant: .resonanceOrb16)
-            .frame(width: 12, height: 12)
-            .saturation(isLit ? 1.0 : 0.0)
-            .brightness(isLit ? 0.04 : -0.16)
-            .opacity(isLit ? 0.96 : 0.36)
-            .shadow(
-                color: isLit ? presentation.field.nowCampTint.opacity(0.42) : Color.clear,
-                radius: isLit ? 3 : 0
-            )
-    }
-
-    private var campStatusBubble: some View {
-        Text(presentation.campStatusLine)
-            .font(.system(size: 8, weight: .heavy, design: .rounded))
-            .foregroundStyle(Color.white.opacity(0.92))
-            .lineLimit(1)
-            .minimumScaleFactor(0.68)
-            .padding(.horizontal, 6)
-            .padding(.vertical, 3)
-            .background(
-                Capsule(style: .continuous)
-                    .fill(Color.black.opacity(0.42))
-            )
-            .overlay(
-                Capsule(style: .continuous)
-                    .stroke(Color.white.opacity(0.16), lineWidth: 0.7)
-            )
-            .shadow(color: Color.black.opacity(0.14), radius: 2, y: 1)
-    }
-
-    private func leadMarker(_ lead: NowCampHeroMemberPresentation) -> some View {
-        VStack(spacing: 1) {
-            Text(TokenmonL10n.string("now.camp.lead_badge"))
-                .font(.system(size: 7, weight: .black, design: .rounded))
-                .foregroundStyle(presentation.field.nowCampTint)
-                .lineLimit(1)
-                .minimumScaleFactor(0.7)
-
-            Image(systemName: presentation.fieldSystemImage)
-                .font(.system(size: 9, weight: .bold))
-                .foregroundStyle(Color.white.opacity(0.88))
-        }
-        .frame(width: 42, height: 34)
-        .background(
-            RoundedRectangle(cornerRadius: 6, style: .continuous)
-                .fill(Color.black.opacity(0.48))
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 6, style: .continuous)
-                .stroke(Color.white.opacity(0.28), lineWidth: 0.8)
-        )
-        .shadow(color: Color.black.opacity(0.20), radius: 3, y: 1)
-        .help(lead.displayName)
-    }
-
-    private func feedbackLine(_ feedback: NowCampHeroFeedback) -> some View {
-        HStack(spacing: 5) {
-            Image(systemName: feedback.systemImage)
-                .font(.system(size: 9, weight: .bold))
-                .foregroundStyle(feedback.tint)
-            Text(feedback.message)
-                .font(.system(size: 9, weight: .bold, design: .rounded))
-                .lineLimit(1)
-                .minimumScaleFactor(0.72)
-        }
-        .padding(.horizontal, 7)
-        .frame(width: 132, height: 20, alignment: .center)
-        .background(
-            Capsule(style: .continuous)
-                .fill(Color.black.opacity(0.38))
-        )
-        .overlay(
-            Capsule(style: .continuous)
-                .stroke(Color.white.opacity(0.15), lineWidth: 0.7)
-        )
     }
 
     private var compactTelemetry: some View {
