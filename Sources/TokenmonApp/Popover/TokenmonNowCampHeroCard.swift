@@ -2351,16 +2351,12 @@ struct TokenmonNowCampHeroPresentationCard<HeaderAccessory: View>: View {
 
                 campStage
             }
-            .frame(height: 196)
+            .frame(height: 238)
             .clipped()
 
-            compactEffectPreviewPanel
+            compactTrainingRow
                 .padding(.horizontal, 8)
-                .padding(.top, 7)
-
-            compactActionRow
-                .padding(.horizontal, 8)
-                .padding(.top, 7)
+                .padding(.top, 8)
                 .padding(.bottom, 8)
         }
         .frame(height: 392)
@@ -2476,106 +2472,20 @@ struct TokenmonNowCampHeroPresentationCard<HeaderAccessory: View>: View {
         }
     }
 
-    private var compactEffectPreviewPanel: some View {
-        HStack(spacing: 10) {
-            ZStack {
-                Circle()
-                    .fill(presentation.field.nowCampTint.opacity(0.13))
-                Image(systemName: presentation.v2.rewardPreview.systemImage)
-                    .font(.system(size: 14, weight: .black))
-                    .foregroundStyle(presentation.field.nowCampTint)
+    private var compactTrainingRow: some View {
+        GeometryReader { geometry in
+            let rowWidth = geometry.size.width
+            let effectWidth = max(116, min(138, rowWidth * 0.44))
+            HStack(spacing: 8) {
+                compactLeadEffectColumn
+                    .frame(width: effectWidth, height: 86)
+
+                compactTrainColumn
+                    .frame(maxWidth: .infinity, minHeight: 86)
             }
-            .frame(width: 34, height: 34)
-
-            VStack(alignment: .leading, spacing: 4) {
-                HStack(spacing: 6) {
-                    Text(TokenmonL10n.string("now.camp.v2.reward.compact.title"))
-                        .font(.system(size: 9, weight: .semibold, design: .rounded))
-                        .foregroundStyle(.secondary)
-                        .lineLimit(1)
-
-                    Text(presentation.v2.rewardPreview.titleText)
-                        .font(.system(size: 8, weight: .bold, design: .rounded))
-                        .foregroundStyle(presentation.field.nowCampTint)
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.62)
-                        .padding(.horizontal, 6)
-                        .frame(height: 17)
-                        .background(
-                            Capsule(style: .continuous)
-                                .fill(presentation.field.nowCampTint.opacity(0.12))
-                        )
-                }
-
-                Text(presentation.v2.rewardPreview.compactValueText)
-                    .font(.system(size: 16, weight: .heavy, design: .rounded))
-                    .monospacedDigit()
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.55)
-
-                HStack(spacing: 5) {
-                    Image(systemName: "arrow.up.forward")
-                        .font(.system(size: 9, weight: .black))
-                        .foregroundStyle(presentation.field.nowCampTint)
-
-                    Text(presentation.v2.rewardPreview.compactDetailText)
-                        .font(.system(size: 10, weight: .semibold, design: .rounded))
-                        .foregroundStyle(.secondary)
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.52)
-                }
-            }
-
-            Spacer(minLength: 0)
+            .padding(10)
         }
-        .padding(.horizontal, 12)
-        .frame(height: 70)
-        .background(
-            RoundedRectangle(cornerRadius: 9, style: .continuous)
-                .fill(Color.secondary.opacity(0.08))
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 9, style: .continuous)
-                .stroke(Color.secondary.opacity(0.12), lineWidth: 0.8)
-        )
-    }
-
-    private var compactActionRow: some View {
-        HStack(spacing: 10) {
-            Button {
-                guard presentation.trainAction.isEnabled else {
-                    return
-                }
-                onTrain()
-            } label: {
-                HStack(spacing: 9) {
-                    Image(systemName: practiceIcon(for: presentation.trainAction))
-                        .font(.system(size: 14, weight: .black))
-                        .frame(width: 25, height: 25)
-                        .background(
-                            Circle()
-                                .fill(Color.white.opacity(presentation.trainAction.isEnabled ? 0.18 : 0.08))
-                        )
-                    Text(compactTrainButtonText)
-                        .font(.system(size: 14, weight: .heavy, design: .rounded))
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.62)
-                }
-                .frame(maxWidth: .infinity, minHeight: 48)
-            }
-            .buttonStyle(.plain)
-            .foregroundStyle(actionForeground(for: presentation.trainAction))
-            .background(compactActionBackground(for: presentation.trainAction))
-            .overlay(
-                RoundedRectangle(cornerRadius: 10, style: .continuous)
-                    .stroke(actionButtonStroke(for: presentation.trainAction), lineWidth: 0.9)
-            )
-            .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
-            .help(presentation.attemptHelpText)
-            .disabled(!presentation.trainAction.isEnabled)
-        }
-        .padding(.horizontal, 10)
-        .padding(.vertical, 10)
+        .frame(height: 106)
         .background(
             RoundedRectangle(cornerRadius: 9, style: .continuous)
                 .fill(Color.secondary.opacity(0.07))
@@ -2584,6 +2494,99 @@ struct TokenmonNowCampHeroPresentationCard<HeaderAccessory: View>: View {
             RoundedRectangle(cornerRadius: 9, style: .continuous)
                 .stroke(Color.secondary.opacity(0.12), lineWidth: 0.8)
         )
+    }
+
+    private var compactLeadEffectColumn: some View {
+        VStack(alignment: .leading, spacing: 5) {
+            HStack(spacing: 5) {
+                Image(systemName: presentation.v2.rewardPreview.systemImage)
+                    .font(.system(size: 10, weight: .black))
+                    .foregroundStyle(presentation.field.nowCampTint)
+
+                Text(TokenmonL10n.string("now.camp.v2.reward.compact.title"))
+                    .font(.system(size: 9, weight: .semibold, design: .rounded))
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.70)
+            }
+
+            Text(presentation.v2.rewardPreview.titleText)
+                .font(.system(size: 8, weight: .bold, design: .rounded))
+                .foregroundStyle(presentation.field.nowCampTint)
+                .lineLimit(1)
+                .minimumScaleFactor(0.58)
+                .padding(.horizontal, 6)
+                .frame(height: 16)
+                .background(
+                    Capsule(style: .continuous)
+                        .fill(presentation.field.nowCampTint.opacity(0.12))
+                )
+
+            Text(presentation.v2.rewardPreview.compactValueText)
+                .font(.system(size: 14, weight: .heavy, design: .rounded))
+                .monospacedDigit()
+                .lineLimit(1)
+                .minimumScaleFactor(0.48)
+
+            HStack(spacing: 4) {
+                Image(systemName: "arrow.up.forward")
+                    .font(.system(size: 8, weight: .black))
+                    .foregroundStyle(presentation.field.nowCampTint)
+
+                Text(presentation.v2.rewardPreview.compactDetailText)
+                    .font(.system(size: 9, weight: .semibold, design: .rounded))
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.46)
+            }
+
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 9)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
+        .background(
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .fill(Color.secondary.opacity(0.08))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .stroke(Color.secondary.opacity(0.12), lineWidth: 0.8)
+        )
+    }
+
+    private var compactTrainColumn: some View {
+        Button {
+            guard presentation.trainAction.isEnabled else {
+                return
+            }
+            onTrain()
+        } label: {
+            HStack(spacing: 9) {
+                Image(systemName: practiceIcon(for: presentation.trainAction))
+                    .font(.system(size: 14, weight: .black))
+                    .frame(width: 25, height: 25)
+                    .background(
+                        Circle()
+                            .fill(Color.white.opacity(presentation.trainAction.isEnabled ? 0.18 : 0.08))
+                    )
+                Text(compactTrainButtonText)
+                    .font(.system(size: 14, weight: .heavy, design: .rounded))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.58)
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+        }
+        .buttonStyle(.plain)
+        .foregroundStyle(actionForeground(for: presentation.trainAction))
+        .background(compactActionBackground(for: presentation.trainAction))
+        .overlay(
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .stroke(actionButtonStroke(for: presentation.trainAction), lineWidth: 0.9)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+        .help(presentation.attemptHelpText)
+        .disabled(!presentation.trainAction.isEnabled)
     }
 
     private var compactTrainButtonText: String {
@@ -2595,13 +2598,21 @@ struct TokenmonNowCampHeroPresentationCard<HeaderAccessory: View>: View {
 
     private func compactActionBackground(for state: NowCampHeroActionState) -> some View {
         GeometryReader { geometry in
-            ZStack(alignment: .leading) {
+            ZStack(alignment: .bottomLeading) {
                 RoundedRectangle(cornerRadius: 9, style: .continuous)
                     .fill(actionButtonFill(for: state))
 
-                RoundedRectangle(cornerRadius: 9, style: .continuous)
-                    .fill(presentation.field.nowCampTint.opacity(state.isEnabled ? 0.34 : 0.12))
-                    .frame(width: max(8, geometry.size.width * focusRequirementProgress))
+                ZStack(alignment: .leading) {
+                    Capsule(style: .continuous)
+                        .fill(Color.white.opacity(state.isEnabled ? 0.20 : 0.12))
+
+                    Capsule(style: .continuous)
+                        .fill(presentation.field.nowCampTint.opacity(state.isEnabled ? 0.64 : 0.38))
+                        .frame(width: max(0, (geometry.size.width - 24) * focusRequirementProgress))
+                }
+                .frame(height: 5)
+                .padding(.horizontal, 12)
+                .padding(.bottom, 10)
             }
         }
     }
