@@ -2563,30 +2563,59 @@ struct TokenmonNowCampHeroPresentationCard<HeaderAccessory: View>: View {
             onTrain()
         } label: {
             HStack(spacing: 9) {
-                Image(systemName: practiceIcon(for: presentation.trainAction))
-                    .font(.system(size: 14, weight: .black))
-                    .frame(width: 25, height: 25)
-                    .background(
-                        Circle()
-                            .fill(Color.white.opacity(presentation.trainAction.isEnabled ? 0.18 : 0.08))
-                    )
+                compactTrainIcon(for: presentation.trainAction)
+
                 Text(compactTrainButtonText)
                     .font(.system(size: 14, weight: .heavy, design: .rounded))
                     .lineLimit(1)
                     .minimumScaleFactor(0.58)
+                    .layoutPriority(1)
+
+                Spacer(minLength: 0)
+
+                compactTrainTrailingGlyph(for: presentation.trainAction)
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .padding(.horizontal, 11)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
         }
         .buttonStyle(.plain)
-        .foregroundStyle(actionForeground(for: presentation.trainAction))
+        .foregroundStyle(compactActionForeground(for: presentation.trainAction))
         .background(compactActionBackground(for: presentation.trainAction))
         .overlay(
             RoundedRectangle(cornerRadius: 10, style: .continuous)
-                .stroke(actionButtonStroke(for: presentation.trainAction), lineWidth: 0.9)
+                .stroke(compactActionStroke(for: presentation.trainAction), lineWidth: 0.9)
         )
         .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+        .shadow(color: compactActionShadow(for: presentation.trainAction), radius: 5, y: 2)
         .help(presentation.attemptHelpText)
         .disabled(!presentation.trainAction.isEnabled)
+    }
+
+    private func compactTrainIcon(for state: NowCampHeroActionState) -> some View {
+        Image(systemName: practiceIcon(for: state))
+            .font(.system(size: 14, weight: .black))
+            .frame(width: 28, height: 28)
+            .background(
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .fill(Color.black.opacity(state.isEnabled ? 0.18 : 0.24))
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .stroke(Color.white.opacity(state.isEnabled ? 0.22 : 0.16), lineWidth: 0.8)
+            )
+    }
+
+    @ViewBuilder
+    private func compactTrainTrailingGlyph(for state: NowCampHeroActionState) -> some View {
+        if state.isEnabled {
+            Image(systemName: "arrow.up.forward")
+                .font(.system(size: 11, weight: .black))
+                .frame(width: 18, height: 18)
+                .background(
+                    Circle()
+                        .fill(Color.white.opacity(0.18))
+                )
+        }
     }
 
     private var compactTrainButtonText: String {
@@ -2598,23 +2627,51 @@ struct TokenmonNowCampHeroPresentationCard<HeaderAccessory: View>: View {
 
     private func compactActionBackground(for state: NowCampHeroActionState) -> some View {
         GeometryReader { geometry in
-            ZStack(alignment: .bottomLeading) {
-                RoundedRectangle(cornerRadius: 9, style: .continuous)
+            let shape = RoundedRectangle(cornerRadius: 10, style: .continuous)
+            ZStack(alignment: .leading) {
+                shape
                     .fill(actionButtonFill(for: state))
 
-                ZStack(alignment: .leading) {
-                    Capsule(style: .continuous)
-                        .fill(Color.white.opacity(state.isEnabled ? 0.20 : 0.12))
+                Rectangle()
+                    .fill(compactActionProgressFill(for: state))
+                    .frame(width: max(0, geometry.size.width * focusRequirementProgress))
+                    .clipShape(shape)
 
-                    Capsule(style: .continuous)
-                        .fill(presentation.field.nowCampTint.opacity(state.isEnabled ? 0.64 : 0.38))
-                        .frame(width: max(0, (geometry.size.width - 24) * focusRequirementProgress))
-                }
-                .frame(height: 5)
-                .padding(.horizontal, 12)
-                .padding(.bottom, 10)
+                LinearGradient(
+                    colors: [
+                        Color.white.opacity(state.isEnabled ? 0.24 : 0.10),
+                        Color.clear,
+                        Color.black.opacity(state.isEnabled ? 0.10 : 0.16),
+                    ],
+                    startPoint: .top,
+                    endPoint: .bottom
+                )
+
+                RoundedRectangle(cornerRadius: 9, style: .continuous)
+                    .stroke(Color.white.opacity(state.isEnabled ? 0.18 : 0.08), lineWidth: 0.8)
             }
         }
+    }
+
+    private func compactActionProgressFill(for state: NowCampHeroActionState) -> LinearGradient {
+        if state.isEnabled {
+            return LinearGradient(
+                colors: [
+                    Color.white.opacity(0.18),
+                    presentation.field.nowCampTint.opacity(0.18),
+                ],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+        }
+        return LinearGradient(
+            colors: [
+                presentation.field.nowCampTint.opacity(0.46),
+                presentation.field.nowCampTint.opacity(0.26),
+            ],
+            startPoint: .leading,
+            endPoint: .trailing
+        )
     }
 
     private var focusRequirementProgress: CGFloat {
@@ -2658,6 +2715,18 @@ struct TokenmonNowCampHeroPresentationCard<HeaderAccessory: View>: View {
 
     private func actionForeground(for state: NowCampHeroActionState) -> Color {
         state.isEnabled ? Color.white.opacity(0.96) : Color.white.opacity(0.70)
+    }
+
+    private func compactActionForeground(for state: NowCampHeroActionState) -> Color {
+        state.isEnabled ? Color.white.opacity(0.98) : Color.white.opacity(0.88)
+    }
+
+    private func compactActionStroke(for state: NowCampHeroActionState) -> Color {
+        state.isEnabled ? Color.white.opacity(0.58) : presentation.field.nowCampTint.opacity(0.34)
+    }
+
+    private func compactActionShadow(for state: NowCampHeroActionState) -> Color {
+        state.isEnabled ? presentation.field.nowCampTint.opacity(0.24) : Color.black.opacity(0.12)
     }
 
     private func leadSprite(_ lead: NowCampHeroMemberPresentation) -> some View {
