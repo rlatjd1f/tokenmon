@@ -807,7 +807,7 @@
 "now.camp.practice.status.no_lead" = "리드 선택";
 "now.camp.practice.readiness" = "%1$lld/%2$lld";
 "now.camp.practice.need_more" = "%1$lld 남음";
-"now.camp.practice.preparing.detail" = "%1$@ · Claude/Codex 쓰면 차오름";
+"now.camp.practice.preparing.detail" = "%1$@";
 "now.camp.practice.benefit.empty" = "훈련 도움";
 "now.camp.practice.benefit.trail" = "%1$@ 등장 도움";
 "now.camp.practice.benefit.scout" = "희귀도 도움";
@@ -825,7 +825,7 @@
 "now.camp.status.bond_gate" = "더 친해져야 함";
 "now.camp.status.care_ready" = "응원 준비됨";
 "now.camp.status.no_lead" = "준비 중";
-"now.camp.energy.source.live" = "Claude/Codex 쓰면 차오름";
+"now.camp.energy.source.live" = "";
 "now.camp.energy.source.ready" = "준비 완료";
 "now.camp.action.ready" = "준비됨";
 "now.camp.action.no_lead.short" = "리드 없음";
@@ -845,6 +845,7 @@
 "now.camp.v2.title" = "Now";
 "now.camp.v2.subtitle" = "리드 훈련";
 "now.camp.v2.focus.title" = "집중 에너지";
+"now.camp.v2.readiness.title" = "훈련 준비";
 "now.camp.v2.practice.title" = "훈련 성공률";
 "now.camp.v2.reward.title" = "현재 효과";
 "now.camp.v2.train" = "훈련";

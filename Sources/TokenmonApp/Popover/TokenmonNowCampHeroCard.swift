@@ -705,7 +705,7 @@ struct NowCampHeroPresentation: Equatable {
         if trainAction.isEnabled || focusEnergy >= trainAction.cost {
             return TokenmonL10n.string("now.camp.energy.source.ready")
         }
-        return TokenmonL10n.string("now.camp.energy.source.live")
+        return ""
     }
 
     private static func headerLeadDetail(for lead: NowCampHeroMemberPresentation?) -> String {
@@ -1810,11 +1810,12 @@ struct TokenmonNowCampHeroV2PresentationCard<HeaderAccessory: View>: View {
                 .lineLimit(1)
                 .minimumScaleFactor(0.56)
 
-            Text(detail)
+            Text(detail.isEmpty ? " " : detail)
                 .font(.system(size: 10, weight: .semibold, design: .rounded))
                 .foregroundStyle(.secondary)
                 .lineLimit(1)
                 .minimumScaleFactor(0.58)
+                .opacity(detail.isEmpty ? 0 : 1)
 
             footer
         }
@@ -2456,9 +2457,9 @@ struct TokenmonNowCampHeroPresentationCard<HeaderAccessory: View>: View {
         HStack(spacing: 0) {
             compactTelemetryCell(
                 icon: "bolt.fill",
-                title: presentation.v2.focusTitleText,
-                value: presentation.v2.focusValueText,
-                detail: presentation.energySourceLine,
+                title: TokenmonL10n.string("now.camp.v2.readiness.title"),
+                value: compactFocusStatusText,
+                detail: "",
                 tint: .green
             ) {
                 compactMeter(fraction: compactFocusFraction, tint: .green)
@@ -2520,11 +2521,12 @@ struct TokenmonNowCampHeroPresentationCard<HeaderAccessory: View>: View {
                 .lineLimit(1)
                 .minimumScaleFactor(0.48)
 
-            Text(detail)
+            Text(detail.isEmpty ? " " : detail)
                 .font(.system(size: 8, weight: .semibold, design: .rounded))
                 .foregroundStyle(.secondary)
                 .lineLimit(1)
                 .minimumScaleFactor(0.50)
+                .opacity(detail.isEmpty ? 0 : 1)
 
             footer()
         }
@@ -2670,10 +2672,21 @@ struct TokenmonNowCampHeroPresentationCard<HeaderAccessory: View>: View {
         case .enabled, .careCharged:
             return "\(presentation.practiceStatusText) · \(presentation.targetLevelText)"
         case .insufficientFocus:
-            return "\(presentation.practiceReadinessText) · \(presentation.energySourceLine)"
+            return presentation.practiceStatusText
         case .rankAtAffinityGate:
             return "\(presentation.practiceStatusText) · \(presentation.targetLevelText)"
         case .missingLead:
+            return presentation.practiceStatusText
+        }
+    }
+
+    private var compactFocusStatusText: String {
+        switch presentation.trainAction.availability {
+        case .enabled, .careCharged:
+            return presentation.energySourceLine
+        case .insufficientFocus:
+            return presentation.practiceStatusText
+        case .rankAtAffinityGate, .missingLead:
             return presentation.practiceStatusText
         }
     }

@@ -482,7 +482,7 @@
 "now.camp.practice.status.no_lead" = "Choose Lead";
 "now.camp.practice.readiness" = "%1$lld/%2$lld";
 "now.camp.practice.need_more" = "%1$lld left";
-"now.camp.practice.preparing.detail" = "%1$@ · Use Claude/Codex";
+"now.camp.practice.preparing.detail" = "%1$@";
 "now.camp.practice.benefit.empty" = "training help";
 "now.camp.practice.benefit.trail" = "%1$@ appears more";
 "now.camp.practice.benefit.scout" = "rarity help";
@@ -500,7 +500,7 @@
 "now.camp.status.bond_gate" = "needs bond";
 "now.camp.status.care_ready" = "Cheer ready";
 "now.camp.status.no_lead" = "getting ready";
-"now.camp.energy.source.live" = "Use Claude/Codex";
+"now.camp.energy.source.live" = "";
 "now.camp.energy.source.ready" = "Ready";
 "now.camp.action.ready" = "Ready";
 "now.camp.action.no_lead.short" = "No Lead";
@@ -520,6 +520,7 @@
 "now.camp.v2.title" = "Now";
 "now.camp.v2.subtitle" = "Lead training";
 "now.camp.v2.focus.title" = "Focus Energy";
+"now.camp.v2.readiness.title" = "Training Prep";
 "now.camp.v2.practice.title" = "Train Odds";
 "now.camp.v2.reward.title" = "Current Effect";
 "now.camp.v2.train" = "Train";
