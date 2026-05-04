@@ -292,7 +292,8 @@ struct TokenmonPresentationTests {
             nextRank: .rankIII
         ))
         #expect(presentation.v2.rewardPreview.compactValueText == expectedNowCampV2LeadEffectCompactValue(
-            current: rewardPreview
+            current: rewardPreview,
+            next: nextRewardPreview
         ))
         #expect(presentation.v2.rewardPreview.compactDetailText == expectedNowCampV2LeadEffectCompactDetail(
             current: rewardPreview,
@@ -427,7 +428,8 @@ struct TokenmonPresentationTests {
             nextRank: .rankII
         ))
         #expect(focusLimited.v2.rewardPreview.compactValueText == expectedNowCampV2LeadEffectCompactValue(
-            current: focusLimitedCurrentReward
+            current: focusLimitedCurrentReward,
+            next: focusLimitedRewardPreview
         ))
         #expect(focusLimited.v2.rewardPreview.compactDetailText == expectedNowCampV2LeadEffectCompactDetail(
             current: focusLimitedCurrentReward,
@@ -5839,11 +5841,23 @@ struct TokenmonPresentationTests {
         return expectedNowCampV2RewardDetail(for: next, previewRank: nextRank)
     }
 
-    private func expectedNowCampV2LeadEffectCompactValue(current: LeaderTraitBonusPreview) -> String {
+    private func expectedNowCampV2LeadEffectCompactValue(
+        current: LeaderTraitBonusPreview,
+        next: LeaderTraitBonusPreview?,
+        nextIsBlocked: Bool = false
+    ) -> String {
         if current.isActive {
             return expectedNowCampV2CompactRewardValue(for: current)
         }
-        return TokenmonL10n.string("now.camp.v2.reward.pending")
+        guard let next,
+              next.isActive,
+              !nextIsBlocked else {
+            if nextIsBlocked {
+                return TokenmonL10n.string("now.camp.v2.bond_gate")
+            }
+            return TokenmonL10n.string("now.camp.v2.reward.inactive")
+        }
+        return expectedNowCampV2CompactRewardValue(for: next)
     }
 
     private func expectedNowCampV2LeadEffectCompactDetail(
@@ -5877,10 +5891,7 @@ struct TokenmonPresentationTests {
             }
             return TokenmonL10n.string("now.camp.v2.reward.inactive")
         }
-        return TokenmonL10n.format(
-            "now.camp.v2.reward.unlock_on_success",
-            expectedNowCampV2CompactRewardValue(for: next)
-        )
+        return TokenmonL10n.string("now.camp.v2.reward.unlock_first_success")
     }
 
     private func expectedNowCampBenefitText(for species: SpeciesDefinition) -> String {

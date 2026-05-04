@@ -846,7 +846,11 @@ struct NowCampHeroPresentation: Equatable {
                 nextRank: nextRank,
                 nextIsBlocked: nextIsBlocked
             ),
-            compactValueText: v2LeadEffectCompactValueText(current: current),
+            compactValueText: v2LeadEffectCompactValueText(
+                current: current,
+                next: next,
+                nextIsBlocked: nextIsBlocked
+            ),
             compactDetailText: v2LeadEffectCompactDetailText(
                 current: current,
                 next: next,
@@ -960,11 +964,25 @@ struct NowCampHeroPresentation: Equatable {
         return v2RewardDetailText(for: next, previewRank: nextRank)
     }
 
-    private static func v2LeadEffectCompactValueText(current: LeaderTraitBonusPreview) -> String {
+    private static func v2LeadEffectCompactValueText(
+        current: LeaderTraitBonusPreview,
+        next: LeaderTraitBonusPreview?,
+        nextIsBlocked: Bool
+    ) -> String {
         if current.isActive {
             return v2RewardCompactValueText(for: current)
         }
-        return TokenmonL10n.string("now.camp.v2.reward.pending")
+
+        guard let next,
+              next.isActive,
+              !nextIsBlocked else {
+            if nextIsBlocked {
+                return TokenmonL10n.string("now.camp.v2.bond_gate")
+            }
+            return TokenmonL10n.string("now.camp.v2.reward.inactive")
+        }
+
+        return v2RewardCompactValueText(for: next)
     }
 
     private static func v2LeadEffectCompactDetailText(
@@ -1002,10 +1020,7 @@ struct NowCampHeroPresentation: Equatable {
             return TokenmonL10n.string("now.camp.v2.reward.inactive")
         }
 
-        return TokenmonL10n.format(
-            "now.camp.v2.reward.unlock_on_success",
-            v2RewardCompactValueText(for: next)
-        )
+        return TokenmonL10n.string("now.camp.v2.reward.unlock_first_success")
     }
 
     private static func v2RewardCompactValueText(for preview: LeaderTraitBonusPreview) -> String {
@@ -2336,7 +2351,7 @@ struct TokenmonNowCampHeroPresentationCard<HeaderAccessory: View>: View {
 
                 campStage
             }
-            .frame(height: 156)
+            .frame(height: 178)
             .clipped()
 
             compactEffectPreviewPanel
@@ -2396,16 +2411,16 @@ struct TokenmonNowCampHeroPresentationCard<HeaderAccessory: View>: View {
 
                 if let lead = presentation.lead {
                     leadSprite(lead)
-                        .scaleEffect(0.90)
+                        .scaleEffect(1.02)
                         .scaleEffect(actionPulseScale)
                         .offset(x: actionPulseXOffset, y: leadIdleYOffset + actionPulseYOffset)
                         .rotationEffect(.degrees(actionPulseRotation))
-                        .position(x: size.width * 0.52, y: size.height * 0.58)
+                        .position(x: size.width * 0.52, y: size.height * 0.70)
                         .animation(.easeInOut(duration: 1.35).repeatForever(autoreverses: true), value: idlePulse)
                         .animation(.spring(response: 0.22, dampingFraction: 0.62), value: actionPulse)
                 } else {
                     emptyLead
-                        .position(x: size.width * 0.52, y: size.height * 0.58)
+                        .position(x: size.width * 0.52, y: size.height * 0.70)
                 }
             }
         }
@@ -2427,10 +2442,10 @@ struct TokenmonNowCampHeroPresentationCard<HeaderAccessory: View>: View {
             .position(x: size.width * 0.5, y: size.height - 35)
 
             Capsule(style: .continuous)
-                .fill(presentation.field.nowCampTint.opacity(0.10))
-                .frame(width: 190, height: 28)
-                .blur(radius: 8)
-                .position(x: size.width * 0.52, y: size.height - 25)
+                .fill(presentation.field.nowCampTint.opacity(0.13))
+                .frame(width: 212, height: 30)
+                .blur(radius: 9)
+                .position(x: size.width * 0.52, y: size.height - 24)
         }
     }
 
@@ -2450,8 +2465,14 @@ struct TokenmonNowCampHeroPresentationCard<HeaderAccessory: View>: View {
                     )
                 )
                 .frame(width: 164, height: 18)
-                .blur(radius: 2.0)
-                .position(x: size.width * 0.52, y: size.height - 27)
+                .blur(radius: 2.2)
+                .position(x: size.width * 0.52, y: size.height - 25)
+
+            Ellipse()
+                .fill(presentation.field.nowCampTint.opacity(0.16))
+                .frame(width: 116, height: 10)
+                .blur(radius: 1.4)
+                .position(x: size.width * 0.52, y: size.height - 28)
         }
     }
 
@@ -2520,60 +2541,41 @@ struct TokenmonNowCampHeroPresentationCard<HeaderAccessory: View>: View {
     }
 
     private var compactActionRow: some View {
-        VStack(spacing: 0) {
-            HStack(spacing: 10) {
-                Button {
-                    guard presentation.trainAction.isEnabled else {
-                        return
-                    }
-                    onTrain()
-                } label: {
-                    HStack(spacing: 9) {
-                        Image(systemName: practiceIcon(for: presentation.trainAction))
-                            .font(.system(size: 13, weight: .black))
-                            .frame(width: 24, height: 24)
-                            .background(
-                                Circle()
-                                    .fill(Color.white.opacity(presentation.trainAction.isEnabled ? 0.18 : 0.08))
-                            )
-                        Text(TokenmonL10n.string("now.camp.v2.train"))
-                            .font(.system(size: 14, weight: .heavy, design: .rounded))
-                            .lineLimit(1)
-                    }
-                    .frame(maxWidth: .infinity, minHeight: 42)
+        HStack(spacing: 10) {
+            Button {
+                guard presentation.trainAction.isEnabled else {
+                    return
                 }
-                .buttonStyle(.plain)
-                .foregroundStyle(actionForeground(for: presentation.trainAction))
-                .background(compactActionBackground(for: presentation.trainAction))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 9, style: .continuous)
-                        .stroke(actionButtonStroke(for: presentation.trainAction), lineWidth: 0.9)
-                )
-                .clipShape(RoundedRectangle(cornerRadius: 9, style: .continuous))
-                .help(presentation.attemptHelpText)
-                .disabled(!presentation.trainAction.isEnabled)
-
+                onTrain()
+            } label: {
+                HStack(spacing: 9) {
+                    Image(systemName: practiceIcon(for: presentation.trainAction))
+                        .font(.system(size: 14, weight: .black))
+                        .frame(width: 25, height: 25)
+                        .background(
+                            Circle()
+                                .fill(Color.white.opacity(presentation.trainAction.isEnabled ? 0.18 : 0.08))
+                        )
+                    Text(compactTrainButtonText)
+                        .font(.system(size: 14, weight: .heavy, design: .rounded))
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.62)
+                }
+                .frame(maxWidth: .infinity, minHeight: 48)
             }
-            .padding(.horizontal, 10)
-            .padding(.vertical, 10)
-
-            Divider()
-
-            Label {
-                Text(compactFooterText)
-                    .font(.system(size: 9, weight: .semibold, design: .rounded))
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.58)
-            } icon: {
-                Image(systemName: "info.circle")
-                    .font(.system(size: 10, weight: .semibold))
-                    .foregroundStyle(.secondary)
-            }
-            .frame(maxWidth: .infinity, minHeight: 26, alignment: .center)
-            .padding(.horizontal, 10)
+            .buttonStyle(.plain)
+            .foregroundStyle(actionForeground(for: presentation.trainAction))
+            .background(compactActionBackground(for: presentation.trainAction))
+            .overlay(
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    .stroke(actionButtonStroke(for: presentation.trainAction), lineWidth: 0.9)
+            )
+            .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
             .help(presentation.attemptHelpText)
+            .disabled(!presentation.trainAction.isEnabled)
         }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 10)
         .background(
             RoundedRectangle(cornerRadius: 9, style: .continuous)
                 .fill(Color.secondary.opacity(0.07))
@@ -2584,17 +2586,11 @@ struct TokenmonNowCampHeroPresentationCard<HeaderAccessory: View>: View {
         )
     }
 
-    private var compactFooterText: String {
-        switch presentation.trainAction.availability {
-        case .enabled, .careCharged:
-            return "\(presentation.practiceStatusText) · \(presentation.targetLevelText)"
-        case .insufficientFocus:
-            return presentation.practiceStatusText
-        case .rankAtAffinityGate:
-            return "\(presentation.practiceStatusText) · \(presentation.targetLevelText)"
-        case .missingLead:
-            return presentation.practiceStatusText
+    private var compactTrainButtonText: String {
+        guard presentation.trainAction.isEnabled else {
+            return TokenmonL10n.string("now.camp.v2.train_preparing")
         }
+        return TokenmonL10n.string("now.camp.v2.train")
     }
 
     private func compactActionBackground(for state: NowCampHeroActionState) -> some View {

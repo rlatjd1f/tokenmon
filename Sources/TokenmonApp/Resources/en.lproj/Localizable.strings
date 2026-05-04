@@ -523,12 +523,13 @@
 "now.camp.v2.practice.title" = "Train Odds";
 "now.camp.v2.reward.title" = "Current Effect";
 "now.camp.v2.train" = "Train";
+"now.camp.v2.train_preparing" = "Training Prep";
 "now.camp.v2.scout" = "Open Dex";
 "now.camp.v2.scout.help" = "Open Dex to inspect the current Lead and bonus context. This does not trigger encounters or spend Focus.";
 "now.camp.v2.encounter_progress.help" = "Progress toward the next auto-resolved encounter.";
 "now.camp.v2.unavailable" = "—";
 "now.camp.v2.max" = "Max";
-"now.camp.v2.bond_gate" = "Bond gate";
+"now.camp.v2.bond_gate" = "Bond needed";
 "now.camp.v2.percent" = "%1$lld%%";
 "now.camp.v2.resonance" = "Fail-safe %1$@";
 "now.camp.v2.resonance.value" = "%1$lld/%2$lld";
@@ -546,8 +547,8 @@
 "now.camp.v2.reward.raider.detail" = "%1$@ raid power";
 "now.camp.v2.reward.current.detail" = "Current · %1$@";
 "now.camp.v2.reward.preview.detail" = "Lv.%1$lld success · %2$@";
-"now.camp.v2.reward.compact.title" = "Current Effect";
-"now.camp.v2.reward.trail.compact_value" = "More %1$@";
+"now.camp.v2.reward.compact.title" = "Training Reward";
+"now.camp.v2.reward.trail.compact_value" = "%1$@ appears more";
 "now.camp.v2.reward.scout.compact_value" = "%1$@ rarity↑";
 "now.camp.v2.reward.capture.compact_value" = "%1$@ capture↑";
 "now.camp.v2.reward.raider.compact_value" = "%1$@ raid↑";
@@ -557,4 +558,5 @@
 "now.camp.v2.reward.raider.compact_detail" = "power %1$@";
 "now.camp.v2.reward.current_to_next" = "%1$@ → %2$@";
 "now.camp.v2.reward.unlock_on_success" = "On success: %1$@";
+"now.camp.v2.reward.unlock_first_success" = "Unlocks on first success";
 "dex.context_menu.set_lead" = "Set Lead";
