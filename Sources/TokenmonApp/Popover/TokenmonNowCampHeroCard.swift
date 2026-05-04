@@ -736,7 +736,7 @@ struct NowCampHeroPresentation: Equatable {
             practiceChanceText: v2PracticeChanceText(for: lead, trainAction: trainAction),
             resonanceValueText: v2ResonanceText(for: lead, trainAction: trainAction),
             rewardTitleText: TokenmonL10n.string("now.camp.v2.reward.title"),
-            rewardPreview: v2RewardPreview(for: lead),
+            rewardPreview: v2RewardPreview(for: lead, trainAction: trainAction),
             scoutActionTitleText: TokenmonL10n.string("now.camp.v2.scout"),
             scoutActionHelpText: TokenmonL10n.string("now.camp.v2.scout.help")
         )
@@ -804,7 +804,10 @@ struct NowCampHeroPresentation: Equatable {
         }
     }
 
-    private static func v2RewardPreview(for lead: NowCampHeroMemberPresentation?) -> NowCampHeroV2RewardPreview {
+    private static func v2RewardPreview(
+        for lead: NowCampHeroMemberPresentation?,
+        trainAction: NowCampHeroActionState
+    ) -> NowCampHeroV2RewardPreview {
         guard let lead else {
             return NowCampHeroV2RewardPreview(
                 titleText: TokenmonL10n.string("now.camp.train.reward.empty"),
@@ -815,20 +818,40 @@ struct NowCampHeroPresentation: Equatable {
             )
         }
 
+        guard let previewRank = lead.trainingRank.next else {
+            return NowCampHeroV2RewardPreview(
+                titleText: v2RewardTitleText(for: lead.trainingTrait),
+                valueText: TokenmonL10n.string("now.camp.v2.max"),
+                detailText: TokenmonL10n.string("now.camp.v2.max"),
+                systemImage: trainRewardSystemImage(for: lead),
+                isActive: false
+            )
+        }
+
+        if case .rankAtAffinityGate = trainAction.availability {
+            return NowCampHeroV2RewardPreview(
+                titleText: v2RewardTitleText(for: lead.trainingTrait),
+                valueText: TokenmonL10n.string("now.camp.v2.bond_gate"),
+                detailText: TokenmonL10n.string("now.camp.v2.bond_gate"),
+                systemImage: trainRewardSystemImage(for: lead),
+                isActive: false
+            )
+        }
+
         let preview = LeaderTraitBonusResolver().previewBonus(
             lead: LeaderTraitContext(
                 speciesID: lead.speciesID,
                 homeField: lead.field,
                 rarity: lead.rarity,
                 trait: lead.trainingTrait,
-                trainingRank: lead.trainingRank
+                trainingRank: previewRank
             )
         )
 
         return NowCampHeroV2RewardPreview(
             titleText: v2RewardTitleText(for: lead.trainingTrait),
             valueText: v2RewardValueText(for: preview),
-            detailText: v2RewardDetailText(for: preview),
+            detailText: v2RewardDetailText(for: preview, previewRank: previewRank),
             systemImage: trainRewardSystemImage(for: lead),
             isActive: preview.isActive
         )
@@ -860,21 +883,35 @@ struct NowCampHeroPresentation: Equatable {
         }
     }
 
-    private static func v2RewardDetailText(for preview: LeaderTraitBonusPreview) -> String {
+    private static func v2RewardDetailText(
+        for preview: LeaderTraitBonusPreview,
+        previewRank: TrainingRank? = nil
+    ) -> String {
         guard preview.isActive else {
             return TokenmonL10n.string("now.camp.v2.reward.inactive")
         }
 
+        let detail: String
         switch preview.kind {
         case .trail:
-            return TokenmonL10n.format("now.camp.v2.reward.trail.detail", preview.field.displayName)
+            detail = TokenmonL10n.format("now.camp.v2.reward.trail.detail", preview.field.displayName)
         case .scout:
-            return TokenmonL10n.format("now.camp.v2.reward.scout.detail", preview.field.displayName)
+            detail = TokenmonL10n.format("now.camp.v2.reward.scout.detail", preview.field.displayName)
         case .capture:
-            return TokenmonL10n.format("now.camp.v2.reward.capture.detail", preview.field.displayName)
+            detail = TokenmonL10n.format("now.camp.v2.reward.capture.detail", preview.field.displayName)
         case .raider:
-            return TokenmonL10n.format("now.camp.v2.reward.raider.detail", preview.field.displayName)
+            detail = TokenmonL10n.format("now.camp.v2.reward.raider.detail", preview.field.displayName)
         }
+
+        guard let previewRank else {
+            return detail
+        }
+
+        return TokenmonL10n.format(
+            "now.camp.v2.reward.preview.detail",
+            Int64(previewRank.rawValue),
+            detail
+        )
     }
 }
 

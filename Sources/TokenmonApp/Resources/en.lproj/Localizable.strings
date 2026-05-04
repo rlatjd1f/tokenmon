@@ -543,4 +543,5 @@
 "now.camp.v2.reward.scout.detail" = "%1$@ rarity shift";
 "now.camp.v2.reward.capture.detail" = "%1$@ capture chance";
 "now.camp.v2.reward.raider.detail" = "%1$@ raid power";
+"now.camp.v2.reward.preview.detail" = "Lv.%1$lld success · %2$@";
 "dex.context_menu.set_lead" = "Set Lead";

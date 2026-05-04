@@ -270,11 +270,14 @@ struct TokenmonPresentationTests {
                 homeField: lead.field,
                 rarity: lead.rarity,
                 trait: lead.trainingTrait,
-                trainingRank: .rankII
+                trainingRank: .rankIII
             )
         )
         #expect(presentation.v2.rewardPreview.valueText == expectedNowCampV2RewardValue(for: rewardPreview))
-        #expect(presentation.v2.rewardPreview.detailText == expectedNowCampV2RewardDetail(for: rewardPreview))
+        #expect(presentation.v2.rewardPreview.detailText == expectedNowCampV2RewardDetail(
+            for: rewardPreview,
+            previewRank: .rankIII
+        ))
         #expect(presentation.v2.rewardPreview.isActive == rewardPreview.isActive)
 
         guard case .occupied(let firstSupport, index: 0) = presentation.supportSlots[0] else {
@@ -377,7 +380,21 @@ struct TokenmonPresentationTests {
             rarity: lead.rarity,
             trainingRank: .rankI
         ))
-        #expect(focusLimited.v2.rewardPreview.detailText == TokenmonL10n.string("now.camp.v2.reward.inactive"))
+        let focusLimitedRewardPreview = LeaderTraitBonusResolver().previewBonus(
+            lead: LeaderTraitContext(
+                speciesID: lead.id,
+                homeField: lead.field,
+                rarity: lead.rarity,
+                trait: lead.trainingTrait,
+                trainingRank: .rankII
+            )
+        )
+        #expect(focusLimited.v2.rewardPreview.valueText == expectedNowCampV2RewardValue(for: focusLimitedRewardPreview))
+        #expect(focusLimited.v2.rewardPreview.detailText == expectedNowCampV2RewardDetail(
+            for: focusLimitedRewardPreview,
+            previewRank: .rankII
+        ))
+        #expect(focusLimited.v2.rewardPreview.isActive == focusLimitedRewardPreview.isActive)
 
         let rankLimited = NowCampHeroPresentation.make(
             nowCamp: makeNowCampSummary(
@@ -397,6 +414,8 @@ struct TokenmonPresentationTests {
         #expect(rankLimited.campStatusLine == TokenmonL10n.string("now.camp.status.gathering"))
         #expect(rankLimited.v2.practiceChanceText == TokenmonL10n.string("now.camp.v2.bond_gate"))
         #expect(rankLimited.v2.resonanceValueText == TokenmonL10n.string("now.camp.v2.bond_gate"))
+        #expect(rankLimited.v2.rewardPreview.valueText == TokenmonL10n.string("now.camp.v2.bond_gate"))
+        #expect(rankLimited.v2.rewardPreview.isActive == false)
 
         let careCharged = NowCampHeroPresentation.make(
             nowCamp: makeNowCampSummary(
@@ -434,6 +453,8 @@ struct TokenmonPresentationTests {
         )
         #expect(maxRank.v2.practiceChanceText == TokenmonL10n.string("now.camp.v2.max"))
         #expect(maxRank.v2.resonanceValueText == TokenmonL10n.string("now.camp.v2.max"))
+        #expect(maxRank.v2.rewardPreview.valueText == TokenmonL10n.string("now.camp.v2.max"))
+        #expect(maxRank.v2.rewardPreview.isActive == false)
     }
 
     @Test
@@ -5638,20 +5659,32 @@ struct TokenmonPresentationTests {
         }
     }
 
-    private func expectedNowCampV2RewardDetail(for preview: LeaderTraitBonusPreview) -> String {
+    private func expectedNowCampV2RewardDetail(
+        for preview: LeaderTraitBonusPreview,
+        previewRank: TrainingRank? = nil
+    ) -> String {
         guard preview.isActive else {
             return TokenmonL10n.string("now.camp.v2.reward.inactive")
         }
+        let detail: String
         switch preview.kind {
         case .trail:
-            return TokenmonL10n.format("now.camp.v2.reward.trail.detail", preview.field.displayName)
+            detail = TokenmonL10n.format("now.camp.v2.reward.trail.detail", preview.field.displayName)
         case .scout:
-            return TokenmonL10n.format("now.camp.v2.reward.scout.detail", preview.field.displayName)
+            detail = TokenmonL10n.format("now.camp.v2.reward.scout.detail", preview.field.displayName)
         case .capture:
-            return TokenmonL10n.format("now.camp.v2.reward.capture.detail", preview.field.displayName)
+            detail = TokenmonL10n.format("now.camp.v2.reward.capture.detail", preview.field.displayName)
         case .raider:
-            return TokenmonL10n.format("now.camp.v2.reward.raider.detail", preview.field.displayName)
+            detail = TokenmonL10n.format("now.camp.v2.reward.raider.detail", preview.field.displayName)
         }
+        guard let previewRank else {
+            return detail
+        }
+        return TokenmonL10n.format(
+            "now.camp.v2.reward.preview.detail",
+            Int64(previewRank.rawValue),
+            detail
+        )
     }
 
     private func expectedNowCampBenefitText(for species: SpeciesDefinition) -> String {

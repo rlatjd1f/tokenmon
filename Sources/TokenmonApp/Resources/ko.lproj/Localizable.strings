@@ -868,4 +868,5 @@
 "now.camp.v2.reward.scout.detail" = "%1$@ 희귀도 보정";
 "now.camp.v2.reward.capture.detail" = "%1$@ 포획률";
 "now.camp.v2.reward.raider.detail" = "%1$@ 레이드 파워";
+"now.camp.v2.reward.preview.detail" = "Lv.%1$lld 성공 시 · %2$@";
 "dex.context_menu.set_lead" = "리드로 설정";
