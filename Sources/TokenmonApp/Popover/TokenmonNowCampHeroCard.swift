@@ -932,13 +932,13 @@ struct NowCampHeroPresentation: Equatable {
 
         switch preview.kind {
         case .trail:
-            return TokenmonL10n.format("now.camp.v2.reward.trail.compact_value", value)
+            return TokenmonL10n.format("now.camp.v2.reward.trail.compact_value", preview.field.displayName)
         case .scout:
-            return TokenmonL10n.format("now.camp.v2.reward.scout.compact_value", value)
+            return TokenmonL10n.format("now.camp.v2.reward.scout.compact_value", preview.field.displayName)
         case .capture:
-            return TokenmonL10n.format("now.camp.v2.reward.capture.compact_value", value)
+            return TokenmonL10n.format("now.camp.v2.reward.capture.compact_value", preview.field.displayName)
         case .raider:
-            return TokenmonL10n.format("now.camp.v2.reward.raider.compact_value", value)
+            return TokenmonL10n.format("now.camp.v2.reward.raider.compact_value", preview.field.displayName)
         }
     }
 
@@ -947,15 +947,16 @@ struct NowCampHeroPresentation: Equatable {
             return TokenmonL10n.string("now.camp.v2.reward.inactive")
         }
 
+        let value = v2RewardValueText(for: preview)
         switch preview.kind {
         case .trail:
-            return TokenmonL10n.format("now.camp.v2.reward.trail.compact_detail", preview.field.displayName)
+            return TokenmonL10n.format("now.camp.v2.reward.trail.compact_detail", value)
         case .scout:
-            return TokenmonL10n.format("now.camp.v2.reward.scout.compact_detail", preview.field.displayName)
+            return TokenmonL10n.format("now.camp.v2.reward.scout.compact_detail", value)
         case .capture:
-            return TokenmonL10n.format("now.camp.v2.reward.capture.compact_detail", preview.field.displayName)
+            return TokenmonL10n.format("now.camp.v2.reward.capture.compact_detail", value)
         case .raider:
-            return TokenmonL10n.format("now.camp.v2.reward.raider.compact_detail", preview.field.displayName)
+            return TokenmonL10n.format("now.camp.v2.reward.raider.compact_detail", value)
         }
     }
 }
