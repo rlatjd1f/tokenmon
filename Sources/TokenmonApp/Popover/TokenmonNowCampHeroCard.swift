@@ -176,6 +176,8 @@ struct NowCampHeroV2RewardPreview: Equatable {
     let titleText: String
     let valueText: String
     let detailText: String
+    let compactValueText: String
+    let compactDetailText: String
     let systemImage: String
     let isActive: Bool
 }
@@ -813,6 +815,8 @@ struct NowCampHeroPresentation: Equatable {
                 titleText: TokenmonL10n.string("now.camp.train.reward.empty"),
                 valueText: TokenmonL10n.string("now.camp.v2.unavailable"),
                 detailText: TokenmonL10n.string("now.camp.train.reward.empty"),
+                compactValueText: TokenmonL10n.string("now.camp.v2.unavailable"),
+                compactDetailText: TokenmonL10n.string("now.camp.train.reward.empty"),
                 systemImage: "questionmark.circle.fill",
                 isActive: false
             )
@@ -823,6 +827,8 @@ struct NowCampHeroPresentation: Equatable {
                 titleText: v2RewardTitleText(for: lead.trainingTrait),
                 valueText: TokenmonL10n.string("now.camp.v2.max"),
                 detailText: TokenmonL10n.string("now.camp.v2.max"),
+                compactValueText: TokenmonL10n.string("now.camp.v2.max"),
+                compactDetailText: TokenmonL10n.string("now.camp.v2.max"),
                 systemImage: trainRewardSystemImage(for: lead),
                 isActive: false
             )
@@ -833,6 +839,8 @@ struct NowCampHeroPresentation: Equatable {
                 titleText: v2RewardTitleText(for: lead.trainingTrait),
                 valueText: TokenmonL10n.string("now.camp.v2.bond_gate"),
                 detailText: TokenmonL10n.string("now.camp.v2.bond_gate"),
+                compactValueText: TokenmonL10n.string("now.camp.v2.bond_gate"),
+                compactDetailText: TokenmonL10n.string("now.camp.v2.bond_gate"),
                 systemImage: trainRewardSystemImage(for: lead),
                 isActive: false
             )
@@ -852,6 +860,8 @@ struct NowCampHeroPresentation: Equatable {
             titleText: v2RewardTitleText(for: lead.trainingTrait),
             valueText: v2RewardValueText(for: preview),
             detailText: v2RewardDetailText(for: preview, previewRank: previewRank),
+            compactValueText: v2RewardCompactValueText(for: preview),
+            compactDetailText: v2RewardCompactDetailText(for: preview),
             systemImage: trainRewardSystemImage(for: lead),
             isActive: preview.isActive
         )
@@ -912,6 +922,41 @@ struct NowCampHeroPresentation: Equatable {
             Int64(previewRank.rawValue),
             detail
         )
+    }
+
+    private static func v2RewardCompactValueText(for preview: LeaderTraitBonusPreview) -> String {
+        let value = v2RewardValueText(for: preview)
+        guard preview.isActive else {
+            return value
+        }
+
+        switch preview.kind {
+        case .trail:
+            return TokenmonL10n.format("now.camp.v2.reward.trail.compact_value", value)
+        case .scout:
+            return TokenmonL10n.format("now.camp.v2.reward.scout.compact_value", value)
+        case .capture:
+            return TokenmonL10n.format("now.camp.v2.reward.capture.compact_value", value)
+        case .raider:
+            return TokenmonL10n.format("now.camp.v2.reward.raider.compact_value", value)
+        }
+    }
+
+    private static func v2RewardCompactDetailText(for preview: LeaderTraitBonusPreview) -> String {
+        guard preview.isActive else {
+            return TokenmonL10n.string("now.camp.v2.reward.inactive")
+        }
+
+        switch preview.kind {
+        case .trail:
+            return TokenmonL10n.format("now.camp.v2.reward.trail.compact_detail", preview.field.displayName)
+        case .scout:
+            return TokenmonL10n.format("now.camp.v2.reward.scout.compact_detail", preview.field.displayName)
+        case .capture:
+            return TokenmonL10n.format("now.camp.v2.reward.capture.compact_detail", preview.field.displayName)
+        case .raider:
+            return TokenmonL10n.format("now.camp.v2.reward.raider.compact_detail", preview.field.displayName)
+        }
     }
 }
 
@@ -2349,16 +2394,7 @@ struct TokenmonNowCampHeroPresentationCard<HeaderAccessory: View>: View {
             Divider()
                 .padding(.vertical, 8)
 
-            compactTelemetryCell(
-                icon: presentation.v2.rewardPreview.systemImage,
-                title: presentation.v2.rewardTitleText,
-                value: presentation.v2.rewardPreview.valueText,
-                detail: compactRewardDetailText,
-                tint: presentation.field.nowCampTint
-            ) {
-                Color.clear
-                    .frame(height: 7)
-            }
+            compactRewardPreviewCell
         }
         .frame(height: 92)
         .background(
@@ -2411,6 +2447,45 @@ struct TokenmonNowCampHeroPresentationCard<HeaderAccessory: View>: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
     }
 
+    private var compactRewardPreviewCell: some View {
+        VStack(alignment: .leading, spacing: 7) {
+            Label {
+                Text(TokenmonL10n.string("now.camp.v2.reward.compact.title"))
+                    .font(.system(size: 9, weight: .semibold, design: .rounded))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.58)
+            } icon: {
+                Image(systemName: presentation.v2.rewardPreview.systemImage)
+                    .font(.system(size: 11, weight: .black))
+                    .foregroundStyle(presentation.field.nowCampTint)
+            }
+            .foregroundStyle(.secondary)
+
+            Text(presentation.v2.rewardPreview.compactValueText)
+                .font(.system(size: 15, weight: .heavy, design: .rounded))
+                .monospacedDigit()
+                .lineLimit(1)
+                .minimumScaleFactor(0.46)
+
+            HStack(spacing: 4) {
+                Image(systemName: "arrow.up.forward")
+                    .font(.system(size: 8, weight: .black))
+                    .foregroundStyle(presentation.field.nowCampTint)
+                Text(presentation.v2.rewardPreview.compactDetailText)
+                    .font(.system(size: 8, weight: .semibold, design: .rounded))
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.50)
+            }
+
+            Color.clear
+                .frame(height: 6)
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 9)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+    }
+
     private var compactActionRow: some View {
         VStack(spacing: 0) {
             HStack(spacing: 10) {
@@ -2420,13 +2495,17 @@ struct TokenmonNowCampHeroPresentationCard<HeaderAccessory: View>: View {
                     }
                     onTrain()
                 } label: {
-                    Label {
+                    HStack(spacing: 9) {
+                        Image(systemName: practiceIcon(for: presentation.trainAction))
+                            .font(.system(size: 13, weight: .black))
+                            .frame(width: 24, height: 24)
+                            .background(
+                                Circle()
+                                    .fill(Color.white.opacity(presentation.trainAction.isEnabled ? 0.18 : 0.08))
+                            )
                         Text(TokenmonL10n.string("now.camp.v2.train"))
                             .font(.system(size: 14, weight: .heavy, design: .rounded))
                             .lineLimit(1)
-                    } icon: {
-                        Image(systemName: practiceIcon(for: presentation.trainAction))
-                            .font(.system(size: 13, weight: .black))
                     }
                     .frame(maxWidth: .infinity, minHeight: 42)
                 }
@@ -2441,18 +2520,30 @@ struct TokenmonNowCampHeroPresentationCard<HeaderAccessory: View>: View {
                 .help(presentation.attemptHelpText)
 
                 Button(action: onScout) {
-                    Label {
+                    HStack(spacing: 7) {
+                        Image(systemName: "book.fill")
+                            .font(.system(size: 12, weight: .black))
+                            .frame(width: 22, height: 22)
+                            .background(
+                                Circle()
+                                    .fill(Color.accentColor.opacity(0.13))
+                            )
                         Text(presentation.v2.scoutActionTitleText)
-                            .font(.system(size: 13, weight: .heavy, design: .rounded))
+                            .font(.system(size: 12, weight: .heavy, design: .rounded))
                             .lineLimit(1)
-                    } icon: {
-                        Image(systemName: "binoculars.fill")
-                            .font(.system(size: 13, weight: .black))
                     }
-                    .frame(width: 102, height: 42)
+                    .frame(width: 110, height: 42)
                 }
                 .buttonStyle(.plain)
                 .foregroundStyle(Color.accentColor.opacity(0.92))
+                .background(
+                    RoundedRectangle(cornerRadius: 9, style: .continuous)
+                        .fill(Color.accentColor.opacity(0.07))
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 9, style: .continuous)
+                        .stroke(Color.accentColor.opacity(0.20), lineWidth: 0.8)
+                )
                 .help(presentation.v2.scoutActionHelpText)
             }
             .padding(.horizontal, 10)
@@ -2511,13 +2602,6 @@ struct TokenmonNowCampHeroPresentationCard<HeaderAccessory: View>: View {
             return 0
         }
         return CGFloat(min(1.0, max(0.0, value / total)))
-    }
-
-    private var compactRewardDetailText: String {
-        if presentation.v2.rewardPreview.isActive {
-            return presentation.v2.rewardPreview.titleText
-        }
-        return presentation.v2.rewardPreview.detailText
     }
 
     private var compactFooterText: String {
