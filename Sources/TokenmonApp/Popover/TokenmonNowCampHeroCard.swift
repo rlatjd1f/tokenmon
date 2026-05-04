@@ -822,48 +822,51 @@ struct NowCampHeroPresentation: Equatable {
             )
         }
 
-        guard let previewRank = lead.trainingRank.next else {
-            return NowCampHeroV2RewardPreview(
-                titleText: v2RewardTitleText(for: lead.trainingTrait),
-                valueText: TokenmonL10n.string("now.camp.v2.max"),
-                detailText: TokenmonL10n.string("now.camp.v2.max"),
-                compactValueText: TokenmonL10n.string("now.camp.v2.max"),
-                compactDetailText: TokenmonL10n.string("now.camp.v2.max"),
-                systemImage: trainRewardSystemImage(for: lead),
-                isActive: false
-            )
-        }
-
-        if case .rankAtAffinityGate = trainAction.availability {
-            return NowCampHeroV2RewardPreview(
-                titleText: v2RewardTitleText(for: lead.trainingTrait),
-                valueText: TokenmonL10n.string("now.camp.v2.bond_gate"),
-                detailText: TokenmonL10n.string("now.camp.v2.bond_gate"),
-                compactValueText: TokenmonL10n.string("now.camp.v2.bond_gate"),
-                compactDetailText: TokenmonL10n.string("now.camp.v2.bond_gate"),
-                systemImage: trainRewardSystemImage(for: lead),
-                isActive: false
-            )
-        }
-
-        let preview = LeaderTraitBonusResolver().previewBonus(
-            lead: LeaderTraitContext(
-                speciesID: lead.speciesID,
-                homeField: lead.field,
-                rarity: lead.rarity,
-                trait: lead.trainingTrait,
-                trainingRank: previewRank
-            )
+        let resolver = LeaderTraitBonusResolver()
+        let current = resolver.previewBonus(
+            lead: v2LeaderTraitContext(for: lead, trainingRank: lead.trainingRank)
         )
+        let next = lead.trainingRank.next.map { nextRank in
+            resolver.previewBonus(lead: v2LeaderTraitContext(for: lead, trainingRank: nextRank))
+        }
+        let nextRank = lead.trainingRank.next
+        let nextIsBlocked: Bool
+        if case .rankAtAffinityGate = trainAction.availability {
+            nextIsBlocked = true
+        } else {
+            nextIsBlocked = false
+        }
 
         return NowCampHeroV2RewardPreview(
             titleText: v2RewardTitleText(for: lead.trainingTrait),
-            valueText: v2RewardValueText(for: preview),
-            detailText: v2RewardDetailText(for: preview, previewRank: previewRank),
-            compactValueText: v2RewardCompactValueText(for: preview),
-            compactDetailText: v2RewardCompactDetailText(for: preview),
+            valueText: v2LeadEffectValueText(current: current),
+            detailText: v2LeadEffectDetailText(
+                current: current,
+                next: next,
+                nextRank: nextRank,
+                nextIsBlocked: nextIsBlocked
+            ),
+            compactValueText: v2LeadEffectCompactValueText(current: current),
+            compactDetailText: v2LeadEffectCompactDetailText(
+                current: current,
+                next: next,
+                nextIsBlocked: nextIsBlocked
+            ),
             systemImage: trainRewardSystemImage(for: lead),
-            isActive: preview.isActive
+            isActive: current.isActive
+        )
+    }
+
+    private static func v2LeaderTraitContext(
+        for lead: NowCampHeroMemberPresentation,
+        trainingRank: TrainingRank
+    ) -> LeaderTraitContext {
+        LeaderTraitContext(
+            speciesID: lead.speciesID,
+            homeField: lead.field,
+            rarity: lead.rarity,
+            trait: lead.trainingTrait,
+            trainingRank: trainingRank
         )
     }
 
@@ -921,6 +924,87 @@ struct NowCampHeroPresentation: Equatable {
             "now.camp.v2.reward.preview.detail",
             Int64(previewRank.rawValue),
             detail
+        )
+    }
+
+    private static func v2LeadEffectValueText(current: LeaderTraitBonusPreview) -> String {
+        if current.isActive {
+            return v2RewardValueText(for: current)
+        }
+        return TokenmonL10n.string("now.camp.v2.unavailable")
+    }
+
+    private static func v2LeadEffectDetailText(
+        current: LeaderTraitBonusPreview,
+        next: LeaderTraitBonusPreview?,
+        nextRank: TrainingRank?,
+        nextIsBlocked: Bool
+    ) -> String {
+        if current.isActive {
+            return TokenmonL10n.format(
+                "now.camp.v2.reward.current.detail",
+                v2RewardDetailText(for: current)
+            )
+        }
+
+        guard let next,
+              let nextRank,
+              next.isActive,
+              !nextIsBlocked else {
+            if nextIsBlocked {
+                return TokenmonL10n.string("now.camp.v2.bond_gate")
+            }
+            return TokenmonL10n.string("now.camp.v2.reward.inactive")
+        }
+
+        return v2RewardDetailText(for: next, previewRank: nextRank)
+    }
+
+    private static func v2LeadEffectCompactValueText(current: LeaderTraitBonusPreview) -> String {
+        if current.isActive {
+            return v2RewardCompactValueText(for: current)
+        }
+        return TokenmonL10n.string("now.camp.v2.reward.pending")
+    }
+
+    private static func v2LeadEffectCompactDetailText(
+        current: LeaderTraitBonusPreview,
+        next: LeaderTraitBonusPreview?,
+        nextIsBlocked: Bool
+    ) -> String {
+        if current.isActive {
+            let currentDetail = v2RewardCompactDetailText(for: current)
+            guard let next,
+                  next.isActive,
+                  !nextIsBlocked else {
+                return currentDetail
+            }
+
+            let currentValue = v2RewardValueText(for: current)
+            let nextValue = v2RewardValueText(for: next)
+            guard currentValue != nextValue else {
+                return currentDetail
+            }
+
+            return TokenmonL10n.format(
+                "now.camp.v2.reward.current_to_next",
+                currentDetail,
+                nextValue
+            )
+        }
+
+        guard let next,
+              next.isActive,
+              !nextIsBlocked else {
+            if nextIsBlocked {
+                return TokenmonL10n.string("now.camp.v2.bond_gate")
+            }
+            return TokenmonL10n.string("now.camp.v2.reward.inactive")
+        }
+
+        return TokenmonL10n.format(
+            "now.camp.v2.reward.unlock_on_success",
+            v2RewardCompactValueText(for: next)
         )
     }
 

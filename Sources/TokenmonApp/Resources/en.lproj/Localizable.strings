@@ -521,7 +521,7 @@
 "now.camp.v2.subtitle" = "Lead training";
 "now.camp.v2.focus.title" = "Focus Energy";
 "now.camp.v2.practice.title" = "Train Odds";
-"now.camp.v2.reward.title" = "Reward Preview";
+"now.camp.v2.reward.title" = "Lead Effect";
 "now.camp.v2.train" = "Train";
 "now.camp.v2.scout" = "Lead Info";
 "now.camp.v2.scout.help" = "Open Dex to inspect the current Lead and bonus context. This does not trigger encounters or spend Focus.";
@@ -535,6 +535,7 @@
 "now.camp.v2.signed_integer" = "+%1$lld";
 "now.camp.v2.points" = "+%1$lldpp";
 "now.camp.v2.reward.inactive" = "Rank II unlock";
+"now.camp.v2.reward.pending" = "Effect pending";
 "now.camp.v2.reward.trail.title" = "Encounter Bonus";
 "now.camp.v2.reward.scout.title" = "Rarity Bonus";
 "now.camp.v2.reward.capture.title" = "Capture Bonus";
@@ -543,8 +544,9 @@
 "now.camp.v2.reward.scout.detail" = "%1$@ rarity shift";
 "now.camp.v2.reward.capture.detail" = "%1$@ capture chance";
 "now.camp.v2.reward.raider.detail" = "%1$@ raid power";
+"now.camp.v2.reward.current.detail" = "Current · %1$@";
 "now.camp.v2.reward.preview.detail" = "Lv.%1$lld success · %2$@";
-"now.camp.v2.reward.compact.title" = "Reward";
+"now.camp.v2.reward.compact.title" = "Lead Effect";
 "now.camp.v2.reward.trail.compact_value" = "%1$@ appears↑";
 "now.camp.v2.reward.scout.compact_value" = "%1$@ rarity↑";
 "now.camp.v2.reward.capture.compact_value" = "%1$@ capture↑";
@@ -553,4 +555,6 @@
 "now.camp.v2.reward.scout.compact_detail" = "rarity weight %1$@";
 "now.camp.v2.reward.capture.compact_detail" = "chance %1$@";
 "now.camp.v2.reward.raider.compact_detail" = "power %1$@";
+"now.camp.v2.reward.current_to_next" = "%1$@ → %2$@";
+"now.camp.v2.reward.unlock_on_success" = "On success: %1$@";
 "dex.context_menu.set_lead" = "Set Lead";
