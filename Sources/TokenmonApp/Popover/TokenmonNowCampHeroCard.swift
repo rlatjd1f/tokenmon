@@ -2475,66 +2475,68 @@ struct TokenmonNowCampHeroPresentationCard<HeaderAccessory: View>: View {
     private var compactTrainingRow: some View {
         GeometryReader { geometry in
             let rowWidth = geometry.size.width
-            let effectWidth = max(116, min(138, rowWidth * 0.44))
-            HStack(spacing: 8) {
+            let effectWidth = max(110, min(126, rowWidth * 0.40))
+            HStack(spacing: 7) {
                 compactLeadEffectColumn
-                    .frame(width: effectWidth, height: 86)
+                    .frame(width: effectWidth, height: 62)
 
                 compactTrainColumn
-                    .frame(maxWidth: .infinity, minHeight: 86)
+                    .frame(maxWidth: .infinity, minHeight: 62, maxHeight: 62)
             }
-            .padding(10)
+            .padding(8)
         }
-        .frame(height: 106)
+        .frame(height: 82)
         .background(
             RoundedRectangle(cornerRadius: 9, style: .continuous)
-                .fill(Color.secondary.opacity(0.07))
+                .fill(Color.secondary.opacity(0.055))
         )
         .overlay(
             RoundedRectangle(cornerRadius: 9, style: .continuous)
-                .stroke(Color.secondary.opacity(0.12), lineWidth: 0.8)
+                .stroke(Color.secondary.opacity(0.10), lineWidth: 0.8)
         )
     }
 
     private var compactLeadEffectColumn: some View {
-        VStack(alignment: .leading, spacing: 5) {
+        VStack(alignment: .leading, spacing: 3) {
             HStack(spacing: 5) {
                 Image(systemName: presentation.v2.rewardPreview.systemImage)
-                    .font(.system(size: 10, weight: .black))
+                    .font(.system(size: 9, weight: .black))
                     .foregroundStyle(presentation.field.nowCampTint)
 
                 Text(TokenmonL10n.string("now.camp.v2.reward.compact.title"))
-                    .font(.system(size: 9, weight: .semibold, design: .rounded))
+                    .font(.system(size: 8, weight: .semibold, design: .rounded))
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
                     .minimumScaleFactor(0.70)
+
+                Spacer(minLength: 3)
+
+                Text(presentation.v2.rewardPreview.titleText)
+                    .font(.system(size: 7, weight: .bold, design: .rounded))
+                    .foregroundStyle(presentation.field.nowCampTint)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.52)
+                    .padding(.horizontal, 5)
+                    .frame(height: 14)
+                    .background(
+                        Capsule(style: .continuous)
+                            .fill(presentation.field.nowCampTint.opacity(0.12))
+                    )
             }
 
-            Text(presentation.v2.rewardPreview.titleText)
-                .font(.system(size: 8, weight: .bold, design: .rounded))
-                .foregroundStyle(presentation.field.nowCampTint)
-                .lineLimit(1)
-                .minimumScaleFactor(0.58)
-                .padding(.horizontal, 6)
-                .frame(height: 16)
-                .background(
-                    Capsule(style: .continuous)
-                        .fill(presentation.field.nowCampTint.opacity(0.12))
-                )
-
             Text(presentation.v2.rewardPreview.compactValueText)
-                .font(.system(size: 14, weight: .heavy, design: .rounded))
+                .font(.system(size: 12, weight: .heavy, design: .rounded))
                 .monospacedDigit()
                 .lineLimit(1)
                 .minimumScaleFactor(0.48)
 
             HStack(spacing: 4) {
                 Image(systemName: "arrow.up.forward")
-                    .font(.system(size: 8, weight: .black))
+                    .font(.system(size: 7, weight: .black))
                     .foregroundStyle(presentation.field.nowCampTint)
 
                 Text(presentation.v2.rewardPreview.compactDetailText)
-                    .font(.system(size: 9, weight: .semibold, design: .rounded))
+                    .font(.system(size: 8, weight: .semibold, design: .rounded))
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
                     .minimumScaleFactor(0.46)
@@ -2542,16 +2544,16 @@ struct TokenmonNowCampHeroPresentationCard<HeaderAccessory: View>: View {
 
             Spacer(minLength: 0)
         }
-        .padding(.horizontal, 10)
-        .padding(.vertical, 9)
+        .padding(.horizontal, 8)
+        .padding(.vertical, 6)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
         .background(
             RoundedRectangle(cornerRadius: 8, style: .continuous)
-                .fill(Color.secondary.opacity(0.08))
+                .fill(Color.secondary.opacity(0.06))
         )
         .overlay(
             RoundedRectangle(cornerRadius: 8, style: .continuous)
-                .stroke(Color.secondary.opacity(0.12), lineWidth: 0.8)
+                .stroke(Color.secondary.opacity(0.10), lineWidth: 0.8)
         )
     }
 
@@ -2562,45 +2564,45 @@ struct TokenmonNowCampHeroPresentationCard<HeaderAccessory: View>: View {
             }
             onTrain()
         } label: {
-            HStack(spacing: 9) {
+            HStack(spacing: 7) {
                 compactTrainIcon(for: presentation.trainAction)
 
                 Text(compactTrainButtonText)
-                    .font(.system(size: 14, weight: .heavy, design: .rounded))
+                    .font(.system(size: 13, weight: .heavy, design: .rounded))
                     .lineLimit(1)
-                    .minimumScaleFactor(0.58)
+                    .minimumScaleFactor(0.54)
                     .layoutPriority(1)
 
                 Spacer(minLength: 0)
 
                 compactTrainTrailingGlyph(for: presentation.trainAction)
             }
-            .padding(.horizontal, 11)
+            .padding(.horizontal, 9)
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
         }
         .buttonStyle(.plain)
         .foregroundStyle(compactActionForeground(for: presentation.trainAction))
         .background(compactActionBackground(for: presentation.trainAction))
         .overlay(
-            RoundedRectangle(cornerRadius: 10, style: .continuous)
+            RoundedRectangle(cornerRadius: 9, style: .continuous)
                 .stroke(compactActionStroke(for: presentation.trainAction), lineWidth: 0.9)
         )
-        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
-        .shadow(color: compactActionShadow(for: presentation.trainAction), radius: 5, y: 2)
+        .clipShape(RoundedRectangle(cornerRadius: 9, style: .continuous))
+        .shadow(color: compactActionShadow(for: presentation.trainAction), radius: 3, y: 1)
         .help(presentation.attemptHelpText)
         .disabled(!presentation.trainAction.isEnabled)
     }
 
     private func compactTrainIcon(for state: NowCampHeroActionState) -> some View {
         Image(systemName: practiceIcon(for: state))
-            .font(.system(size: 14, weight: .black))
-            .frame(width: 28, height: 28)
+            .font(.system(size: 12, weight: .black))
+            .frame(width: 24, height: 24)
             .background(
-                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                RoundedRectangle(cornerRadius: 7, style: .continuous)
                     .fill(Color.black.opacity(state.isEnabled ? 0.18 : 0.24))
             )
             .overlay(
-                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                RoundedRectangle(cornerRadius: 7, style: .continuous)
                     .stroke(Color.white.opacity(state.isEnabled ? 0.22 : 0.16), lineWidth: 0.8)
             )
     }
@@ -2609,8 +2611,8 @@ struct TokenmonNowCampHeroPresentationCard<HeaderAccessory: View>: View {
     private func compactTrainTrailingGlyph(for state: NowCampHeroActionState) -> some View {
         if state.isEnabled {
             Image(systemName: "arrow.up.forward")
-                .font(.system(size: 11, weight: .black))
-                .frame(width: 18, height: 18)
+                .font(.system(size: 10, weight: .black))
+                .frame(width: 16, height: 16)
                 .background(
                     Circle()
                         .fill(Color.white.opacity(0.18))
@@ -2627,7 +2629,7 @@ struct TokenmonNowCampHeroPresentationCard<HeaderAccessory: View>: View {
 
     private func compactActionBackground(for state: NowCampHeroActionState) -> some View {
         GeometryReader { geometry in
-            let shape = RoundedRectangle(cornerRadius: 10, style: .continuous)
+            let shape = RoundedRectangle(cornerRadius: 9, style: .continuous)
             ZStack(alignment: .leading) {
                 shape
                     .fill(actionButtonFill(for: state))
@@ -2647,7 +2649,7 @@ struct TokenmonNowCampHeroPresentationCard<HeaderAccessory: View>: View {
                     endPoint: .bottom
                 )
 
-                RoundedRectangle(cornerRadius: 9, style: .continuous)
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
                     .stroke(Color.white.opacity(state.isEnabled ? 0.18 : 0.08), lineWidth: 0.8)
             }
         }
