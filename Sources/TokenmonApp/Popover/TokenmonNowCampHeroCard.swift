@@ -2221,15 +2221,9 @@ struct TokenmonNowCampHeroPresentationCard<HeaderAccessory: View>: View {
             ZStack {
                 campForegroundWash(size: size)
 
-                campEdgeProps(size: size)
-
                 campFoundation(size: size)
 
-                trainingRing(size: size)
-
                 if let lead = presentation.lead {
-                    petLifeCues(size: size)
-
                     leadMarker(lead)
                         .position(x: size.width * 0.52, y: 30)
 
@@ -2290,26 +2284,6 @@ struct TokenmonNowCampHeroPresentationCard<HeaderAccessory: View>: View {
         }
     }
 
-    private func campEdgeProps(size: CGSize) -> some View {
-        ZStack {
-            NowCampEffectSpriteImage(scope: .field(presentation.field), variant: .campPropPrimary32)
-                .frame(width: 46, height: 46)
-                .opacity(propOpacity * 0.36)
-                .saturation(0.82)
-                .brightness(-0.08)
-                .shadow(color: Color.black.opacity(0.14), radius: 2, y: 1)
-                .position(x: size.width * 0.14, y: size.height - 21)
-
-            NowCampEffectSpriteImage(scope: .field(presentation.field), variant: .campPropSecondary32)
-                .frame(width: 44, height: 44)
-                .opacity(propOpacity * 0.34)
-                .saturation(0.82)
-                .brightness(-0.08)
-                .shadow(color: Color.black.opacity(0.14), radius: 2, y: 1)
-                .position(x: size.width * 0.88, y: size.height - 22)
-        }
-    }
-
     private func campFoundation(size: CGSize) -> some View {
         return ZStack {
             Ellipse()
@@ -2328,28 +2302,6 @@ struct TokenmonNowCampHeroPresentationCard<HeaderAccessory: View>: View {
                 .frame(width: 164, height: 18)
                 .blur(radius: 2.0)
                 .position(x: size.width * 0.52, y: size.height - 27)
-        }
-    }
-
-    private func trainingRing(size: CGSize) -> some View {
-        ZStack {
-            Ellipse()
-                .stroke(
-                    presentation.field.nowCampTint.opacity(0.08),
-                    style: StrokeStyle(lineWidth: 1.0, lineCap: .round, dash: [5, 5])
-                )
-                .frame(width: 124, height: 28)
-                .position(x: size.width * 0.52, y: size.height - 37)
-
-            NowCampEffectSpriteImage(scope: .field(presentation.field), variant: .trainFX16)
-                .frame(width: 18, height: 18)
-                .opacity(animates && idlePulse ? 0.48 : 0.18)
-                .position(x: size.width * 0.37, y: size.height - 49)
-
-            NowCampEffectSpriteImage(scope: .common, variant: .trainingSuccess16)
-                .frame(width: 17, height: 17)
-                .opacity(animates && idlePulse ? 0.42 : 0.16)
-                .position(x: size.width * 0.67, y: size.height - 51)
         }
     }
 
@@ -2389,22 +2341,6 @@ struct TokenmonNowCampHeroPresentationCard<HeaderAccessory: View>: View {
                 color: isLit ? presentation.field.nowCampTint.opacity(0.42) : Color.clear,
                 radius: isLit ? 3 : 0
             )
-    }
-
-    private func petLifeCues(size: CGSize) -> some View {
-        ZStack {
-            NowCampEffectSpriteImage(scope: .field(presentation.field), variant: .careFX16)
-                .frame(width: 18, height: 18)
-                .opacity(animates && idlePulse ? 0.48 : 0.18)
-                .offset(y: animates && idlePulse ? -3 : 1)
-                .position(x: size.width * 0.37, y: 44)
-
-            NowCampEffectSpriteImage(scope: .common, variant: .trainingSuccess16)
-                .frame(width: 16, height: 16)
-                .opacity(animates && idlePulse ? 0.40 : 0.16)
-                .offset(y: animates && idlePulse ? -2 : 2)
-                .position(x: size.width * 0.66, y: 42)
-        }
     }
 
     private var campStatusBubble: some View {
@@ -2681,13 +2617,6 @@ struct TokenmonNowCampHeroPresentationCard<HeaderAccessory: View>: View {
             Circle()
                 .stroke(Color.white.opacity(0.12), lineWidth: 0.8)
         )
-    }
-
-    private var propOpacity: Double {
-        guard animates else {
-            return 0.82
-        }
-        return idlePulse ? 0.92 : 0.74
     }
 
     private var leadIdleYOffset: CGFloat {
