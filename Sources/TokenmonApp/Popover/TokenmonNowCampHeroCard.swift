@@ -2351,7 +2351,7 @@ struct TokenmonNowCampHeroPresentationCard<HeaderAccessory: View>: View {
 
                 campStage
             }
-            .frame(height: 238)
+            .frame(height: 214)
             .clipped()
 
             compactTrainingRow
@@ -2359,7 +2359,7 @@ struct TokenmonNowCampHeroPresentationCard<HeaderAccessory: View>: View {
                 .padding(.top, 8)
                 .padding(.bottom, 8)
         }
-        .frame(height: 392)
+        .frame(height: 368)
         .background(Color(nsColor: .windowBackgroundColor).opacity(0.92))
         .clipShape(clipShape)
         .overlay(
