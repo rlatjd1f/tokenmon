@@ -27,24 +27,11 @@ enum TokenmonDexSpriteStage: String, CaseIterable, Identifiable {
         case .portrait:
             return "Dex hero art"
         case .spawn:
-            return "Final field preview"
+            return "Scene renderer preview"
         case .resolveSuccess:
-            return "Final captured scene"
+            return "Shared capture scene"
         case .resolveEscape:
-            return "Final escaped scene"
-        }
-    }
-
-    var variants: [TokenmonSpeciesSpriteVariant] {
-        switch self {
-        case .portrait:
-            return [.portrait64, .portrait32]
-        case .spawn:
-            return [.spawn64, .spawn32]
-        case .resolveSuccess:
-            return [.resolveSuccess64, .resolveSuccess32]
-        case .resolveEscape:
-            return [.resolveEscape64, .resolveEscape32]
+            return "Shared escape scene"
         }
     }
 
@@ -65,7 +52,7 @@ struct TokenmonDexSpriteInspectorSection: View {
             VStack(alignment: .leading, spacing: 4) {
                 Text("Visual States")
                     .font(.headline)
-                Text("Encounter states use the same final scene renderer as the menu bar and Now card. Art-only states still show raw exports.")
+                Text("Encounter states use the shared scene renderer. Species-specific runtime exports are portrait-only.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
@@ -87,8 +74,8 @@ private struct TokenmonDexSpriteStateCard: View {
     private let layout = TokenmonSceneLayout.statusStrip
     private let sceneScale: CGFloat = 2.6
 
-    private var hasSprite: Bool {
-        TokenmonSpeciesSpriteLoader.hasImage(assetKey: entry.assetKey, variants: stage.variants)
+    private var hasPortrait: Bool {
+        TokenmonSpeciesSpriteLoader.hasImage(assetKey: entry.assetKey, variants: [.portrait64, .portrait32])
     }
 
     private var sceneContext: TokenmonSceneContext? {
@@ -147,10 +134,10 @@ private struct TokenmonDexSpriteStateCard: View {
                             alignment: .topLeading
                         )
                         .clipped()
-                } else if hasSprite {
+                } else if hasPortrait {
                     TokenmonSpeciesSpriteImage(
                         assetKey: entry.assetKey,
-                        variants: stage.variants,
+                        variants: [.portrait64, .portrait32],
                         revealStage: .revealed
                     )
                     .frame(width: stage.spriteSize, height: stage.spriteSize)
@@ -170,7 +157,7 @@ private struct TokenmonDexSpriteStateCard: View {
             VStack(alignment: .leading, spacing: 3) {
                 Text(stage.title)
                     .font(.caption.weight(.semibold))
-                Text(sceneContext != nil || hasSprite ? stage.detail : "Missing export")
+                Text(sceneContext != nil || hasPortrait ? stage.detail : "Missing portrait")
                     .font(.caption2)
                     .foregroundStyle(.secondary)
                     .lineLimit(2)

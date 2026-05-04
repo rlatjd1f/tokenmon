@@ -713,34 +713,24 @@ portrait = sum(1 for path in species_dirs if (path / "portrait_32.png").exists()
 portrait64 = sum(1 for path in species_dirs if (path / "portrait_64.png").exists())
 idle = sum(1 for path in species_dirs if (path / "companion_idle_16.png").exists())
 roam = sum(1 for path in species_dirs if (path / "companion_roam_16.png").exists())
-spawn = sum(1 for path in species_dirs if (path / "spawn_32.png").exists())
-spawn64 = sum(1 for path in species_dirs if (path / "spawn_64.png").exists())
-resolve_success = sum(1 for path in species_dirs if (path / "resolve_success_32.png").exists())
-resolve_success64 = sum(1 for path in species_dirs if (path / "resolve_success_64.png").exists())
-resolve_escape = sum(1 for path in species_dirs if (path / "resolve_escape_32.png").exists())
-resolve_escape64 = sum(1 for path in species_dirs if (path / "resolve_escape_64.png").exists())
+legacy_state_exports = sum(
+    1
+    for path in species_dirs
+    for file_path in path.glob("*.png")
+    if file_path.name.startswith(("spawn_", "resolve_success_", "resolve_escape_"))
+)
 print(f"species_dirs={len(species_dirs)}")
 print(f"portrait_exports={portrait}")
 print(f"portrait_64_exports={portrait64}")
 print(f"obsolete_companion_exports={idle + roam}")
-print(f"spawn_exports={spawn}")
-print(f"spawn_64_exports={spawn64}")
-print(f"resolve_success_exports={resolve_success}")
-print(f"resolve_success_64_exports={resolve_success64}")
-print(f"resolve_escape_exports={resolve_escape}")
-print(f"resolve_escape_64_exports={resolve_escape64}")
+print(f"legacy_state_exports={legacy_state_exports}")
 PY
 )"
   require_contains "$art_export_probe" "species_dirs=151"
   require_contains "$art_export_probe" "portrait_exports=151"
   require_contains "$art_export_probe" "portrait_64_exports=151"
   require_contains "$art_export_probe" "obsolete_companion_exports=0"
-  require_contains "$art_export_probe" "spawn_exports=151"
-  require_contains "$art_export_probe" "spawn_64_exports=151"
-  require_contains "$art_export_probe" "resolve_success_exports=151"
-  require_contains "$art_export_probe" "resolve_success_64_exports=151"
-  require_contains "$art_export_probe" "resolve_escape_exports=151"
-  require_contains "$art_export_probe" "resolve_escape_64_exports=151"
+  require_contains "$art_export_probe" "legacy_state_exports=0"
   printf 'VERIFY PASS: species art export completeness\n'
 
   contact_sheet_output="$("$ROOT/scripts/render-species-contact-sheets" 2>&1)"

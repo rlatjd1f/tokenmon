@@ -5,12 +5,6 @@ import SwiftUI
 enum TokenmonSpeciesSpriteVariant: String, CaseIterable {
     case portrait64 = "portrait_64.png"
     case portrait32 = "portrait_32.png"
-    case spawn64 = "spawn_64.png"
-    case spawn32 = "spawn_32.png"
-    case resolveSuccess64 = "resolve_success_64.png"
-    case resolveSuccess32 = "resolve_success_32.png"
-    case resolveEscape64 = "resolve_escape_64.png"
-    case resolveEscape32 = "resolve_escape_32.png"
 }
 
 @MainActor
@@ -63,7 +57,7 @@ enum TokenmonSpeciesSpriteLoader {
         approvedPortraitURL(assetKey: assetKey)
             ?? spriteURL(
                 assetKey: assetKey,
-                variants: [.portrait64, .portrait32, .resolveSuccess64, .resolveSuccess32]
+                variants: [.portrait64, .portrait32]
             )
     }
 
@@ -164,12 +158,7 @@ enum TokenmonSpeciesSpriteLoader {
 
 private extension TokenmonSpeciesSpriteVariant {
     var isPortraitVariant: Bool {
-        switch self {
-        case .portrait64, .portrait32:
-            return true
-        default:
-            return false
-        }
+        true
     }
 }
 
