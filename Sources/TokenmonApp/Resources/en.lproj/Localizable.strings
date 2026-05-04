@@ -547,7 +547,7 @@
 "now.camp.v2.reward.raider.detail" = "%1$@ raid power";
 "now.camp.v2.reward.current.detail" = "Current · %1$@";
 "now.camp.v2.reward.preview.detail" = "Lv.%1$lld success · %2$@";
-"now.camp.v2.reward.compact.title" = "Training Reward";
+"now.camp.v2.reward.compact.title" = "Lead Effect";
 "now.camp.v2.reward.trail.compact_value" = "%1$@ appears more";
 "now.camp.v2.reward.scout.compact_value" = "%1$@ rarity↑";
 "now.camp.v2.reward.capture.compact_value" = "%1$@ capture↑";
@@ -558,5 +558,5 @@
 "now.camp.v2.reward.raider.compact_detail" = "power %1$@";
 "now.camp.v2.reward.current_to_next" = "%1$@ → %2$@";
 "now.camp.v2.reward.unlock_on_success" = "On success: %1$@";
-"now.camp.v2.reward.unlock_first_success" = "Unlocks on first success";
+"now.camp.v2.reward.unlock_first_success" = "Unlocks on next success";
 "dex.context_menu.set_lead" = "Set Lead";

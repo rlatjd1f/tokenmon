@@ -709,10 +709,10 @@ struct NowCampHeroPresentation: Equatable {
     }
 
     private static func headerLeadDetail(for lead: NowCampHeroMemberPresentation?) -> String {
-        guard lead != nil else {
+        guard let lead else {
             return TokenmonL10n.string("now.camp.header.no_rank")
         }
-        return TokenmonL10n.string("now.camp.v2.subtitle")
+        return trainingLevelText(for: lead)
     }
 
     private static func careStatusLine(for lead: NowCampHeroMemberPresentation?) -> String? {
@@ -2351,7 +2351,7 @@ struct TokenmonNowCampHeroPresentationCard<HeaderAccessory: View>: View {
 
                 campStage
             }
-            .frame(height: 178)
+            .frame(height: 196)
             .clipped()
 
             compactEffectPreviewPanel
@@ -2477,17 +2477,17 @@ struct TokenmonNowCampHeroPresentationCard<HeaderAccessory: View>: View {
     }
 
     private var compactEffectPreviewPanel: some View {
-        HStack(spacing: 12) {
+        HStack(spacing: 10) {
             ZStack {
                 Circle()
-                    .fill(presentation.field.nowCampTint.opacity(0.14))
+                    .fill(presentation.field.nowCampTint.opacity(0.13))
                 Image(systemName: presentation.v2.rewardPreview.systemImage)
-                    .font(.system(size: 16, weight: .black))
+                    .font(.system(size: 14, weight: .black))
                     .foregroundStyle(presentation.field.nowCampTint)
             }
-            .frame(width: 40, height: 40)
+            .frame(width: 34, height: 34)
 
-            VStack(alignment: .leading, spacing: 6) {
+            VStack(alignment: .leading, spacing: 4) {
                 HStack(spacing: 6) {
                     Text(TokenmonL10n.string("now.camp.v2.reward.compact.title"))
                         .font(.system(size: 9, weight: .semibold, design: .rounded))
@@ -2508,10 +2508,10 @@ struct TokenmonNowCampHeroPresentationCard<HeaderAccessory: View>: View {
                 }
 
                 Text(presentation.v2.rewardPreview.compactValueText)
-                    .font(.system(size: 19, weight: .heavy, design: .rounded))
+                    .font(.system(size: 16, weight: .heavy, design: .rounded))
                     .monospacedDigit()
                     .lineLimit(1)
-                    .minimumScaleFactor(0.46)
+                    .minimumScaleFactor(0.55)
 
                 HStack(spacing: 5) {
                     Image(systemName: "arrow.up.forward")
@@ -2528,8 +2528,8 @@ struct TokenmonNowCampHeroPresentationCard<HeaderAccessory: View>: View {
 
             Spacer(minLength: 0)
         }
-        .padding(.horizontal, 14)
-        .frame(height: 92)
+        .padding(.horizontal, 12)
+        .frame(height: 70)
         .background(
             RoundedRectangle(cornerRadius: 9, style: .continuous)
                 .fill(Color.secondary.opacity(0.08))

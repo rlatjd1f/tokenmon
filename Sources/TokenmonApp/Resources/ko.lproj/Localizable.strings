@@ -872,7 +872,7 @@
 "now.camp.v2.reward.raider.detail" = "%1$@ 레이드 파워";
 "now.camp.v2.reward.current.detail" = "현재 · %1$@";
 "now.camp.v2.reward.preview.detail" = "Lv.%1$lld 성공 시 · %2$@";
-"now.camp.v2.reward.compact.title" = "훈련 보상";
+"now.camp.v2.reward.compact.title" = "리드 효과";
 "now.camp.v2.reward.trail.compact_value" = "%1$@ 등장↑";
 "now.camp.v2.reward.scout.compact_value" = "%1$@ 희귀도↑";
 "now.camp.v2.reward.capture.compact_value" = "%1$@ 포획↑";
@@ -883,5 +883,5 @@
 "now.camp.v2.reward.raider.compact_detail" = "파워 %1$@";
 "now.camp.v2.reward.current_to_next" = "%1$@ → %2$@";
 "now.camp.v2.reward.unlock_on_success" = "성공 시 %1$@";
-"now.camp.v2.reward.unlock_first_success" = "첫 성공 시 해금";
+"now.camp.v2.reward.unlock_first_success" = "다음 성공 시 해금";
 "dex.context_menu.set_lead" = "리드로 설정";

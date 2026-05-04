@@ -230,6 +230,7 @@ struct TokenmonPresentationTests {
         #expect(presentation.careAction.isEnabled)
         #expect(presentation.careStatusLine == nil)
         #expect(presentation.trainingLevelText == TokenmonL10n.format("now.camp.training_level", Int64(2), Int64(5)))
+        #expect(presentation.headerLeadDetail == presentation.trainingLevelText)
         #expect(presentation.trainTargetLine == TokenmonL10n.format("now.camp.train.target", "II", "III"))
         #expect(presentation.targetLevelText == TokenmonL10n.format("now.camp.practice.target_level", Int64(2), Int64(3)))
         #expect(presentation.trainRewardLine == TokenmonL10n.format(
@@ -378,6 +379,7 @@ struct TokenmonPresentationTests {
         #expect(focusLimited.trainAction.availability == .insufficientFocus(current: 12, required: 100))
         #expect(focusLimited.trainTargetLine == TokenmonL10n.format("now.camp.train.target", "I", "II"))
         #expect(focusLimited.trainingLevelText == TokenmonL10n.format("now.camp.training_level", Int64(1), Int64(5)))
+        #expect(focusLimited.headerLeadDetail == focusLimited.trainingLevelText)
         #expect(focusLimited.targetLevelText == TokenmonL10n.format("now.camp.practice.target_level", Int64(1), Int64(2)))
         #expect(focusLimited.practiceControlTitleText == TokenmonL10n.string("now.camp.practice.status.preparing"))
         #expect(focusLimited.practiceControlDetailText == TokenmonL10n.format(
