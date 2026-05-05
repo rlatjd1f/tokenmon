@@ -2737,31 +2737,24 @@ struct TokenmonNowCampHeroPresentationCard<HeaderAccessory: View>: View {
     private var compactTrainingRow: some View {
         GeometryReader { geometry in
             let rowWidth = geometry.size.width
-            let effectWidth = max(86, min(104, rowWidth * 0.30))
-            let careWidth = max(76, min(92, rowWidth * 0.25))
-            HStack(spacing: 8) {
-                compactLeadEffectColumn
-                    .frame(width: effectWidth, height: 54)
+            let careWidth = max(104, min(124, rowWidth * 0.34))
+            VStack(spacing: 7) {
+                HStack(spacing: 8) {
+                    compactLeadEffectColumn
+                        .frame(maxWidth: .infinity, minHeight: 34, maxHeight: 34)
 
-                Capsule(style: .continuous)
-                    .fill(Color.secondary.opacity(0.14))
-                    .frame(width: 0.8, height: 38)
-
-                compactCareColumn
-                    .frame(width: careWidth)
-                    .frame(minHeight: 54, maxHeight: 54)
-
-                Capsule(style: .continuous)
-                    .fill(Color.secondary.opacity(0.14))
-                    .frame(width: 0.8, height: 38)
+                    compactCareColumn
+                        .frame(width: careWidth)
+                        .frame(minHeight: 34, maxHeight: 34)
+                }
 
                 compactTrainColumn
-                    .frame(maxWidth: .infinity, minHeight: 54, maxHeight: 54)
+                    .frame(maxWidth: .infinity, minHeight: 36, maxHeight: 36)
             }
             .padding(.horizontal, 10)
-            .padding(.vertical, 7)
+            .padding(.vertical, 8)
         }
-        .frame(height: 68)
+        .frame(height: 93)
         .background(
             RoundedRectangle(cornerRadius: 9, style: .continuous)
                 .fill(
