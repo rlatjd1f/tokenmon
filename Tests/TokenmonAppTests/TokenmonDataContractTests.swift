@@ -152,12 +152,99 @@ struct TokenmonDataContractTests {
         )
 
         #expect(result.rawFocusGain == 3)
+        #expect(result.tokenFocusGain == 3)
+        #expect(result.activityFocusGain == 1)
         #expect(result.focusEarned == 1)
         #expect(result.discardedByDailyCap == 2)
         #expect(result.discardedByStorageCap == 0)
         #expect(result.updatedState.focusEnergy == 100)
         #expect(result.updatedState.focusRemainderTokens == 0)
         #expect(result.updatedState.focusEarnedToday == 120)
+    }
+
+    @Test
+    func nowCampFocusAccumulatorGivesPositiveLiveUsageSampleAtLeastOneFocus() throws {
+        let accumulator = NowCampFocusAccumulator()
+        let state = NowCampFocusState(
+            focusEnergy: 42,
+            focusRemainderTokens: 2_000,
+            focusEarnedLocalDate: "2026-05-05",
+            focusEarnedToday: 8
+        )
+
+        let smallUsage = try accumulator.accumulate(
+            state: state,
+            gameplayDeltaTokens: 1_500,
+            localDate: "2026-05-05"
+        )
+
+        #expect(smallUsage.tokenFocusGain == 0)
+        #expect(smallUsage.activityFocusGain == 1)
+        #expect(smallUsage.rawFocusGain == 1)
+        #expect(smallUsage.focusEarned == 1)
+        #expect(smallUsage.updatedState.focusEnergy == 43)
+        #expect(smallUsage.updatedState.focusRemainderTokens == 3_500)
+        #expect(smallUsage.updatedState.focusEarnedToday == 9)
+
+        let noUsage = try accumulator.accumulate(
+            state: state,
+            gameplayDeltaTokens: 0,
+            localDate: "2026-05-05"
+        )
+
+        #expect(noUsage.tokenFocusGain == 0)
+        #expect(noUsage.activityFocusGain == 0)
+        #expect(noUsage.rawFocusGain == 0)
+        #expect(noUsage.focusEarned == 0)
+        #expect(noUsage.updatedState.focusEnergy == 42)
+        #expect(noUsage.updatedState.focusRemainderTokens == 2_000)
+    }
+
+    @Test
+    func nowCampFocusEarnedEventAuditsActivityFloorAndTokenGain() throws {
+        let manager = try makeManager(prefix: "now-camp-focus-activity-floor")
+        let database = try manager.open()
+
+        let accumulation = try manager.addNowCampFocus(
+            database: database,
+            usageSampleID: 1,
+            gameplayDeltaTokens: 1_500,
+            observedAt: "2026-05-05T00:00:00Z",
+            correlationID: nil,
+            localDate: "2026-05-05"
+        )
+
+        #expect(accumulation.focusEarned == 1)
+        #expect(accumulation.tokenFocusGain == 0)
+        #expect(accumulation.activityFocusGain == 1)
+
+        let payload = try database.fetchOne(
+            """
+            SELECT json_extract(payload_json, '$.focus_earned'),
+                   json_extract(payload_json, '$.raw_focus_gain'),
+                   json_extract(payload_json, '$.token_focus_gain'),
+                   json_extract(payload_json, '$.activity_focus_gain'),
+                   json_extract(payload_json, '$.focus_remainder_tokens_after')
+            FROM domain_events
+            WHERE event_type = 'focus_energy_earned'
+            ORDER BY occurred_at DESC
+            LIMIT 1;
+            """
+        ) { statement in
+            (
+                SQLiteDatabase.columnInt64(statement, index: 0),
+                SQLiteDatabase.columnInt64(statement, index: 1),
+                SQLiteDatabase.columnInt64(statement, index: 2),
+                SQLiteDatabase.columnInt64(statement, index: 3),
+                SQLiteDatabase.columnInt64(statement, index: 4)
+            )
+        }
+
+        #expect(payload?.0 == 1)
+        #expect(payload?.1 == 1)
+        #expect(payload?.2 == 0)
+        #expect(payload?.3 == 1)
+        #expect(payload?.4 == 1_500)
     }
 
     @Test

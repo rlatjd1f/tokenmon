@@ -152,6 +152,8 @@ struct FocusEnergyEarnedEventPayload: Codable, Equatable, Sendable {
     let usageSampleID: Int64
     let focusEarned: Int
     let rawFocusGain: Int
+    let tokenFocusGain: Int
+    let activityFocusGain: Int
     let focusEnergyAfter: Int
     let focusRemainderTokensAfter: Int64
     let focusEarnedLocalDate: String
@@ -163,6 +165,8 @@ struct FocusEnergyEarnedEventPayload: Codable, Equatable, Sendable {
         case usageSampleID = "usage_sample_id"
         case focusEarned = "focus_earned"
         case rawFocusGain = "raw_focus_gain"
+        case tokenFocusGain = "token_focus_gain"
+        case activityFocusGain = "activity_focus_gain"
         case focusEnergyAfter = "focus_energy_after"
         case focusRemainderTokensAfter = "focus_remainder_tokens_after"
         case focusEarnedLocalDate = "focus_earned_local_date"
@@ -747,6 +751,8 @@ public extension TokenmonDatabaseManager {
                         usageSampleID: usageSampleID,
                         focusEarned: accumulation.focusEarned,
                         rawFocusGain: accumulation.rawFocusGain,
+                        tokenFocusGain: accumulation.tokenFocusGain,
+                        activityFocusGain: accumulation.activityFocusGain,
                         focusEnergyAfter: accumulation.updatedState.focusEnergy,
                         focusRemainderTokensAfter: accumulation.updatedState.focusRemainderTokens,
                         focusEarnedLocalDate: accumulation.updatedState.focusEarnedLocalDate,
