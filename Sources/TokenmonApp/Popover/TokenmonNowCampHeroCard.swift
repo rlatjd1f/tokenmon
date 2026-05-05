@@ -2631,10 +2631,17 @@ struct TokenmonNowCampHeroPresentationCard<HeaderAccessory: View>: View {
 
                     if let feedback {
                         feedbackStageEffect(feedback, size: size)
+                        compactFeedbackLine(feedback)
+                            .position(x: size.width * 0.50, y: 38)
                     }
                 } else {
                     emptyLead
                         .position(x: size.width * 0.52, y: size.height * 0.70)
+
+                    if let feedback {
+                        compactFeedbackLine(feedback)
+                            .position(x: size.width * 0.50, y: 38)
+                    }
                 }
             }
         }
@@ -2688,6 +2695,30 @@ struct TokenmonNowCampHeroPresentationCard<HeaderAccessory: View>: View {
                 .blur(radius: 1.4)
                 .position(x: size.width * 0.52, y: size.height - 28)
         }
+    }
+
+    private func compactFeedbackLine(_ feedback: NowCampHeroFeedback) -> some View {
+        HStack(spacing: 5) {
+            Image(systemName: feedback.systemImage)
+                .font(.system(size: 10, weight: .black))
+                .foregroundStyle(feedback.tint)
+            Text(feedback.message)
+                .font(.system(size: 10, weight: .heavy, design: .rounded))
+                .lineLimit(1)
+                .minimumScaleFactor(0.68)
+        }
+        .foregroundStyle(Color.white.opacity(0.94))
+        .padding(.horizontal, 9)
+        .frame(width: 178, height: 24, alignment: .center)
+        .background(
+            Capsule(style: .continuous)
+                .fill(Color.black.opacity(0.48))
+        )
+        .overlay(
+            Capsule(style: .continuous)
+                .stroke(Color.white.opacity(0.18), lineWidth: 0.7)
+        )
+        .shadow(color: Color.black.opacity(0.16), radius: 2, y: 1)
     }
 
     @ViewBuilder

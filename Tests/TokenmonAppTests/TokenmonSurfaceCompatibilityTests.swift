@@ -85,6 +85,26 @@ struct TokenmonSurfaceCompatibilityTests {
         ) {
             EmptyView()
         }
+        let compactCareFeedbackHeroCard = TokenmonNowCampHeroPresentationCard(
+            presentation: NowCampHeroPresentation.make(
+                nowCamp: nil,
+                partyMembers: [],
+                sceneContext: TokenmonSceneContext(
+                    sceneState: .idle,
+                    fieldKind: .ice,
+                    fieldState: .exploring,
+                    effectState: .none,
+                    wildState: .hidden
+                )
+            ),
+            animates: false,
+            feedback: NowCampHeroFeedback.careApplied(focusGranted: 5, focusEnergyAfter: 50),
+            onTrain: {},
+            onCare: {},
+            onScout: {}
+        ) {
+            EmptyView()
+        }
 
         assertHostedRender(settingsPanel, size: CGSize(width: 760, height: 560))
         assertHostedRender(onboardingPanel, size: CGSize(width: 620, height: 500))
@@ -96,6 +116,7 @@ struct TokenmonSurfaceCompatibilityTests {
         assertHostedRender(heroV2PopoverContainer, size: CGSize(width: 560, height: 720))
         assertHostedRender(compactPopoverContainer, size: CGSize(width: 360, height: 520))
         assertHostedRender(reducedMotionHeroCard, size: CGSize(width: 528, height: 586))
+        assertHostedRender(compactCareFeedbackHeroCard, size: CGSize(width: 328, height: 368))
     }
 
     @MainActor

@@ -684,6 +684,9 @@ struct TokenmonPresentationTests {
         #expect(care.focusGranted == 5)
         #expect(care.focusEnergyAfter == 50)
         await model.waitForRefreshToFinish()
+        #expect(model.nowCampSummary?.focusEnergy == 50)
+        #expect(model.nowCampSummary?.careReady == false)
+        #expect(model.nowCampSummary?.careElapsedSeconds == 0)
 
         let trainResult = model.trainNowCampLead()
         guard case .resolved(let train) = trainResult else {
