@@ -2778,7 +2778,7 @@ struct TokenmonNowCampHeroPresentationCard<HeaderAccessory: View>: View {
         HStack(alignment: .center, spacing: 7) {
             Image(systemName: presentation.v2.rewardPreview.systemImage)
                 .font(.system(size: 13, weight: .black))
-                .foregroundStyle(presentation.field.nowCampTint)
+                .foregroundStyle(presentation.field.nowCampTint.opacity(0.82))
                 .frame(width: 18)
 
             VStack(alignment: .leading, spacing: 1) {
@@ -2889,14 +2889,15 @@ struct TokenmonNowCampHeroPresentationCard<HeaderAccessory: View>: View {
     private func compactTrainIcon(for state: NowCampHeroActionState) -> some View {
         Image(systemName: practiceIcon(for: state))
             .font(.system(size: 11, weight: .black))
+            .foregroundStyle(compactActionIconForeground(for: state))
             .frame(width: 22, height: 22)
             .background(
                 RoundedRectangle(cornerRadius: 6, style: .continuous)
-                    .fill(Color.black.opacity(state.isEnabled ? 0.18 : 0.16))
+                    .fill(compactActionIconFill(for: state))
             )
             .overlay(
                 RoundedRectangle(cornerRadius: 6, style: .continuous)
-                    .stroke(Color.white.opacity(state.isEnabled ? 0.22 : 0.10), lineWidth: 0.8)
+                    .stroke(compactActionIconStroke(for: state), lineWidth: 0.8)
             )
     }
 
@@ -2941,9 +2942,9 @@ struct TokenmonNowCampHeroPresentationCard<HeaderAccessory: View>: View {
 
                 LinearGradient(
                     colors: [
-                        Color.white.opacity(state.isEnabled ? 0.24 : 0.05),
+                        Color.white.opacity(state.isEnabled ? 0.16 : 0.04),
                         Color.clear,
-                        Color.black.opacity(state.isEnabled ? 0.10 : 0.06),
+                        Color.black.opacity(state.isEnabled ? 0.12 : 0.08),
                     ],
                     startPoint: .top,
                     endPoint: .bottom
@@ -2956,11 +2957,31 @@ struct TokenmonNowCampHeroPresentationCard<HeaderAccessory: View>: View {
     }
 
     private func compactActionProgressFill(for state: NowCampHeroActionState) -> LinearGradient {
+        if state.kind == .care {
+            if state.isEnabled {
+                return LinearGradient(
+                    colors: [
+                        compactCareAccent.opacity(0.16),
+                        compactCareAccent.opacity(0.08),
+                    ],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+            }
+            return LinearGradient(
+                colors: [
+                    Color.white.opacity(0.055),
+                    Color.white.opacity(0.025),
+                ],
+                startPoint: .leading,
+                endPoint: .trailing
+            )
+        }
         if state.isEnabled {
             return LinearGradient(
                 colors: [
-                    Color.white.opacity(0.18),
-                    presentation.field.nowCampTint.opacity(0.18),
+                    presentation.field.nowCampTint.opacity(0.055),
+                    presentation.field.nowCampTint.opacity(0.025),
                 ],
                 startPoint: .topLeading,
                 endPoint: .bottomTrailing
@@ -2968,8 +2989,8 @@ struct TokenmonNowCampHeroPresentationCard<HeaderAccessory: View>: View {
         }
         return LinearGradient(
             colors: [
-                presentation.field.nowCampTint.opacity(0.14),
-                presentation.field.nowCampTint.opacity(0.05),
+                presentation.field.nowCampTint.opacity(0.075),
+                Color.white.opacity(0.025),
             ],
             startPoint: .leading,
             endPoint: .trailing
@@ -3027,22 +3048,22 @@ struct TokenmonNowCampHeroPresentationCard<HeaderAccessory: View>: View {
 
     private func actionButtonFill(for state: NowCampHeroActionState) -> Color {
         guard state.isEnabled else {
-            return Color(nsColor: .controlBackgroundColor).opacity(0.24)
+            return Color(nsColor: .controlBackgroundColor).opacity(0.22)
         }
         if state.kind == .care {
-            return Color(red: 1.0, green: 0.94, blue: 0.78).opacity(0.96)
+            return compactCareAccent.opacity(0.15)
         }
-        return presentation.field.nowCampTint.opacity(0.88)
+        return presentation.field.nowCampTint.opacity(0.16)
     }
 
     private func actionButtonStroke(for state: NowCampHeroActionState) -> Color {
         guard state.isEnabled else {
-            return Color.white.opacity(0.28)
+            return Color.white.opacity(0.10)
         }
         if state.kind == .care {
-            return Color(red: 1.0, green: 0.73, blue: 0.32).opacity(0.90)
+            return compactCareAccent.opacity(0.50)
         }
-        return Color.white.opacity(0.62)
+        return presentation.field.nowCampTint.opacity(0.38)
     }
 
     private func actionForeground(for state: NowCampHeroActionState) -> Color {
@@ -3050,19 +3071,50 @@ struct TokenmonNowCampHeroPresentationCard<HeaderAccessory: View>: View {
     }
 
     private func compactActionForeground(for state: NowCampHeroActionState) -> Color {
-        state.isEnabled ? Color.white.opacity(0.98) : Color.white.opacity(0.68)
+        state.isEnabled ? Color.white.opacity(0.96) : Color.white.opacity(0.56)
     }
 
     private func compactActionDetailForeground(for state: NowCampHeroActionState) -> Color {
-        state.isEnabled ? Color.white.opacity(0.74) : Color.white.opacity(0.42)
+        if state.isEnabled, state.kind == .care {
+            return compactCareAccent.opacity(0.84)
+        }
+        return state.isEnabled ? Color.white.opacity(0.70) : Color.white.opacity(0.40)
     }
 
     private func compactActionStroke(for state: NowCampHeroActionState) -> Color {
-        state.isEnabled ? Color.white.opacity(0.58) : Color.white.opacity(0.06)
+        actionButtonStroke(for: state)
     }
 
     private func compactActionShadow(for state: NowCampHeroActionState) -> Color {
-        state.isEnabled ? presentation.field.nowCampTint.opacity(0.24) : Color.clear
+        guard state.isEnabled else {
+            return Color.clear
+        }
+        return state.kind == .care ? compactCareAccent.opacity(0.14) : presentation.field.nowCampTint.opacity(0.16)
+    }
+
+    private func compactActionIconForeground(for state: NowCampHeroActionState) -> Color {
+        if state.isEnabled, state.kind == .care {
+            return compactCareAccent.opacity(0.92)
+        }
+        return state.isEnabled ? Color.white.opacity(0.92) : Color.white.opacity(0.50)
+    }
+
+    private func compactActionIconFill(for state: NowCampHeroActionState) -> Color {
+        if state.isEnabled, state.kind == .care {
+            return compactCareAccent.opacity(0.12)
+        }
+        return Color.black.opacity(state.isEnabled ? 0.16 : 0.10)
+    }
+
+    private func compactActionIconStroke(for state: NowCampHeroActionState) -> Color {
+        if state.isEnabled, state.kind == .care {
+            return compactCareAccent.opacity(0.34)
+        }
+        return Color.white.opacity(state.isEnabled ? 0.18 : 0.08)
+    }
+
+    private var compactCareAccent: Color {
+        Color(red: 1.0, green: 0.43, blue: 0.60)
     }
 
     private func leadSprite(_ lead: NowCampHeroMemberPresentation) -> some View {
