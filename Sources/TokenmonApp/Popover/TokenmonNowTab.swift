@@ -171,35 +171,50 @@ struct TokenmonNowTab: View {
     @ViewBuilder
     private var latestEncounterCard: some View {
         if let encounter = model.latestEncounter {
-            HStack(alignment: .center, spacing: 14) {
+            HStack(alignment: .center, spacing: 10) {
                 TokenmonDexSpritePreview(
                     status: encounter.outcome == .captured ? .captured : .seenUncaptured,
                     revealStage: TokenmonDexPresentation.revealStage(for: encounter),
                     field: encounter.field,
                     rarity: encounter.rarity,
                     assetKey: encounter.assetKey,
-                    cardSize: 80,
-                    spriteSize: 56
+                    cardSize: 58,
+                    spriteSize: 42
                 )
-                VStack(alignment: .leading, spacing: 4) {
+
+                VStack(alignment: .leading, spacing: 3) {
                     Text(TokenmonDexPresentation.visibleSpeciesName(for: encounter, style: .sentence))
-                        .font(.headline)
+                        .font(.system(size: 15, weight: .semibold, design: .rounded))
                         .lineLimit(1)
                         .truncationMode(.tail)
-                    metaRow(label: TokenmonL10n.string("now.meta.rarity"), value: encounter.rarity.displayName)
-                    metaRow(label: TokenmonL10n.string("now.meta.field"), value: encounter.field.displayName)
-                    metaRow(label: TokenmonL10n.string("now.meta.result"), value: encounter.outcome.displayName)
-                    if encounter.outcome == .captured {
-                        latestAffinityRow(for: encounter)
+
+                    Text(latestEncounterDetailLine(for: encounter))
+                        .font(.system(size: 10, weight: .semibold, design: .rounded))
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.72)
+
+                    if let affinityLine = TokenmonDexPresentation.affinityResultLine(for: encounter) {
+                        Text(affinityLine)
+                            .font(.system(size: 9, weight: .semibold, design: .rounded))
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.72)
                     }
                 }
+
                 Spacer()
             }
-            .padding(12)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 8)
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(
-                RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .fill(Color.secondary.opacity(0.08))
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    .fill(Color.secondary.opacity(0.045))
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    .stroke(Color.white.opacity(0.055), lineWidth: 0.8)
             )
         } else {
             HStack {
@@ -209,12 +224,21 @@ struct TokenmonNowTab: View {
                 Spacer()
             }
             .padding(12)
-            .frame(maxWidth: .infinity, minHeight: 104, alignment: .leading)
+            .frame(maxWidth: .infinity, minHeight: 56, alignment: .leading)
             .background(
-                RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .fill(Color.secondary.opacity(0.08))
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    .fill(Color.secondary.opacity(0.045))
             )
         }
+    }
+
+    private func latestEncounterDetailLine(for encounter: RecentEncounterSummary) -> String {
+        TokenmonL10n.format(
+            "menu.latest.detail",
+            encounter.rarity.displayName,
+            encounter.field.displayName,
+            encounter.outcome.displayName
+        )
     }
 
     @ViewBuilder

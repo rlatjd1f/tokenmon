@@ -2475,86 +2475,69 @@ struct TokenmonNowCampHeroPresentationCard<HeaderAccessory: View>: View {
     private var compactTrainingRow: some View {
         GeometryReader { geometry in
             let rowWidth = geometry.size.width
-            let effectWidth = max(110, min(126, rowWidth * 0.40))
-            HStack(spacing: 7) {
+            let effectWidth = max(108, min(124, rowWidth * 0.39))
+            HStack(spacing: 8) {
                 compactLeadEffectColumn
-                    .frame(width: effectWidth, height: 62)
+                    .frame(width: effectWidth, height: 54)
+
+                Capsule(style: .continuous)
+                    .fill(Color.secondary.opacity(0.14))
+                    .frame(width: 0.8, height: 38)
 
                 compactTrainColumn
-                    .frame(maxWidth: .infinity, minHeight: 62, maxHeight: 62)
+                    .frame(maxWidth: .infinity, minHeight: 54, maxHeight: 54)
             }
-            .padding(8)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 7)
         }
-        .frame(height: 82)
+        .frame(height: 68)
         .background(
             RoundedRectangle(cornerRadius: 9, style: .continuous)
-                .fill(Color.secondary.opacity(0.055))
+                .fill(
+                    LinearGradient(
+                        colors: [
+                            Color(nsColor: .controlBackgroundColor).opacity(0.56),
+                            Color(nsColor: .windowBackgroundColor).opacity(0.30),
+                        ],
+                        startPoint: .top,
+                        endPoint: .bottom
+                    )
+                )
         )
         .overlay(
             RoundedRectangle(cornerRadius: 9, style: .continuous)
-                .stroke(Color.secondary.opacity(0.10), lineWidth: 0.8)
+                .stroke(Color.white.opacity(0.08), lineWidth: 0.8)
         )
     }
 
     private var compactLeadEffectColumn: some View {
-        VStack(alignment: .leading, spacing: 3) {
-            HStack(spacing: 5) {
-                Image(systemName: presentation.v2.rewardPreview.systemImage)
-                    .font(.system(size: 9, weight: .black))
-                    .foregroundStyle(presentation.field.nowCampTint)
+        HStack(alignment: .center, spacing: 7) {
+            Image(systemName: presentation.v2.rewardPreview.systemImage)
+                .font(.system(size: 13, weight: .black))
+                .foregroundStyle(presentation.field.nowCampTint)
+                .frame(width: 18)
 
+            VStack(alignment: .leading, spacing: 1) {
                 Text(TokenmonL10n.string("now.camp.v2.reward.compact.title"))
                     .font(.system(size: 8, weight: .semibold, design: .rounded))
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(Color.white.opacity(0.46))
                     .lineLimit(1)
-                    .minimumScaleFactor(0.70)
+                    .minimumScaleFactor(0.68)
 
-                Spacer(minLength: 3)
-
-                Text(presentation.v2.rewardPreview.titleText)
-                    .font(.system(size: 7, weight: .bold, design: .rounded))
-                    .foregroundStyle(presentation.field.nowCampTint)
+                Text(presentation.v2.rewardPreview.compactValueText)
+                    .font(.system(size: 12, weight: .heavy, design: .rounded))
+                    .monospacedDigit()
                     .lineLimit(1)
-                    .minimumScaleFactor(0.52)
-                    .padding(.horizontal, 5)
-                    .frame(height: 14)
-                    .background(
-                        Capsule(style: .continuous)
-                            .fill(presentation.field.nowCampTint.opacity(0.12))
-                    )
-            }
-
-            Text(presentation.v2.rewardPreview.compactValueText)
-                .font(.system(size: 12, weight: .heavy, design: .rounded))
-                .monospacedDigit()
-                .lineLimit(1)
-                .minimumScaleFactor(0.48)
-
-            HStack(spacing: 4) {
-                Image(systemName: "arrow.up.forward")
-                    .font(.system(size: 7, weight: .black))
-                    .foregroundStyle(presentation.field.nowCampTint)
+                    .minimumScaleFactor(0.46)
 
                 Text(presentation.v2.rewardPreview.compactDetailText)
                     .font(.system(size: 8, weight: .semibold, design: .rounded))
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(Color.white.opacity(0.50))
                     .lineLimit(1)
-                    .minimumScaleFactor(0.46)
+                    .minimumScaleFactor(0.44)
             }
-
-            Spacer(minLength: 0)
         }
-        .padding(.horizontal, 8)
-        .padding(.vertical, 6)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
-        .background(
-            RoundedRectangle(cornerRadius: 8, style: .continuous)
-                .fill(Color.secondary.opacity(0.06))
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 8, style: .continuous)
-                .stroke(Color.secondary.opacity(0.10), lineWidth: 0.8)
-        )
     }
 
     private var compactTrainColumn: some View {
@@ -2567,11 +2550,19 @@ struct TokenmonNowCampHeroPresentationCard<HeaderAccessory: View>: View {
             HStack(spacing: 7) {
                 compactTrainIcon(for: presentation.trainAction)
 
-                Text(compactTrainButtonText)
-                    .font(.system(size: 13, weight: .heavy, design: .rounded))
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.54)
-                    .layoutPriority(1)
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(compactTrainPrimaryText)
+                        .font(.system(size: 12, weight: .heavy, design: .rounded))
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.56)
+
+                    Text(compactTrainDetailText)
+                        .font(.system(size: 8, weight: .semibold, design: .rounded))
+                        .foregroundStyle(compactActionDetailForeground(for: presentation.trainAction))
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.50)
+                }
+                .layoutPriority(1)
 
                 Spacer(minLength: 0)
 
@@ -2595,15 +2586,15 @@ struct TokenmonNowCampHeroPresentationCard<HeaderAccessory: View>: View {
 
     private func compactTrainIcon(for state: NowCampHeroActionState) -> some View {
         Image(systemName: practiceIcon(for: state))
-            .font(.system(size: 12, weight: .black))
-            .frame(width: 24, height: 24)
+            .font(.system(size: 11, weight: .black))
+            .frame(width: 22, height: 22)
             .background(
-                RoundedRectangle(cornerRadius: 7, style: .continuous)
-                    .fill(Color.black.opacity(state.isEnabled ? 0.18 : 0.24))
+                RoundedRectangle(cornerRadius: 6, style: .continuous)
+                    .fill(Color.black.opacity(state.isEnabled ? 0.18 : 0.16))
             )
             .overlay(
-                RoundedRectangle(cornerRadius: 7, style: .continuous)
-                    .stroke(Color.white.opacity(state.isEnabled ? 0.22 : 0.16), lineWidth: 0.8)
+                RoundedRectangle(cornerRadius: 6, style: .continuous)
+                    .stroke(Color.white.opacity(state.isEnabled ? 0.22 : 0.10), lineWidth: 0.8)
             )
     }
 
@@ -2620,11 +2611,18 @@ struct TokenmonNowCampHeroPresentationCard<HeaderAccessory: View>: View {
         }
     }
 
-    private var compactTrainButtonText: String {
+    private var compactTrainPrimaryText: String {
         guard presentation.trainAction.isEnabled else {
-            return TokenmonL10n.string("now.camp.v2.train_preparing")
+            return presentation.practiceStatusText
         }
         return TokenmonL10n.string("now.camp.v2.train")
+    }
+
+    private var compactTrainDetailText: String {
+        guard presentation.trainAction.isEnabled else {
+            return presentation.practiceControlDetailText
+        }
+        return presentation.targetLevelText
     }
 
     private func compactActionBackground(for state: NowCampHeroActionState) -> some View {
@@ -2641,16 +2639,16 @@ struct TokenmonNowCampHeroPresentationCard<HeaderAccessory: View>: View {
 
                 LinearGradient(
                     colors: [
-                        Color.white.opacity(state.isEnabled ? 0.24 : 0.10),
+                        Color.white.opacity(state.isEnabled ? 0.24 : 0.05),
                         Color.clear,
-                        Color.black.opacity(state.isEnabled ? 0.10 : 0.16),
+                        Color.black.opacity(state.isEnabled ? 0.10 : 0.06),
                     ],
                     startPoint: .top,
                     endPoint: .bottom
                 )
 
                 RoundedRectangle(cornerRadius: 8, style: .continuous)
-                    .stroke(Color.white.opacity(state.isEnabled ? 0.18 : 0.08), lineWidth: 0.8)
+                    .stroke(Color.white.opacity(state.isEnabled ? 0.18 : 0.04), lineWidth: 0.8)
             }
         }
     }
@@ -2668,8 +2666,8 @@ struct TokenmonNowCampHeroPresentationCard<HeaderAccessory: View>: View {
         }
         return LinearGradient(
             colors: [
-                presentation.field.nowCampTint.opacity(0.46),
-                presentation.field.nowCampTint.opacity(0.26),
+                presentation.field.nowCampTint.opacity(0.14),
+                presentation.field.nowCampTint.opacity(0.05),
             ],
             startPoint: .leading,
             endPoint: .trailing
@@ -2697,7 +2695,7 @@ struct TokenmonNowCampHeroPresentationCard<HeaderAccessory: View>: View {
 
     private func actionButtonFill(for state: NowCampHeroActionState) -> Color {
         guard state.isEnabled else {
-            return Color(nsColor: .controlBackgroundColor).opacity(0.82)
+            return Color(nsColor: .controlBackgroundColor).opacity(0.24)
         }
         if state.kind == .care {
             return Color(red: 1.0, green: 0.94, blue: 0.78).opacity(0.96)
@@ -2720,15 +2718,19 @@ struct TokenmonNowCampHeroPresentationCard<HeaderAccessory: View>: View {
     }
 
     private func compactActionForeground(for state: NowCampHeroActionState) -> Color {
-        state.isEnabled ? Color.white.opacity(0.98) : Color.white.opacity(0.88)
+        state.isEnabled ? Color.white.opacity(0.98) : Color.white.opacity(0.68)
+    }
+
+    private func compactActionDetailForeground(for state: NowCampHeroActionState) -> Color {
+        state.isEnabled ? Color.white.opacity(0.74) : Color.white.opacity(0.42)
     }
 
     private func compactActionStroke(for state: NowCampHeroActionState) -> Color {
-        state.isEnabled ? Color.white.opacity(0.58) : presentation.field.nowCampTint.opacity(0.34)
+        state.isEnabled ? Color.white.opacity(0.58) : Color.white.opacity(0.06)
     }
 
     private func compactActionShadow(for state: NowCampHeroActionState) -> Color {
-        state.isEnabled ? presentation.field.nowCampTint.opacity(0.24) : Color.black.opacity(0.12)
+        state.isEnabled ? presentation.field.nowCampTint.opacity(0.24) : Color.clear
     }
 
     private func leadSprite(_ lead: NowCampHeroMemberPresentation) -> some View {
