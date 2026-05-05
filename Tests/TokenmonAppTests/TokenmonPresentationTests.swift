@@ -300,6 +300,18 @@ struct TokenmonPresentationTests {
             current: rewardPreview,
             next: nextRewardPreview
         ))
+        #expect(presentation.v2.rewardPreview.currentLine.labelText == TokenmonL10n.string("now.camp.v2.reward.current.label"))
+        #expect(presentation.v2.rewardPreview.currentLine.valueText == (
+            rewardPreview.isActive
+                ? expectedNowCampV2EffectLineText(for: rewardPreview)
+                : TokenmonL10n.string("now.camp.v2.reward.current.none")
+        ))
+        #expect(presentation.v2.rewardPreview.successLine.labelText == TokenmonL10n.string("now.camp.v2.reward.success.label"))
+        #expect(presentation.v2.rewardPreview.successLine.valueText == (
+            nextRewardPreview.isActive
+                ? expectedNowCampV2EffectLineText(for: nextRewardPreview)
+                : TokenmonL10n.string("now.camp.v2.reward.success.none")
+        ))
         #expect(presentation.v2.rewardPreview.isActive == rewardPreview.isActive)
 
         guard case .occupied(let firstSupport, index: 0) = presentation.supportSlots[0] else {
@@ -337,6 +349,70 @@ struct TokenmonPresentationTests {
             }
             return false
         })
+    }
+
+    @Test
+    func nowCampHeroPresentationShowsSharedFocusAndPerLeadTrainingStatus() {
+        let selectedLead = sampleSpecies(field: .grassland, offset: 0)
+        let trainableLead = sampleSpecies(field: .grassland, offset: 1)
+        let maxLead = sampleSpecies(field: .grassland, offset: 2)
+        let presentation = NowCampHeroPresentation.make(
+            nowCamp: makeNowCampSummary(
+                lead: selectedLead,
+                supports: [],
+                focusEnergy: 88,
+                affinityLevel: 2,
+                trainingRank: .rankII,
+                careReady: true,
+                careElapsedSeconds: NowCampCarePolicy.intervalSeconds
+            ),
+            partyMembers: [
+                makePartyMember(from: selectedLead, affinityLevel: 2, trainingRank: .rankII),
+                makePartyMember(from: trainableLead, slotOrder: 2, affinityLevel: 2, trainingRank: .rankI),
+                makePartyMember(from: maxLead, slotOrder: 3, affinityLevel: 5, trainingRank: .rankV),
+            ],
+            sceneContext: makeNowCampSceneContext(field: .grassland)
+        )
+
+        #expect(presentation.trainAction.availability == .rankAtAffinityGate(current: 2, required: 3))
+        #expect(presentation.careAction.availability == .enabled)
+        #expect(presentation.practiceControlDetailText == TokenmonL10n.format(
+            "now.camp.practice.bond_gate.alternative",
+            Int64(2),
+            Int64(3)
+        ))
+
+        let selectedStatus = presentation.leadMenuStatus(for: selectedLead.id)
+        #expect(selectedStatus?.statusText == TokenmonL10n.format("now.camp.lead_picker.status.bond", Int64(2), Int64(3)))
+        #expect(selectedStatus?.isSelected == true)
+        #expect(selectedStatus?.isTrainable == false)
+
+        let trainableStatus = presentation.leadMenuStatus(for: trainableLead.id)
+        #expect(trainableStatus?.statusText == TokenmonL10n.string("now.camp.lead_picker.status.ready"))
+        #expect(trainableStatus?.isTrainable == true)
+
+        let maxStatus = presentation.leadMenuStatus(for: maxLead.id)
+        #expect(maxStatus?.statusText == TokenmonL10n.string("now.camp.lead_picker.status.max"))
+        #expect(maxStatus?.isTrainable == false)
+
+        let focusLimited = NowCampHeroPresentation.make(
+            nowCamp: makeNowCampSummary(
+                lead: selectedLead,
+                supports: [],
+                focusEnergy: 12,
+                affinityLevel: 3,
+                trainingRank: .rankI
+            ),
+            partyMembers: [
+                makePartyMember(from: selectedLead, affinityLevel: 3, trainingRank: .rankI),
+            ],
+            sceneContext: makeNowCampSceneContext(field: .grassland)
+        )
+
+        #expect(focusLimited.leadMenuStatus(for: selectedLead.id)?.statusText == TokenmonL10n.format(
+            "now.camp.lead_picker.status.focus_needed",
+            Int64(38)
+        ))
     }
 
     @Test
@@ -383,8 +459,9 @@ struct TokenmonPresentationTests {
         #expect(focusLimited.targetLevelText == TokenmonL10n.format("now.camp.practice.target_level", Int64(1), Int64(2)))
         #expect(focusLimited.practiceControlTitleText == TokenmonL10n.string("now.camp.practice.status.preparing"))
         #expect(focusLimited.practiceControlDetailText == TokenmonL10n.format(
-            "now.camp.practice.preparing.detail",
-            TokenmonL10n.format("now.camp.practice.need_more", Int64(38))
+            "now.camp.practice.shared_focus.detail",
+            Int64(12),
+            Int64(50)
         ))
         #expect(abs(focusLimited.practiceProgressFraction - 0.24) < 0.0001)
         #expect(focusLimited.practiceReadinessText == TokenmonL10n.format("now.camp.practice.need_more", Int64(38)))
@@ -437,6 +514,12 @@ struct TokenmonPresentationTests {
             current: focusLimitedCurrentReward,
             next: focusLimitedRewardPreview
         ))
+        #expect(focusLimited.v2.rewardPreview.currentLine.valueText == TokenmonL10n.string("now.camp.v2.reward.current.none"))
+        #expect(focusLimited.v2.rewardPreview.successLine.valueText == (
+            focusLimitedRewardPreview.isActive
+                ? expectedNowCampV2EffectLineText(for: focusLimitedRewardPreview)
+                : TokenmonL10n.string("now.camp.v2.reward.success.none")
+        ))
         #expect(focusLimited.v2.rewardPreview.isActive == focusLimitedCurrentReward.isActive)
 
         let rankLimited = NowCampHeroPresentation.make(
@@ -482,7 +565,9 @@ struct TokenmonPresentationTests {
             current: rankLimitedCurrentReward,
             next: rankLimitedNextReward,
             nextRank: .rankIII,
-            nextIsBlocked: true
+            nextIsBlocked: true,
+            blockedCurrent: 2,
+            blockedRequired: 3
         ))
         #expect(rankLimited.v2.rewardPreview.isActive == rankLimitedCurrentReward.isActive)
 
@@ -520,6 +605,8 @@ struct TokenmonPresentationTests {
             partyMembers: [],
             sceneContext: makeNowCampSceneContext(field: .ice)
         )
+        #expect(maxRank.trainAction.availability == .rankMaximum)
+        #expect(maxRank.practiceStatusText == TokenmonL10n.string("now.camp.practice.status.max_rank"))
         #expect(maxRank.v2.practiceChanceText == TokenmonL10n.string("now.camp.v2.max"))
         #expect(maxRank.v2.resonanceValueText == TokenmonL10n.string("now.camp.v2.max"))
         let maxRankCurrentReward = LeaderTraitBonusResolver().previewBonus(
@@ -5741,34 +5828,6 @@ struct TokenmonPresentationTests {
         }
     }
 
-    private func expectedNowCampV2RewardDetail(
-        for preview: LeaderTraitBonusPreview,
-        previewRank: TrainingRank? = nil
-    ) -> String {
-        guard preview.isActive else {
-            return TokenmonL10n.string("now.camp.v2.reward.inactive")
-        }
-        let detail: String
-        switch preview.kind {
-        case .trail:
-            detail = TokenmonL10n.format("now.camp.v2.reward.trail.detail", preview.field.displayName)
-        case .scout:
-            detail = TokenmonL10n.format("now.camp.v2.reward.scout.detail", preview.field.displayName)
-        case .capture:
-            detail = TokenmonL10n.format("now.camp.v2.reward.capture.detail", preview.field.displayName)
-        case .raider:
-            detail = TokenmonL10n.format("now.camp.v2.reward.raider.detail", preview.field.displayName)
-        }
-        guard let previewRank else {
-            return detail
-        }
-        return TokenmonL10n.format(
-            "now.camp.v2.reward.preview.detail",
-            Int64(previewRank.rawValue),
-            detail
-        )
-    }
-
     private func expectedNowCampV2CompactRewardValue(for preview: LeaderTraitBonusPreview) -> String {
         let value = expectedNowCampV2RewardValue(for: preview)
         guard preview.isActive else {
@@ -5814,24 +5873,36 @@ struct TokenmonPresentationTests {
         current: LeaderTraitBonusPreview,
         next: LeaderTraitBonusPreview?,
         nextRank: TrainingRank?,
-        nextIsBlocked: Bool = false
+        nextIsBlocked: Bool = false,
+        blockedCurrent: Int64? = nil,
+        blockedRequired: Int64? = nil
     ) -> String {
-        if current.isActive {
-            return TokenmonL10n.format(
-                "now.camp.v2.reward.current.detail",
-                expectedNowCampV2RewardDetail(for: current)
-            )
-        }
-        guard let next,
-              let nextRank,
-              next.isActive,
-              !nextIsBlocked else {
-            if nextIsBlocked {
-                return TokenmonL10n.string("now.camp.v2.bond_gate")
+        let currentLine = current.isActive
+            ? expectedNowCampV2EffectLineText(for: current)
+            : TokenmonL10n.string("now.camp.v2.reward.current.none")
+        let successLine: String
+        if nextIsBlocked {
+            if let blockedCurrent, let blockedRequired {
+                successLine = TokenmonL10n.format(
+                    "now.camp.action.rank_gate.short",
+                    blockedCurrent,
+                    blockedRequired
+                )
+            } else {
+                successLine = TokenmonL10n.string("now.camp.v2.bond_gate")
             }
-            return TokenmonL10n.string("now.camp.v2.reward.inactive")
+        } else if nextRank == nil {
+            successLine = TokenmonL10n.string("now.camp.v2.max")
+        } else if let next, next.isActive {
+            successLine = expectedNowCampV2EffectLineText(for: next)
+        } else {
+            successLine = TokenmonL10n.string("now.camp.v2.reward.success.none")
         }
-        return expectedNowCampV2RewardDetail(for: next, previewRank: nextRank)
+        return TokenmonL10n.format(
+            "now.camp.v2.reward.current_success.detail",
+            currentLine,
+            successLine
+        )
     }
 
     private func expectedNowCampV2LeadEffectCompactValue(
@@ -5885,6 +5956,20 @@ struct TokenmonPresentationTests {
             return TokenmonL10n.string("now.camp.v2.reward.inactive")
         }
         return TokenmonL10n.string("now.camp.v2.reward.unlock_first_success")
+    }
+
+    private func expectedNowCampV2EffectLineText(for preview: LeaderTraitBonusPreview) -> String {
+        let value = expectedNowCampV2RewardValue(for: preview)
+        switch preview.kind {
+        case .trail:
+            return TokenmonL10n.format("now.camp.v2.reward.trail.effect_line", preview.field.displayName, value)
+        case .scout:
+            return TokenmonL10n.format("now.camp.v2.reward.scout.effect_line", preview.field.displayName, value)
+        case .capture:
+            return TokenmonL10n.format("now.camp.v2.reward.capture.effect_line", preview.field.displayName, value)
+        case .raider:
+            return TokenmonL10n.format("now.camp.v2.reward.raider.effect_line", preview.field.displayName, value)
+        }
     }
 
     private func expectedNowCampBenefitText(for species: SpeciesDefinition) -> String {
@@ -5981,7 +6066,9 @@ struct TokenmonPresentationTests {
 
     private func makePartyMember(
         from species: SpeciesDefinition,
-        slotOrder: Int = 1
+        slotOrder: Int = 1,
+        affinityLevel: Int64 = 1,
+        trainingRank: TrainingRank = .rankI
     ) -> PartyMemberSummary {
         PartyMemberSummary(
             speciesID: species.id,
@@ -5992,9 +6079,9 @@ struct TokenmonPresentationTests {
             addedAt: "2026-04-24T00:00:00Z",
             slotOrder: slotOrder,
             capturedCount: 1,
-            affinityLevel: 1,
+            affinityLevel: affinityLevel,
             trainingTrait: species.trainingTrait,
-            trainingRank: .rankI,
+            trainingRank: trainingRank,
             stats: species.stats
         )
     }

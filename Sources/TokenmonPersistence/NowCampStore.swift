@@ -380,13 +380,6 @@ public extension TokenmonDatabaseManager {
             guard state.careReady else {
                 throw NowCampStoreError.careNotReady
             }
-            guard lead.training.trainingRank.rawValue < Int(lead.affinityLevel) else {
-                throw NowCampStoreError.rankAtAffinityGate(
-                    speciesID: leadSpeciesID,
-                    rank: lead.training.trainingRank,
-                    affinityLevel: lead.affinityLevel
-                )
-            }
 
             let localDate = Self.currentLocalDate()
             let careEarnedTodayBefore = state.careFocusEarnedLocalDate == localDate ? state.careFocusEarnedToday : 0

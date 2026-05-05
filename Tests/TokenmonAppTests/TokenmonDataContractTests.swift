@@ -4461,6 +4461,45 @@ struct TokenmonDataContractTests {
     }
 
     @Test
+    func nowCampCareClaimDoesNotRequireNextTrainingAffinity() throws {
+        let manager = try makeManager(prefix: "now-camp-care-affinity-independent")
+        let database = try manager.open()
+        let localDate = TokenmonDatabaseManager.currentLocalDate()
+        _ = try manager.forgeEncounter(
+            TokenmonDeveloperEncounterForgeRequest(
+                provider: .codex, field: .grassland, rarity: .common,
+                speciesID: "GRS_001", outcome: .captured,
+                occurredAt: "2026-04-14T00:00:00Z"
+            )
+        )
+        try database.execute(
+            """
+            UPDATE dex_captured
+            SET affinity_level = 1
+            WHERE species_id = 'GRS_001';
+            """
+        )
+        try manager.addToParty(speciesID: "GRS_001")
+        try database.execute(
+            """
+            UPDATE now_camp_state
+            SET focus_energy = 45,
+                care_ready = 1,
+                care_elapsed_seconds = 3600,
+                care_focus_earned_local_date = ?,
+                care_focus_earned_today = 0,
+                updated_at = '2026-04-14T00:01:00Z'
+            WHERE singleton_id = 1;
+            """,
+            bindings: [.text(localDate)]
+        )
+
+        let care = try manager.applyLeadCare()
+        #expect(care.focusGranted == 5)
+        #expect(care.focusEnergyAfter == 50)
+    }
+
+    @Test
     func nowCampTrainRequiresFullFocus() throws {
         let manager = try makeManager(prefix: "now-camp-train-full-focus")
         let database = try manager.open()
