@@ -282,6 +282,10 @@ public final class TokenmonDatabaseManager {
                     focus_remainder_tokens = 0,
                     focus_earned_local_date = date('now', 'localtime'),
                     focus_earned_today = 0,
+                    care_ready = 0,
+                    care_elapsed_seconds = 0,
+                    care_focus_earned_local_date = date('now', 'localtime'),
+                    care_focus_earned_today = 0,
                     updated_at = ?
                 WHERE singleton_id = 1;
                 """,
@@ -335,7 +339,8 @@ public final class TokenmonDatabaseManager {
                     .capturedDexUpdated,
                     .speciesAffinityUpdated,
                     .nowCampLeadSelected,
-                    .leadCareApplied,
+                    .nowCampCareReadied,
+                    .leadCareClaimed,
                     .leadTrainingAttempted,
                     .leadTrainingResolved,
                     .leaderTraitBonusApplied,
@@ -378,7 +383,8 @@ public final class TokenmonDatabaseManager {
                     .capturedDexUpdated,
                     .speciesAffinityUpdated,
                     .nowCampLeadSelected,
-                    .leadCareApplied,
+                    .nowCampCareReadied,
+                    .leadCareClaimed,
                     .leadTrainingAttempted,
                     .leadTrainingResolved,
                     .leaderTraitBonusApplied,
@@ -2652,6 +2658,110 @@ public final class TokenmonDatabaseManager {
                 FROM dex_captured;
                 """,
                 "ALTER TABLE raid_member_hits ADD COLUMN training_raid_bonus INTEGER NOT NULL DEFAULT 0 CHECK(training_raid_bonus >= 0);",
+                "CREATE INDEX IF NOT EXISTS idx_species_training_rank ON species_training(training_rank);",
+            ]),
+            SQLiteMigration(version: 17, statements: [
+                """
+                CREATE TABLE IF NOT EXISTS now_camp_state_v17 (
+                    singleton_id INTEGER PRIMARY KEY NOT NULL CHECK(singleton_id = 1),
+                    lead_species_id TEXT REFERENCES species(species_id),
+                    focus_energy INTEGER NOT NULL DEFAULT 0 CHECK(focus_energy BETWEEN 0 AND 100),
+                    focus_remainder_tokens INTEGER NOT NULL DEFAULT 0 CHECK(focus_remainder_tokens >= 0 AND focus_remainder_tokens < 25000),
+                    focus_earned_local_date TEXT NOT NULL,
+                    focus_earned_today INTEGER NOT NULL DEFAULT 0 CHECK(focus_earned_today >= 0),
+                    save_training_seed TEXT NOT NULL,
+                    care_ready INTEGER NOT NULL DEFAULT 0 CHECK(care_ready IN (0, 1)),
+                    care_elapsed_seconds INTEGER NOT NULL DEFAULT 0 CHECK(care_elapsed_seconds BETWEEN 0 AND 3600),
+                    care_focus_earned_local_date TEXT NOT NULL,
+                    care_focus_earned_today INTEGER NOT NULL DEFAULT 0 CHECK(care_focus_earned_today >= 0),
+                    updated_at TEXT NOT NULL
+                );
+                """,
+                """
+                WITH normalized AS (
+                    SELECT singleton_id,
+                           lead_species_id,
+                           focus_energy,
+                           focus_remainder_tokens,
+                           CASE
+                               WHEN focus_earned_local_date = date('now', 'localtime') THEN focus_earned_today
+                               ELSE 0
+                           END AS focus_earned_today_before,
+                           save_training_seed,
+                           updated_at
+                    FROM now_camp_state
+                ),
+                grants AS (
+                    SELECT singleton_id,
+                           lead_species_id,
+                           focus_energy,
+                           focus_remainder_tokens,
+                           focus_earned_today_before,
+                           save_training_seed,
+                           updated_at,
+                           CASE
+                               WHEN focus_remainder_tokens >= 25000 THEN
+                                   min(1, max(0, 100 - focus_energy), max(0, 120 - focus_earned_today_before))
+                               ELSE 0
+                           END AS focus_granted
+                    FROM normalized
+                )
+                INSERT INTO now_camp_state_v17 (
+                    singleton_id,
+                    lead_species_id,
+                    focus_energy,
+                    focus_remainder_tokens,
+                    focus_earned_local_date,
+                    focus_earned_today,
+                    save_training_seed,
+                    care_ready,
+                    care_elapsed_seconds,
+                    care_focus_earned_local_date,
+                    care_focus_earned_today,
+                    updated_at
+                )
+                SELECT singleton_id,
+                       lead_species_id,
+                       focus_energy + focus_granted,
+                       focus_remainder_tokens % 25000,
+                       date('now', 'localtime'),
+                       focus_earned_today_before + focus_granted,
+                       save_training_seed,
+                       0,
+                       0,
+                       date('now', 'localtime'),
+                       0,
+                       updated_at
+                FROM grants;
+                """,
+                "DROP TABLE now_camp_state;",
+                "ALTER TABLE now_camp_state_v17 RENAME TO now_camp_state;",
+                """
+                CREATE TABLE IF NOT EXISTS species_training_v17 (
+                    species_id TEXT PRIMARY KEY NOT NULL REFERENCES species(species_id) ON DELETE CASCADE,
+                    training_rank INTEGER NOT NULL DEFAULT 1 CHECK(training_rank BETWEEN 1 AND 5),
+                    training_resonance INTEGER NOT NULL DEFAULT 0 CHECK(training_resonance >= 0),
+                    training_attempt_count INTEGER NOT NULL DEFAULT 0 CHECK(training_attempt_count >= 0),
+                    updated_at TEXT NOT NULL
+                );
+                """,
+                """
+                INSERT INTO species_training_v17 (
+                    species_id,
+                    training_rank,
+                    training_resonance,
+                    training_attempt_count,
+                    updated_at
+                )
+                SELECT species_id,
+                       training_rank,
+                       training_resonance,
+                       training_attempt_count,
+                       updated_at
+                FROM species_training;
+                """,
+                "DROP TABLE species_training;",
+                "ALTER TABLE species_training_v17 RENAME TO species_training;",
                 "CREATE INDEX IF NOT EXISTS idx_species_training_rank ON species_training(training_rank);",
             ]),
         ]

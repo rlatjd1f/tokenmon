@@ -227,8 +227,8 @@ struct TokenmonPresentationTests {
         #expect(presentation.lead?.speciesID == lead.id)
         #expect(presentation.supportSlots.count == 2)
         #expect(presentation.trainAction.isEnabled)
-        #expect(presentation.careAction.isEnabled)
-        #expect(presentation.careStatusLine == nil)
+        #expect(presentation.careAction.availability == .focusStorageFull)
+        #expect(presentation.careStatusLine == TokenmonL10n.string("now.camp.care.full"))
         #expect(presentation.trainingLevelText == TokenmonL10n.format("now.camp.training_level", Int64(2), Int64(5)))
         #expect(presentation.headerLeadDetail == presentation.trainingLevelText)
         #expect(presentation.trainTargetLine == TokenmonL10n.format("now.camp.train.target", "II", "III"))
@@ -247,7 +247,7 @@ struct TokenmonPresentationTests {
         #expect(presentation.practiceControlTitleText == TokenmonL10n.string("now.camp.practice.action"))
         #expect(presentation.practiceControlDetailText == TokenmonL10n.format("now.camp.practice.target_level", Int64(2), Int64(3)))
         #expect(presentation.practiceProgressFraction == 1.0)
-        #expect(presentation.practiceReadinessText == TokenmonL10n.format("now.camp.practice.readiness", Int64(100), Int64(100)))
+        #expect(presentation.practiceReadinessText == TokenmonL10n.format("now.camp.practice.readiness", Int64(50), Int64(50)))
         #expect(presentation.practiceStatusText == TokenmonL10n.string("now.camp.practice.status.ready"))
         #expect(presentation.attemptHelpText.contains("success rate"))
         #expect(presentation.campStatusLine == TokenmonL10n.string("now.camp.status.ready"))
@@ -376,7 +376,7 @@ struct TokenmonPresentationTests {
             partyMembers: [],
             sceneContext: makeNowCampSceneContext(field: .ice)
         )
-        #expect(focusLimited.trainAction.availability == .insufficientFocus(current: 12, required: 100))
+        #expect(focusLimited.trainAction.availability == .insufficientFocus(current: 12, required: 50))
         #expect(focusLimited.trainTargetLine == TokenmonL10n.format("now.camp.train.target", "I", "II"))
         #expect(focusLimited.trainingLevelText == TokenmonL10n.format("now.camp.training_level", Int64(1), Int64(5)))
         #expect(focusLimited.headerLeadDetail == focusLimited.trainingLevelText)
@@ -384,16 +384,16 @@ struct TokenmonPresentationTests {
         #expect(focusLimited.practiceControlTitleText == TokenmonL10n.string("now.camp.practice.status.preparing"))
         #expect(focusLimited.practiceControlDetailText == TokenmonL10n.format(
             "now.camp.practice.preparing.detail",
-            TokenmonL10n.format("now.camp.practice.need_more", Int64(88))
+            TokenmonL10n.format("now.camp.practice.need_more", Int64(38))
         ))
-        #expect(abs(focusLimited.practiceProgressFraction - 0.12) < 0.0001)
-        #expect(focusLimited.practiceReadinessText == TokenmonL10n.format("now.camp.practice.need_more", Int64(88)))
+        #expect(abs(focusLimited.practiceProgressFraction - 0.24) < 0.0001)
+        #expect(focusLimited.practiceReadinessText == TokenmonL10n.format("now.camp.practice.need_more", Int64(38)))
         #expect(focusLimited.practiceStatusText == TokenmonL10n.string("now.camp.practice.status.preparing"))
         #expect(focusLimited.trainRewardShortLine == expectedNowCampRewardShortName(for: lead.trainingTrait))
         #expect(focusLimited.trainRewardSystemImage == expectedNowCampRewardSystemImage(for: lead.trainingTrait))
         #expect(focusLimited.campStatusLine == TokenmonL10n.string("now.camp.status.gathering"))
         #expect(focusLimited.energySourceLine == TokenmonL10n.string("now.camp.energy.source.live"))
-        #expect(focusLimited.attemptHelpText.contains("Need 88"))
+        #expect(focusLimited.attemptHelpText.contains("Need 38"))
         #expect(focusLimited.v2.focusValueText == "12/100")
         #expect(focusLimited.v2.practiceChanceText == expectedNowCampV2PracticeChance(
             rarity: lead.rarity,
@@ -486,27 +486,27 @@ struct TokenmonPresentationTests {
         ))
         #expect(rankLimited.v2.rewardPreview.isActive == rankLimitedCurrentReward.isActive)
 
-        let careCharged = NowCampHeroPresentation.make(
+        let careReady = NowCampHeroPresentation.make(
             nowCamp: makeNowCampSummary(
                 lead: lead,
                 supports: [],
-                focusEnergy: 88,
+                focusEnergy: 44,
                 affinityLevel: 3,
                 trainingRank: .rankI,
-                careCharge: true
+                careReady: true,
+                careElapsedSeconds: NowCampCarePolicy.intervalSeconds
             ),
             partyMembers: [],
             sceneContext: makeNowCampSceneContext(field: .ice)
         )
-        #expect(careCharged.careAction.availability == .careCharged)
-        #expect(careCharged.careStatusLine == TokenmonL10n.string("now.camp.care.ready.short"))
-        #expect(careCharged.practiceControlTitleText == TokenmonL10n.string("now.camp.practice.status.preparing"))
-        #expect(careCharged.campStatusLine == TokenmonL10n.string("now.camp.status.care_ready"))
-        #expect(careCharged.attemptHelpText.contains("Cheer"))
-        #expect(careCharged.v2.practiceChanceText == expectedNowCampV2PracticeChance(
+        #expect(careReady.careAction.availability == .enabled)
+        #expect(careReady.careStatusLine == TokenmonL10n.string("now.camp.care.ready.short"))
+        #expect(careReady.practiceControlTitleText == TokenmonL10n.string("now.camp.practice.status.preparing"))
+        #expect(careReady.campStatusLine == TokenmonL10n.string("now.camp.status.care_ready"))
+        #expect(careReady.attemptHelpText.contains("+5%") == false)
+        #expect(careReady.v2.practiceChanceText == expectedNowCampV2PracticeChance(
             rarity: lead.rarity,
-            trainingRank: .rankI,
-            careCharge: true
+            trainingRank: .rankI
         ))
 
         let maxRank = NowCampHeroPresentation.make(
@@ -607,7 +607,6 @@ struct TokenmonPresentationTests {
             resonanceBefore: 0,
             resonanceAfter: 1,
             ceilingFailures: 2,
-            careChargeConsumed: false,
             attemptCountAfter: 1,
             outcome: .failure
         )
@@ -660,7 +659,9 @@ struct TokenmonPresentationTests {
         try database.execute(
             """
             UPDATE now_camp_state
-            SET focus_energy = 100,
+            SET focus_energy = 45,
+                care_ready = 1,
+                care_elapsed_seconds = 3600,
                 updated_at = '2026-04-24T00:01:00Z'
             WHERE singleton_id = 1;
             """
@@ -680,17 +681,8 @@ struct TokenmonPresentationTests {
             Issue.record("expected care action result")
             return
         }
-        #expect(care.focusEnergyAfter == 90)
-
-        try database.execute(
-            """
-            UPDATE now_camp_state
-            SET focus_energy = 100,
-                updated_at = '2026-04-24T00:02:00Z'
-            WHERE singleton_id = 1;
-            """
-        )
-        model.refresh()
+        #expect(care.focusGranted == 5)
+        #expect(care.focusEnergyAfter == 50)
         await model.waitForRefreshToFinish()
 
         let trainResult = model.trainNowCampLead()
@@ -5698,16 +5690,14 @@ struct TokenmonPresentationTests {
 
     private func expectedNowCampV2PracticeChance(
         rarity: RarityTier,
-        trainingRank: TrainingRank,
-        careCharge: Bool = false
+        trainingRank: TrainingRank
     ) -> String {
         guard let targetRank = trainingRank.next else {
             return TokenmonL10n.string("now.camp.v2.max")
         }
         let probability = try! LeaderTrainingResolver().successProbability(
             rarity: rarity,
-            targetRank: targetRank,
-            careCharge: careCharge
+            targetRank: targetRank
         )
         return TokenmonL10n.format(
             "now.camp.v2.percent",
@@ -5718,7 +5708,6 @@ struct TokenmonPresentationTests {
     private func expectedNowCampV2Resonance(
         rarity: RarityTier,
         trainingRank: TrainingRank,
-        careCharge: Bool = false,
         resonance: Int = 2
     ) -> String {
         guard let targetRank = trainingRank.next else {
@@ -5727,8 +5716,7 @@ struct TokenmonPresentationTests {
         let resolver = LeaderTrainingResolver()
         let probability = try! resolver.successProbability(
             rarity: rarity,
-            targetRank: targetRank,
-            careCharge: careCharge
+            targetRank: targetRank
         )
         let ceiling = try! resolver.ceilingFailures(probability: probability)
         return TokenmonL10n.format(
@@ -5938,7 +5926,10 @@ struct TokenmonPresentationTests {
         focusEnergy: Int,
         affinityLevel: Int64,
         trainingRank: TrainingRank,
-        careCharge: Bool = false
+        careReady: Bool = false,
+        careElapsedSeconds: Int = 0,
+        careFocusEarnedLocalDate: String = "2026-04-24",
+        careFocusEarnedToday: Int = 0
     ) -> NowCampSummary {
         NowCampSummary(
             leadSpeciesID: lead?.id,
@@ -5946,12 +5937,15 @@ struct TokenmonPresentationTests {
             focusRemainderTokens: 12_000,
             focusEarnedLocalDate: "2026-04-24",
             focusEarnedToday: 24,
+            careReady: careReady,
+            careElapsedSeconds: careElapsedSeconds,
+            careFocusEarnedLocalDate: careFocusEarnedLocalDate,
+            careFocusEarnedToday: careFocusEarnedToday,
             lead: lead.map {
                 makeLeadSummary(
                     from: $0,
                     affinityLevel: affinityLevel,
-                    trainingRank: trainingRank,
-                    careCharge: careCharge
+                    trainingRank: trainingRank
                 )
             },
             supports: supports.enumerated().map { index, species in
@@ -5963,8 +5957,7 @@ struct TokenmonPresentationTests {
     private func makeLeadSummary(
         from species: SpeciesDefinition,
         affinityLevel: Int64,
-        trainingRank: TrainingRank,
-        careCharge: Bool
+        trainingRank: TrainingRank
     ) -> NowCampLeadSummary {
         NowCampLeadSummary(
             speciesID: species.id,
@@ -5978,8 +5971,7 @@ struct TokenmonPresentationTests {
             training: NowCampTrainingSummary(
                 trainingRank: trainingRank,
                 trainingResonance: 2,
-                trainingAttemptCount: 4,
-                careCharge: careCharge
+                trainingAttemptCount: 4
             )
         )
     }

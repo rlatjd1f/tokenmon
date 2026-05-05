@@ -119,7 +119,6 @@ public struct DexCapturedSummaryEntry: Equatable, Sendable {
     public let trainingRank: TrainingRank
     public let trainingResonance: Int
     public let trainingAttemptCount: Int
-    public let careCharge: Bool
 
     public init(
         speciesID: String,
@@ -141,7 +140,6 @@ public struct DexCapturedSummaryEntry: Equatable, Sendable {
         trainingRank: TrainingRank = .rankI,
         trainingResonance: Int = 0,
         trainingAttemptCount: Int = 0,
-        careCharge: Bool = false
     ) {
         self.speciesID = speciesID
         self.speciesName = speciesName
@@ -162,7 +160,6 @@ public struct DexCapturedSummaryEntry: Equatable, Sendable {
         self.trainingRank = trainingRank
         self.trainingResonance = trainingResonance
         self.trainingAttemptCount = trainingAttemptCount
-        self.careCharge = careCharge
     }
 }
 
@@ -197,7 +194,6 @@ public struct DexEntrySummary: Equatable, Sendable {
     public let trainingRank: TrainingRank
     public let trainingResonance: Int
     public let trainingAttemptCount: Int
-    public let careCharge: Bool
     public let stats: SpeciesStatBlock
 
     public init(
@@ -225,7 +221,6 @@ public struct DexEntrySummary: Equatable, Sendable {
         trainingRank: TrainingRank = .rankI,
         trainingResonance: Int = 0,
         trainingAttemptCount: Int = 0,
-        careCharge: Bool = false,
         stats: SpeciesStatBlock
     ) {
         self.speciesID = speciesID
@@ -252,7 +247,6 @@ public struct DexEntrySummary: Equatable, Sendable {
         self.trainingRank = trainingRank
         self.trainingResonance = trainingResonance
         self.trainingAttemptCount = trainingAttemptCount
-        self.careCharge = careCharge
         self.stats = stats
     }
 }
@@ -629,8 +623,7 @@ public extension TokenmonDatabaseManager {
                species.training_trait,
                COALESCE(species_training.training_rank, 1),
                COALESCE(species_training.training_resonance, 0),
-               COALESCE(species_training.training_attempt_count, 0),
-               COALESCE(species_training.care_charge, 0)
+               COALESCE(species_training.training_attempt_count, 0)
         FROM dex_captured
         INNER JOIN species ON species.species_id = dex_captured.species_id
         LEFT JOIN species_training ON species_training.species_id = dex_captured.species_id
@@ -666,8 +659,7 @@ public extension TokenmonDatabaseManager {
                 trainingTrait: trainingTrait,
                 trainingRank: trainingRank,
                 trainingResonance: Int(SQLiteDatabase.columnInt64(statement, index: 17)),
-                trainingAttemptCount: Int(SQLiteDatabase.columnInt64(statement, index: 18)),
-                careCharge: SQLiteDatabase.columnInt64(statement, index: 19) != 0
+                trainingAttemptCount: Int(SQLiteDatabase.columnInt64(statement, index: 18))
             )
         }
     }
@@ -698,7 +690,6 @@ public extension TokenmonDatabaseManager {
                COALESCE(species_training.training_rank, 1),
                COALESCE(species_training.training_resonance, 0),
                COALESCE(species_training.training_attempt_count, 0),
-               COALESCE(species_training.care_charge, 0),
                species.stat_planning,
                species.stat_design,
                species.stat_frontend,
@@ -735,13 +726,13 @@ public extension TokenmonDatabaseManager {
                 status = .unknown
             }
 
-            let statPlanning = Int(SQLiteDatabase.columnInt64(statement, index: 24))
-            let statDesign = Int(SQLiteDatabase.columnInt64(statement, index: 25))
-            let statFrontend = Int(SQLiteDatabase.columnInt64(statement, index: 26))
-            let statBackend = Int(SQLiteDatabase.columnInt64(statement, index: 27))
-            let statPM = Int(SQLiteDatabase.columnInt64(statement, index: 28))
-            let statInfra = Int(SQLiteDatabase.columnInt64(statement, index: 29))
-            let traitsJSON = SQLiteDatabase.columnText(statement, index: 30)
+            let statPlanning = Int(SQLiteDatabase.columnInt64(statement, index: 23))
+            let statDesign = Int(SQLiteDatabase.columnInt64(statement, index: 24))
+            let statFrontend = Int(SQLiteDatabase.columnInt64(statement, index: 25))
+            let statBackend = Int(SQLiteDatabase.columnInt64(statement, index: 26))
+            let statPM = Int(SQLiteDatabase.columnInt64(statement, index: 27))
+            let statInfra = Int(SQLiteDatabase.columnInt64(statement, index: 28))
+            let traitsJSON = SQLiteDatabase.columnText(statement, index: 29)
             let traits = (try? JSONDecoder().decode([String].self, from: Data(traitsJSON.utf8))) ?? []
 
             let stats = SpeciesStatBlock(
@@ -779,7 +770,6 @@ public extension TokenmonDatabaseManager {
                 trainingRank: trainingRank,
                 trainingResonance: Int(SQLiteDatabase.columnInt64(statement, index: 21)),
                 trainingAttemptCount: Int(SQLiteDatabase.columnInt64(statement, index: 22)),
-                careCharge: SQLiteDatabase.columnInt64(statement, index: 23) != 0,
                 stats: stats
             )
         }

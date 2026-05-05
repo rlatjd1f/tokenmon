@@ -675,9 +675,8 @@ public enum EncounterHistoryStore {
                 training_rank,
                 training_resonance,
                 training_attempt_count,
-                care_charge,
                 updated_at
-            ) VALUES (?, 1, 0, 0, 0, ?)
+            ) VALUES (?, 1, 0, 0, ?)
             ON CONFLICT(species_id) DO NOTHING;
             """,
             bindings: [

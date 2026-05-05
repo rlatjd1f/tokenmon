@@ -140,14 +140,14 @@ struct TokenmonDataContractTests {
         let accumulator = NowCampFocusAccumulator()
         let state = NowCampFocusState(
             focusEnergy: 99,
-            focusRemainderTokens: 49_000,
+            focusRemainderTokens: 24_000,
             focusEarnedLocalDate: "2026-04-30",
             focusEarnedToday: 119
         )
 
         let result = try accumulator.accumulate(
             state: state,
-            gameplayDeltaTokens: 101_000,
+            gameplayDeltaTokens: 51_000,
             localDate: "2026-04-30"
         )
 
@@ -4089,7 +4089,7 @@ struct TokenmonDataContractTests {
     }
 
     @Test
-    func nowCampV16SchemaExistsAfterBootstrap() throws {
+    func nowCampV17SchemaExistsAfterBootstrap() throws {
         let manager = try makeManager(prefix: "now-camp-schema")
         let database = try manager.open()
 
@@ -4115,6 +4115,10 @@ struct TokenmonDataContractTests {
             "focus_earned_local_date",
             "focus_earned_today",
             "save_training_seed",
+            "care_ready",
+            "care_elapsed_seconds",
+            "care_focus_earned_local_date",
+            "care_focus_earned_today",
             "updated_at",
         ]))
         #expect(trainingColumns.isSuperset(of: [
@@ -4122,9 +4126,9 @@ struct TokenmonDataContractTests {
             "training_rank",
             "training_resonance",
             "training_attempt_count",
-            "care_charge",
             "updated_at",
         ]))
+        #expect(trainingColumns.contains("care_charge") == false)
         #expect(raidHitColumns.contains("training_raid_bonus"))
     }
 
@@ -4257,7 +4261,7 @@ struct TokenmonDataContractTests {
             sourceKey: "now-camp-focus-live",
             sourceKind: "ndjson_file"
         )
-        #expect(try manager.nowCampSummary().focusEnergy == 1)
+        #expect(try manager.nowCampSummary().focusEnergy == 2)
 
         _ = try service.ingestProviderEvents(
             [
@@ -4272,13 +4276,14 @@ struct TokenmonDataContractTests {
             sourceKey: "now-camp-focus-recovery",
             sourceKind: "recovery_scan"
         )
-        #expect(try manager.nowCampSummary().focusEnergy == 1)
+        #expect(try manager.nowCampSummary().focusEnergy == 2)
     }
 
     @Test
-    func nowCampCareAndTrainSpendFocusAndUpdateTrainingState() throws {
+    func nowCampCareClaimGrantsFocusAndTrainSpendsFocusAndUpdatesTrainingState() throws {
         let manager = try makeManager(prefix: "now-camp-train")
         let database = try manager.open()
+        let localDate = TokenmonDatabaseManager.currentLocalDate()
         _ = try manager.forgeEncounter(
             TokenmonDeveloperEncounterForgeRequest(
                 provider: .codex, field: .grassland, rarity: .common,
@@ -4297,32 +4302,75 @@ struct TokenmonDataContractTests {
         try database.execute(
             """
             UPDATE now_camp_state
-            SET focus_energy = 100,
+            SET focus_energy = 45,
+                care_ready = 1,
+                care_elapsed_seconds = 3600,
+                care_focus_earned_local_date = ?,
+                care_focus_earned_today = 0,
                 updated_at = '2026-04-14T00:01:00Z'
             WHERE singleton_id = 1;
-            """
+            """,
+            bindings: [.text(localDate)]
         )
 
         let care = try manager.applyLeadCare()
-        #expect(care.focusEnergyAfter == 90)
-        #expect(try manager.nowCampSummary().lead?.training.careCharge == true)
-        try database.execute(
-            """
-            UPDATE now_camp_state
-            SET focus_energy = 100,
-                updated_at = '2026-04-14T00:02:00Z'
-            WHERE singleton_id = 1;
-            """
-        )
+        let afterCareSummary = try manager.nowCampSummary()
+        #expect(care.focusGranted == 5)
+        #expect(care.focusEnergyAfter == 50)
+        #expect(care.careFocusEarnedTodayAfter == 5)
+        #expect(afterCareSummary.focusEnergy == 50)
+        #expect(afterCareSummary.careReady == false)
+        #expect(afterCareSummary.careElapsedSeconds == 0)
 
         let train = try manager.trainNowCampLead()
         let summary = try manager.nowCampSummary()
         #expect(train.focusEnergyAfter == 0)
         #expect(summary.focusEnergy == 0)
-        #expect(summary.lead?.training.careCharge == false)
         #expect(summary.lead?.training.trainingAttemptCount == 1)
         #expect((summary.lead?.training.trainingRank.rawValue ?? 0) >= TrainingRank.rankI.rawValue)
         #expect((summary.lead?.training.trainingRank.rawValue ?? 0) <= TrainingRank.rankII.rawValue)
+
+        let carePayload = try database.fetchOne(
+            """
+            SELECT json_extract(payload_json, '$.focus_granted'),
+                   json_extract(payload_json, '$.focus_energy_after'),
+                   json_extract(payload_json, '$.care_focus_earned_today_after')
+            FROM domain_events
+            WHERE event_type = 'lead_care_claimed'
+            ORDER BY occurred_at DESC
+            LIMIT 1;
+            """
+        ) { statement in
+            (
+                SQLiteDatabase.columnInt64(statement, index: 0),
+                SQLiteDatabase.columnInt64(statement, index: 1),
+                SQLiteDatabase.columnInt64(statement, index: 2)
+            )
+        }
+        #expect(carePayload?.0 == 5)
+        #expect(carePayload?.1 == 50)
+        #expect(carePayload?.2 == 5)
+
+        let trainingAttemptPayload = try database.fetchOne(
+            """
+            SELECT json_extract(payload_json, '$.focus_spent'),
+                   json_extract(payload_json, '$.focus_energy_after'),
+                   json_extract(payload_json, '$.care_charge_consumed')
+            FROM domain_events
+            WHERE event_type = 'lead_training_attempted'
+            ORDER BY occurred_at DESC
+            LIMIT 1;
+            """
+        ) { statement in
+            (
+                SQLiteDatabase.columnInt64(statement, index: 0),
+                SQLiteDatabase.columnInt64(statement, index: 1),
+                SQLiteDatabase.columnText(statement, index: 2)
+            )
+        }
+        #expect(trainingAttemptPayload?.0 == 50)
+        #expect(trainingAttemptPayload?.1 == 0)
+        #expect(trainingAttemptPayload?.2.isEmpty == true)
     }
 
     @Test
@@ -4347,14 +4395,143 @@ struct TokenmonDataContractTests {
         try database.execute(
             """
             UPDATE now_camp_state
-            SET focus_energy = 99,
+            SET focus_energy = 49,
                 updated_at = '2026-04-14T00:01:00Z'
             WHERE singleton_id = 1;
             """
         )
 
-        #expect(throws: NowCampStoreError.insufficientFocus(required: 100, available: 99)) {
+        #expect(throws: NowCampStoreError.insufficientFocus(required: 50, available: 49)) {
             try manager.trainNowCampLead()
+        }
+    }
+
+    @Test
+    func nowCampCareUptimeReadiesOneClaimWithoutOfflineStacking() throws {
+        let manager = try makeManager(prefix: "now-camp-care-uptime")
+        let database = try manager.open()
+        let localDate = "2026-05-05"
+
+        let first = try manager.advanceNowCampCareUptime(seconds: 3_599, localDate: localDate)
+        #expect(first.didChange)
+        #expect(first.careBecameReady == false)
+        #expect(first.careReady == false)
+        #expect(first.careElapsedSeconds == 3_599)
+
+        let second = try manager.advanceNowCampCareUptime(seconds: 1, localDate: localDate)
+        #expect(second.didChange)
+        #expect(second.careBecameReady)
+        #expect(second.careReady)
+        #expect(second.careElapsedSeconds == NowCampCarePolicy.intervalSeconds)
+
+        let third = try manager.advanceNowCampCareUptime(seconds: 600, localDate: localDate)
+        #expect(third.didChange == false)
+        #expect(third.careBecameReady == false)
+        #expect(third.careReady)
+        #expect(third.careElapsedSeconds == NowCampCarePolicy.intervalSeconds)
+
+        let summary = try manager.nowCampSummary()
+        #expect(summary.careReady)
+        #expect(summary.careElapsedSeconds == NowCampCarePolicy.intervalSeconds)
+
+        let readiedPayload = try database.fetchOne(
+            """
+            SELECT json_extract(payload_json, '$.elapsed_seconds'),
+                   json_extract(payload_json, '$.interval_seconds'),
+                   json_extract(payload_json, '$.care_focus_earned_local_date')
+            FROM domain_events
+            WHERE event_type = 'now_camp_care_readied'
+            ORDER BY occurred_at DESC
+            LIMIT 1;
+            """
+        ) { statement in
+            (
+                SQLiteDatabase.columnInt64(statement, index: 0),
+                SQLiteDatabase.columnInt64(statement, index: 1),
+                SQLiteDatabase.columnText(statement, index: 2)
+            )
+        }
+        #expect(readiedPayload?.0 == Int64(NowCampCarePolicy.intervalSeconds))
+        #expect(readiedPayload?.1 == Int64(NowCampCarePolicy.intervalSeconds))
+        #expect(readiedPayload?.2 == localDate)
+
+        let readiedCount = try database.fetchOne(
+            """
+            SELECT COUNT(*)
+            FROM domain_events
+            WHERE event_type = 'now_camp_care_readied';
+            """
+        ) { statement in
+            SQLiteDatabase.columnInt64(statement, index: 0)
+        }
+        #expect(readiedCount == 1)
+    }
+
+    @Test
+    func nowCampCareClaimRespectsStorageAndDailyFocusCaps() throws {
+        let manager = try makeManager(prefix: "now-camp-care-caps")
+        let database = try manager.open()
+        let localDate = TokenmonDatabaseManager.currentLocalDate()
+        _ = try manager.forgeEncounter(
+            TokenmonDeveloperEncounterForgeRequest(
+                provider: .codex, field: .grassland, rarity: .common,
+                speciesID: "GRS_001", outcome: .captured,
+                occurredAt: "2026-04-14T00:00:00Z"
+            )
+        )
+        try database.execute(
+            """
+            UPDATE dex_captured
+            SET affinity_level = 2
+            WHERE species_id = 'GRS_001';
+            """
+        )
+        try manager.addToParty(speciesID: "GRS_001")
+        try database.execute(
+            """
+            UPDATE now_camp_state
+            SET focus_energy = 98,
+                care_ready = 1,
+                care_elapsed_seconds = 3600,
+                care_focus_earned_local_date = ?,
+                care_focus_earned_today = 18,
+                updated_at = '2026-04-14T00:01:00Z'
+            WHERE singleton_id = 1;
+            """,
+            bindings: [.text(localDate)]
+        )
+
+        let cappedGrant = try manager.applyLeadCare()
+        #expect(cappedGrant.focusGranted == 2)
+        #expect(cappedGrant.focusEnergyAfter == 100)
+        #expect(cappedGrant.careFocusEarnedTodayAfter == NowCampCarePolicy.dailyFocusCap)
+
+        try database.execute(
+            """
+            UPDATE now_camp_state
+            SET focus_energy = 100,
+                care_ready = 1,
+                care_elapsed_seconds = 3600,
+                care_focus_earned_today = 0
+            WHERE singleton_id = 1;
+            """
+        )
+        #expect(throws: NowCampStoreError.focusStorageFull) {
+            try manager.applyLeadCare()
+        }
+
+        try database.execute(
+            """
+            UPDATE now_camp_state
+            SET focus_energy = 80,
+                care_ready = 1,
+                care_elapsed_seconds = 3600,
+                care_focus_earned_today = 20
+            WHERE singleton_id = 1;
+            """
+        )
+        #expect(throws: NowCampStoreError.careDailyCapReached) {
+            try manager.applyLeadCare()
         }
     }
 

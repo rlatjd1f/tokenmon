@@ -48,7 +48,7 @@ public struct NowCampFocusAccumulator: Sendable {
     public let dailyEarnCap: Int
 
     public init(
-        tokensPerFocus: Int64 = 50_000,
+        tokensPerFocus: Int64 = 25_000,
         storageCap: Int = 100,
         dailyEarnCap: Int = 120
     ) {
@@ -115,7 +115,6 @@ public struct LeaderTrainingResolution: Equatable, Codable, Sendable {
     public let resonanceBefore: Int
     public let resonanceAfter: Int
     public let ceilingFailures: Int
-    public let careChargeConsumed: Bool
     public let attemptCountAfter: Int
     public let outcome: LeaderTrainingOutcome
 }
@@ -148,11 +147,11 @@ public enum LeaderTrainingResolverError: Error, LocalizedError {
 
 public struct LeaderTrainingResolver: Sendable {
     public let trainFocusCost: Int
-    public let careFocusCost: Int
+    public let careFocusGrant: Int
 
-    public init(trainFocusCost: Int = 100, careFocusCost: Int = 10) {
+    public init(trainFocusCost: Int = 50, careFocusGrant: Int = 5) {
         self.trainFocusCost = trainFocusCost
-        self.careFocusCost = careFocusCost
+        self.careFocusGrant = careFocusGrant
     }
 
     public func resolveTrain(
@@ -162,8 +161,7 @@ public struct LeaderTrainingResolver: Sendable {
         currentRank: TrainingRank,
         affinityLevel: Int,
         resonance: Int,
-        attemptCount: Int,
-        careCharge: Bool
+        attemptCount: Int
     ) throws -> LeaderTrainingResolution {
         guard let affinityGate = TrainingRank(rawValue: affinityLevel) else {
             throw LeaderTrainingResolverError.invalidAffinityLevel(affinityLevel)
@@ -183,8 +181,7 @@ public struct LeaderTrainingResolver: Sendable {
 
         let probability = try successProbability(
             rarity: rarity,
-            targetRank: targetRank,
-            careCharge: careCharge
+            targetRank: targetRank
         )
         let ceiling = try ceilingFailures(probability: probability)
         let attemptCountAfter = attemptCount + 1
@@ -202,7 +199,6 @@ public struct LeaderTrainingResolver: Sendable {
                 resonanceBefore: resonance,
                 resonanceAfter: 0,
                 ceilingFailures: ceiling,
-                careChargeConsumed: careCharge,
                 attemptCountAfter: attemptCountAfter,
                 outcome: .guaranteedSuccess
             )
@@ -228,7 +224,6 @@ public struct LeaderTrainingResolver: Sendable {
             resonanceBefore: resonance,
             resonanceAfter: didSucceed ? 0 : resonance + 1,
             ceilingFailures: ceiling,
-            careChargeConsumed: careCharge,
             attemptCountAfter: attemptCountAfter,
             outcome: didSucceed ? .success : .failure
         )
@@ -236,13 +231,11 @@ public struct LeaderTrainingResolver: Sendable {
 
     public func successProbability(
         rarity: RarityTier,
-        targetRank: TrainingRank,
-        careCharge: Bool
+        targetRank: TrainingRank
     ) throws -> Double {
         let base = baseProbability(for: rarity)
         let multiplied = base * targetRankMultiplier(targetRank)
-        let boosted = multiplied + (careCharge ? 0.05 : 0)
-        let probability = min(0.85, max(0.10, boosted))
+        let probability = min(0.85, max(0.10, multiplied))
         guard (0 ... 1).contains(probability) else {
             throw LeaderTrainingResolverError.invalidProbability(probability)
         }
@@ -258,11 +251,11 @@ public struct LeaderTrainingResolver: Sendable {
 
     private func baseProbability(for rarity: RarityTier) -> Double {
         switch rarity {
-        case .common: return 0.68
-        case .uncommon: return 0.60
-        case .rare: return 0.52
-        case .epic: return 0.44
-        case .legendary: return 0.36
+        case .common: return 0.72
+        case .uncommon: return 0.64
+        case .rare: return 0.56
+        case .epic: return 0.48
+        case .legendary: return 0.40
         }
     }
 

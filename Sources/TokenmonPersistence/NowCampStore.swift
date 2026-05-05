@@ -6,18 +6,15 @@ public struct NowCampTrainingSummary: Equatable, Sendable {
     public let trainingRank: TrainingRank
     public let trainingResonance: Int
     public let trainingAttemptCount: Int
-    public let careCharge: Bool
 
     public init(
         trainingRank: TrainingRank,
         trainingResonance: Int,
-        trainingAttemptCount: Int,
-        careCharge: Bool
+        trainingAttemptCount: Int
     ) {
         self.trainingRank = trainingRank
         self.trainingResonance = trainingResonance
         self.trainingAttemptCount = trainingAttemptCount
-        self.careCharge = careCharge
     }
 }
 
@@ -61,6 +58,10 @@ public struct NowCampSummary: Equatable, Sendable {
     public let focusRemainderTokens: Int64
     public let focusEarnedLocalDate: String
     public let focusEarnedToday: Int
+    public let careReady: Bool
+    public let careElapsedSeconds: Int
+    public let careFocusEarnedLocalDate: String
+    public let careFocusEarnedToday: Int
     public let lead: NowCampLeadSummary?
     public let supports: [PartyMemberSummary]
 
@@ -70,6 +71,10 @@ public struct NowCampSummary: Equatable, Sendable {
         focusRemainderTokens: Int64,
         focusEarnedLocalDate: String,
         focusEarnedToday: Int,
+        careReady: Bool,
+        careElapsedSeconds: Int,
+        careFocusEarnedLocalDate: String,
+        careFocusEarnedToday: Int,
         lead: NowCampLeadSummary?,
         supports: [PartyMemberSummary]
     ) {
@@ -78,6 +83,10 @@ public struct NowCampSummary: Equatable, Sendable {
         self.focusRemainderTokens = focusRemainderTokens
         self.focusEarnedLocalDate = focusEarnedLocalDate
         self.focusEarnedToday = focusEarnedToday
+        self.careReady = careReady
+        self.careElapsedSeconds = careElapsedSeconds
+        self.careFocusEarnedLocalDate = careFocusEarnedLocalDate
+        self.careFocusEarnedToday = careFocusEarnedToday
         self.lead = lead
         self.supports = supports
     }
@@ -85,7 +94,21 @@ public struct NowCampSummary: Equatable, Sendable {
 
 public struct NowCampCareResult: Equatable, Sendable {
     public let speciesID: String
+    public let focusGranted: Int
     public let focusEnergyAfter: Int
+    public let careFocusEarnedTodayAfter: Int
+}
+
+public struct NowCampCareAdvanceResult: Equatable, Sendable {
+    public let didChange: Bool
+    public let careBecameReady: Bool
+    public let careReady: Bool
+    public let careElapsedSeconds: Int
+}
+
+public enum NowCampCarePolicy {
+    public static let intervalSeconds = 3_600
+    public static let dailyFocusCap = 20
 }
 
 public struct NowCampTrainingAttemptResult: Equatable, Sendable {
@@ -98,7 +121,9 @@ public enum NowCampStoreError: Error, LocalizedError, Equatable {
     case leadNotInParty(String)
     case missingTraining(String)
     case insufficientFocus(required: Int, available: Int)
-    case careAlreadyCharged(String)
+    case careNotReady
+    case focusStorageFull
+    case careDailyCapReached
     case rankAtAffinityGate(speciesID: String, rank: TrainingRank, affinityLevel: Int64)
 
     public var errorDescription: String? {
@@ -111,8 +136,12 @@ public enum NowCampStoreError: Error, LocalizedError, Equatable {
             return "Species \(speciesID) does not have training state."
         case .insufficientFocus(let required, let available):
             return "Focus \(required) required; \(available) available."
-        case .careAlreadyCharged(let speciesID):
-            return "Species \(speciesID) already has a care charge."
+        case .careNotReady:
+            return "Care is still charging."
+        case .focusStorageFull:
+            return "Focus storage is already full."
+        case .careDailyCapReached:
+            return "Daily Care Focus cap has been reached."
         case .rankAtAffinityGate(let speciesID, let rank, let affinityLevel):
             return "Species \(speciesID) Training Rank \(rank.romanNumeral) has reached Bond \(affinityLevel)."
         }
@@ -155,19 +184,37 @@ struct NowCampLeadSelectedEventPayload: Codable, Equatable, Sendable {
     }
 }
 
-struct LeadCareAppliedEventPayload: Codable, Equatable, Sendable {
+struct NowCampCareReadiedEventPayload: Codable, Equatable, Sendable {
+    let elapsedSeconds: Int
+    let intervalSeconds: Int
+    let careFocusEarnedLocalDate: String
+    let careFocusEarnedToday: Int
+
+    enum CodingKeys: String, CodingKey {
+        case elapsedSeconds = "elapsed_seconds"
+        case intervalSeconds = "interval_seconds"
+        case careFocusEarnedLocalDate = "care_focus_earned_local_date"
+        case careFocusEarnedToday = "care_focus_earned_today"
+    }
+}
+
+struct LeadCareClaimedEventPayload: Codable, Equatable, Sendable {
     let actionID: String
     let speciesID: String
-    let focusSpent: Int
+    let focusGranted: Int
     let focusEnergyAfter: Int
+    let careFocusEarnedLocalDate: String
+    let careFocusEarnedTodayAfter: Int
     let trainingRank: Int
     let trainingResonance: Int
 
     enum CodingKeys: String, CodingKey {
         case actionID = "action_id"
         case speciesID = "species_id"
-        case focusSpent = "focus_spent"
+        case focusGranted = "focus_granted"
         case focusEnergyAfter = "focus_energy_after"
+        case careFocusEarnedLocalDate = "care_focus_earned_local_date"
+        case careFocusEarnedTodayAfter = "care_focus_earned_today_after"
         case trainingRank = "training_rank"
         case trainingResonance = "training_resonance"
     }
@@ -181,7 +228,6 @@ struct LeadTrainingAttemptedEventPayload: Codable, Equatable, Sendable {
     let previousRank: Int
     let targetRank: Int
     let attemptCountAfter: Int
-    let careChargeConsumed: Bool
 
     enum CodingKeys: String, CodingKey {
         case actionID = "action_id"
@@ -191,7 +237,6 @@ struct LeadTrainingAttemptedEventPayload: Codable, Equatable, Sendable {
         case previousRank = "previous_rank"
         case targetRank = "target_rank"
         case attemptCountAfter = "attempt_count_after"
-        case careChargeConsumed = "care_charge_consumed"
     }
 }
 
@@ -268,6 +313,10 @@ public extension TokenmonDatabaseManager {
             focusRemainderTokens: state.focusRemainderTokens,
             focusEarnedLocalDate: state.focusEarnedLocalDate,
             focusEarnedToday: state.focusEarnedToday,
+            careReady: state.careReady,
+            careElapsedSeconds: state.careElapsedSeconds,
+            careFocusEarnedLocalDate: state.careFocusEarnedLocalDate,
+            careFocusEarnedToday: state.careFocusEarnedToday,
             lead: lead,
             supports: Array(supports)
         )
@@ -324,14 +373,8 @@ public extension TokenmonDatabaseManager {
                 throw NowCampStoreError.missingLead
             }
             let lead = try requireNowCampLead(speciesID: leadSpeciesID, database: database)
-            guard state.focusEnergy >= LeaderTrainingResolver().careFocusCost else {
-                throw NowCampStoreError.insufficientFocus(
-                    required: LeaderTrainingResolver().careFocusCost,
-                    available: state.focusEnergy
-                )
-            }
-            guard lead.training.careCharge == false else {
-                throw NowCampStoreError.careAlreadyCharged(leadSpeciesID)
+            guard state.careReady else {
+                throw NowCampStoreError.careNotReady
             }
             guard lead.training.trainingRank.rawValue < Int(lead.affinityLevel) else {
                 throw NowCampStoreError.rankAtAffinityGate(
@@ -341,7 +384,19 @@ public extension TokenmonDatabaseManager {
                 )
             }
 
-            let focusAfter = state.focusEnergy - LeaderTrainingResolver().careFocusCost
+            let localDate = Self.currentLocalDate()
+            let careEarnedTodayBefore = state.careFocusEarnedLocalDate == localDate ? state.careFocusEarnedToday : 0
+            let storageRemaining = max(0, NowCampFocusAccumulator().storageCap - state.focusEnergy)
+            guard storageRemaining > 0 else {
+                throw NowCampStoreError.focusStorageFull
+            }
+            let dailyRemaining = max(0, NowCampCarePolicy.dailyFocusCap - careEarnedTodayBefore)
+            guard dailyRemaining > 0 else {
+                throw NowCampStoreError.careDailyCapReached
+            }
+            let focusGranted = min(LeaderTrainingResolver().careFocusGrant, storageRemaining, dailyRemaining)
+            let focusAfter = state.focusEnergy + focusGranted
+            let careEarnedTodayAfter = careEarnedTodayBefore + focusGranted
             let now = ISO8601DateFormatter().string(from: Date())
             let actionID = UUID().uuidString.lowercased()
 
@@ -349,45 +404,168 @@ public extension TokenmonDatabaseManager {
                 """
                 UPDATE now_camp_state
                 SET focus_energy = ?,
+                    care_ready = 0,
+                    care_elapsed_seconds = 0,
+                    care_focus_earned_local_date = ?,
+                    care_focus_earned_today = ?,
                     updated_at = ?
                 WHERE singleton_id = 1;
                 """,
-                bindings: [.integer(Int64(focusAfter)), .text(now)]
-            )
-            try database.execute(
-                """
-                UPDATE species_training
-                SET care_charge = 1,
-                    updated_at = ?
-                WHERE species_id = ?;
-                """,
-                bindings: [.text(now), .text(leadSpeciesID)]
+                bindings: [
+                    .integer(Int64(focusAfter)),
+                    .text(localDate),
+                    .integer(Int64(careEarnedTodayAfter)),
+                    .text(now),
+                ]
             )
             try DomainEventStore.persist(
                 database: database,
                 envelope: DomainEventEnvelope(
-                    eventID: "\(TokenmonDomainEventType.leadCareApplied.rawValue):\(actionID)",
-                    eventType: TokenmonDomainEventType.leadCareApplied.rawValue,
+                    eventID: "\(TokenmonDomainEventType.leadCareClaimed.rawValue):\(actionID)",
+                    eventType: TokenmonDomainEventType.leadCareClaimed.rawValue,
                     occurredAt: now,
                     producer: "TokenmonPersistence.NowCampStore",
-                    aggregateType: "species_training",
-                    aggregateID: leadSpeciesID,
-                    payload: LeadCareAppliedEventPayload(
+                    aggregateType: "now_camp_state",
+                    aggregateID: "1",
+                    payload: LeadCareClaimedEventPayload(
                         actionID: actionID,
                         speciesID: leadSpeciesID,
-                        focusSpent: LeaderTrainingResolver().careFocusCost,
+                        focusGranted: focusGranted,
                         focusEnergyAfter: focusAfter,
+                        careFocusEarnedLocalDate: localDate,
+                        careFocusEarnedTodayAfter: careEarnedTodayAfter,
                         trainingRank: lead.training.trainingRank.rawValue,
                         trainingResonance: lead.training.trainingResonance
                     )
                 )
             )
-            result = NowCampCareResult(speciesID: leadSpeciesID, focusEnergyAfter: focusAfter)
+            result = NowCampCareResult(
+                speciesID: leadSpeciesID,
+                focusGranted: focusGranted,
+                focusEnergyAfter: focusAfter,
+                careFocusEarnedTodayAfter: careEarnedTodayAfter
+            )
         }
 
         guard let result else {
             throw NowCampStoreError.missingLead
         }
+        return result
+    }
+
+    @discardableResult
+    func advanceNowCampCareUptime(
+        seconds: Int,
+        localDate: String = TokenmonDatabaseManager.currentLocalDate()
+    ) throws -> NowCampCareAdvanceResult {
+        guard seconds >= 0 else {
+            return NowCampCareAdvanceResult(
+                didChange: false,
+                careBecameReady: false,
+                careReady: false,
+                careElapsedSeconds: 0
+            )
+        }
+
+        let database = try open()
+        var result = NowCampCareAdvanceResult(
+            didChange: false,
+            careBecameReady: false,
+            careReady: false,
+            careElapsedSeconds: 0
+        )
+
+        try database.inTransaction {
+            try ensureNowCampState(database: database)
+            let state = try nowCampState(database: database)
+            let earnedToday = state.careFocusEarnedLocalDate == localDate ? state.careFocusEarnedToday : 0
+            let dateChanged = state.careFocusEarnedLocalDate != localDate
+            let elapsedBefore = min(max(0, state.careElapsedSeconds), NowCampCarePolicy.intervalSeconds)
+
+            if state.careReady {
+                if dateChanged {
+                    let now = ISO8601DateFormatter().string(from: Date())
+                    try database.execute(
+                        """
+                        UPDATE now_camp_state
+                        SET care_focus_earned_local_date = ?,
+                            care_focus_earned_today = ?,
+                            updated_at = ?
+                        WHERE singleton_id = 1;
+                        """,
+                        bindings: [.text(localDate), .integer(Int64(earnedToday)), .text(now)]
+                    )
+                }
+                result = NowCampCareAdvanceResult(
+                    didChange: dateChanged,
+                    careBecameReady: false,
+                    careReady: true,
+                    careElapsedSeconds: elapsedBefore
+                )
+                return
+            }
+
+            let elapsedAfter = min(NowCampCarePolicy.intervalSeconds, elapsedBefore + seconds)
+            let becameReady = elapsedAfter >= NowCampCarePolicy.intervalSeconds
+            let didChange = dateChanged || elapsedAfter != elapsedBefore || becameReady
+            guard didChange else {
+                result = NowCampCareAdvanceResult(
+                    didChange: false,
+                    careBecameReady: false,
+                    careReady: false,
+                    careElapsedSeconds: elapsedAfter
+                )
+                return
+            }
+
+            let now = ISO8601DateFormatter().string(from: Date())
+            try database.execute(
+                """
+                UPDATE now_camp_state
+                SET care_ready = ?,
+                    care_elapsed_seconds = ?,
+                    care_focus_earned_local_date = ?,
+                    care_focus_earned_today = ?,
+                    updated_at = ?
+                WHERE singleton_id = 1;
+                """,
+                bindings: [
+                    .integer(becameReady ? 1 : 0),
+                    .integer(Int64(elapsedAfter)),
+                    .text(localDate),
+                    .integer(Int64(earnedToday)),
+                    .text(now),
+                ]
+            )
+
+            if becameReady {
+                try DomainEventStore.persist(
+                    database: database,
+                    envelope: DomainEventEnvelope(
+                        eventID: "\(TokenmonDomainEventType.nowCampCareReadied.rawValue):\(UUID().uuidString.lowercased())",
+                        eventType: TokenmonDomainEventType.nowCampCareReadied.rawValue,
+                        occurredAt: now,
+                        producer: "TokenmonPersistence.NowCampStore",
+                        aggregateType: "now_camp_state",
+                        aggregateID: "1",
+                        payload: NowCampCareReadiedEventPayload(
+                            elapsedSeconds: elapsedAfter,
+                            intervalSeconds: NowCampCarePolicy.intervalSeconds,
+                            careFocusEarnedLocalDate: localDate,
+                            careFocusEarnedToday: earnedToday
+                        )
+                    )
+                )
+            }
+
+            result = NowCampCareAdvanceResult(
+                didChange: true,
+                careBecameReady: becameReady,
+                careReady: becameReady,
+                careElapsedSeconds: elapsedAfter
+            )
+        }
+
         return result
     }
 
@@ -426,8 +604,7 @@ public extension TokenmonDatabaseManager {
                 currentRank: lead.training.trainingRank,
                 affinityLevel: Int(lead.affinityLevel),
                 resonance: lead.training.trainingResonance,
-                attemptCount: lead.training.trainingAttemptCount,
-                careCharge: lead.training.careCharge
+                attemptCount: lead.training.trainingAttemptCount
             )
             let focusAfter = state.focusEnergy - resolver.trainFocusCost
             let now = ISO8601DateFormatter().string(from: Date())
@@ -458,8 +635,7 @@ public extension TokenmonDatabaseManager {
                         focusEnergyAfter: focusAfter,
                         previousRank: resolution.previousRank.rawValue,
                         targetRank: resolution.targetRank.rawValue,
-                        attemptCountAfter: resolution.attemptCountAfter,
-                        careChargeConsumed: resolution.careChargeConsumed
+                        attemptCountAfter: resolution.attemptCountAfter
                     )
                 )
             )
@@ -469,7 +645,6 @@ public extension TokenmonDatabaseManager {
                 SET training_rank = ?,
                     training_resonance = ?,
                     training_attempt_count = ?,
-                    care_charge = 0,
                     updated_at = ?
                 WHERE species_id = ?;
                 """,
@@ -693,12 +868,17 @@ public extension TokenmonDatabaseManager {
                 focus_earned_local_date,
                 focus_earned_today,
                 save_training_seed,
+                care_ready,
+                care_elapsed_seconds,
+                care_focus_earned_local_date,
+                care_focus_earned_today,
                 updated_at
-            ) VALUES (1, NULL, 0, 0, ?, 0, ?, ?);
+            ) VALUES (1, NULL, 0, 0, ?, 0, ?, 0, 0, ?, 0, ?);
             """,
             bindings: [
                 .text(Self.currentLocalDate()),
                 .text(UUID().uuidString.lowercased()),
+                .text(Self.currentLocalDate()),
                 .text(now),
             ]
         )
@@ -713,12 +893,10 @@ public extension TokenmonDatabaseManager {
                 training_rank,
                 training_resonance,
                 training_attempt_count,
-                care_charge,
                 updated_at
             )
             SELECT dex_captured.species_id,
                    1,
-                   0,
                    0,
                    0,
                    ?
@@ -799,6 +977,10 @@ private extension TokenmonDatabaseManager {
         let focusEarnedLocalDate: String
         let focusEarnedToday: Int
         let saveTrainingSeed: String
+        let careReady: Bool
+        let careElapsedSeconds: Int
+        let careFocusEarnedLocalDate: String
+        let careFocusEarnedToday: Int
     }
 
     func nowCampState(database: SQLiteDatabase) throws -> NowCampStateRecord {
@@ -809,7 +991,11 @@ private extension TokenmonDatabaseManager {
                    focus_remainder_tokens,
                    focus_earned_local_date,
                    focus_earned_today,
-                   save_training_seed
+                   save_training_seed,
+                   care_ready,
+                   care_elapsed_seconds,
+                   care_focus_earned_local_date,
+                   care_focus_earned_today
             FROM now_camp_state
             WHERE singleton_id = 1
             LIMIT 1;
@@ -821,7 +1007,11 @@ private extension TokenmonDatabaseManager {
                 focusRemainderTokens: SQLiteDatabase.columnInt64(statement, index: 2),
                 focusEarnedLocalDate: SQLiteDatabase.columnText(statement, index: 3),
                 focusEarnedToday: Int(SQLiteDatabase.columnInt64(statement, index: 4)),
-                saveTrainingSeed: SQLiteDatabase.columnText(statement, index: 5)
+                saveTrainingSeed: SQLiteDatabase.columnText(statement, index: 5),
+                careReady: SQLiteDatabase.columnInt64(statement, index: 6) != 0,
+                careElapsedSeconds: Int(SQLiteDatabase.columnInt64(statement, index: 7)),
+                careFocusEarnedLocalDate: SQLiteDatabase.columnText(statement, index: 8),
+                careFocusEarnedToday: Int(SQLiteDatabase.columnInt64(statement, index: 9))
             )
         }) else {
             throw SQLiteError.statementFailed(
@@ -851,8 +1041,7 @@ private extension TokenmonDatabaseManager {
                party_members.slot_order,
                COALESCE(species_training.training_rank, 1),
                COALESCE(species_training.training_resonance, 0),
-               COALESCE(species_training.training_attempt_count, 0),
-               COALESCE(species_training.care_charge, 0)
+               COALESCE(species_training.training_attempt_count, 0)
         FROM party_members
         INNER JOIN species ON species.species_id = party_members.species_id
         INNER JOIN dex_captured ON dex_captured.species_id = party_members.species_id
@@ -880,8 +1069,7 @@ private extension TokenmonDatabaseManager {
                 training: NowCampTrainingSummary(
                     trainingRank: rank,
                     trainingResonance: Int(SQLiteDatabase.columnInt64(statement, index: 9)),
-                    trainingAttemptCount: Int(SQLiteDatabase.columnInt64(statement, index: 10)),
-                    careCharge: SQLiteDatabase.columnInt64(statement, index: 11) != 0
+                    trainingAttemptCount: Int(SQLiteDatabase.columnInt64(statement, index: 10))
                 )
             )
         }

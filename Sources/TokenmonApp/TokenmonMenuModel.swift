@@ -57,6 +57,7 @@ final class TokenmonMenuModel: ObservableObject {
     private let analyticsTracker: TokenmonAnalyticsTracking
     private var refreshTask: Task<Void, Never>?
     private var delayedInboxRefreshTask: Task<Void, Never>?
+    private var careUptimeTask: Task<Void, Never>?
     private var refreshInFlight = false
     private var pendingRefreshScopes: TokenmonRefreshScopes = []
     private var pendingRefreshReasonLabels = Set<String>()
@@ -109,6 +110,11 @@ final class TokenmonMenuModel: ObservableObject {
         TokenmonLaunchAtLoginController.cleanupLegacyFallbackIfNeeded()
         refreshNotificationAuthorizationState()
         refresh(reason: .initial)
+        startNowCampCareUptimeTicker()
+    }
+
+    deinit {
+        careUptimeTask?.cancel()
     }
 
     func activateLiveMonitoring() {
@@ -121,6 +127,35 @@ final class TokenmonMenuModel: ObservableObject {
         }
         inboxMonitor.startAsync { [weak self] in
             self?.refresh(reason: .inboxEvent)
+        }
+    }
+
+    private func startNowCampCareUptimeTicker() {
+        careUptimeTask?.cancel()
+        careUptimeTask = Task { [weak self] in
+            while Task.isCancelled == false {
+                try? await Task.sleep(nanoseconds: 60_000_000_000)
+                guard Task.isCancelled == false else {
+                    return
+                }
+                self?.advanceNowCampCareUptimeTick()
+            }
+        }
+    }
+
+    private func advanceNowCampCareUptimeTick() {
+        do {
+            let result = try databaseManager.advanceNowCampCareUptime(seconds: 60)
+            guard result.didChange else {
+                return
+            }
+            refresh(reason: .partyChanged)
+        } catch {
+            logError(
+                category: "now_camp",
+                event: "care_uptime_tick_failed",
+                metadata: ["error": error.localizedDescription]
+            )
         }
     }
 

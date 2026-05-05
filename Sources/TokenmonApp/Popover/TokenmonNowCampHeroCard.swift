@@ -14,7 +14,6 @@ struct NowCampHeroMemberPresentation: Equatable, Identifiable {
     let affinityLevel: Int64
     let trainingRank: TrainingRank
     let trainingResonance: Int
-    let careCharge: Bool
 
     var id: String { speciesID }
 
@@ -28,7 +27,6 @@ struct NowCampHeroMemberPresentation: Equatable, Identifiable {
         affinityLevel = lead.affinityLevel
         trainingRank = lead.training.trainingRank
         trainingResonance = lead.training.trainingResonance
-        careCharge = lead.training.careCharge
     }
 
     init(member: PartyMemberSummary) {
@@ -41,15 +39,13 @@ struct NowCampHeroMemberPresentation: Equatable, Identifiable {
         affinityLevel = member.affinityLevel
         trainingRank = member.trainingRank
         trainingResonance = 0
-        careCharge = false
     }
 
     init(
         species: SpeciesDefinition,
         affinityLevel: Int64 = 3,
         trainingRank: TrainingRank = .rankII,
-        trainingResonance: Int = 0,
-        careCharge: Bool = false
+        trainingResonance: Int = 0
     ) {
         speciesID = species.id
         displayName = species.name
@@ -60,7 +56,6 @@ struct NowCampHeroMemberPresentation: Equatable, Identifiable {
         self.affinityLevel = affinityLevel
         self.trainingRank = trainingRank
         self.trainingResonance = trainingResonance
-        self.careCharge = careCharge
     }
 }
 
@@ -95,7 +90,9 @@ enum NowCampHeroActionAvailability: Equatable {
     case missingLead
     case insufficientFocus(current: Int, required: Int)
     case rankAtAffinityGate(current: Int, required: Int)
-    case careCharged
+    case careCharging(remainingSeconds: Int)
+    case focusStorageFull
+    case careDailyCapReached
 }
 
 struct NowCampHeroActionState: Equatable {
@@ -139,28 +136,20 @@ struct NowCampHeroActionState: Equatable {
     }
 
     static func care(
-        cost: Int,
+        focusGrant: Int,
         focusEnergy: Int,
+        careReady: Bool,
+        careElapsedSeconds: Int,
+        careFocusEarnedToday: Int,
         lead: NowCampHeroMemberPresentation?
     ) -> NowCampHeroActionState {
         guard let lead else {
-            return NowCampHeroActionState(kind: .care, cost: cost, focusEnergy: focusEnergy, availability: .missingLead)
-        }
-        guard focusEnergy >= cost else {
-            return NowCampHeroActionState(
-                kind: .care,
-                cost: cost,
-                focusEnergy: focusEnergy,
-                availability: .insufficientFocus(current: focusEnergy, required: cost)
-            )
-        }
-        guard lead.careCharge == false else {
-            return NowCampHeroActionState(kind: .care, cost: cost, focusEnergy: focusEnergy, availability: .careCharged)
+            return NowCampHeroActionState(kind: .care, cost: focusGrant, focusEnergy: focusEnergy, availability: .missingLead)
         }
         guard lead.trainingRank.rawValue < Int(lead.affinityLevel) else {
             return NowCampHeroActionState(
                 kind: .care,
-                cost: cost,
+                cost: focusGrant,
                 focusEnergy: focusEnergy,
                 availability: .rankAtAffinityGate(
                     current: Int(lead.affinityLevel),
@@ -168,7 +157,22 @@ struct NowCampHeroActionState: Equatable {
                 )
             )
         }
-        return NowCampHeroActionState(kind: .care, cost: cost, focusEnergy: focusEnergy, availability: .enabled)
+        guard focusEnergy < NowCampHeroPresentation.focusCapacity else {
+            return NowCampHeroActionState(kind: .care, cost: focusGrant, focusEnergy: focusEnergy, availability: .focusStorageFull)
+        }
+        guard careFocusEarnedToday < NowCampCarePolicy.dailyFocusCap else {
+            return NowCampHeroActionState(kind: .care, cost: focusGrant, focusEnergy: focusEnergy, availability: .careDailyCapReached)
+        }
+        guard careReady else {
+            let remaining = max(0, NowCampCarePolicy.intervalSeconds - careElapsedSeconds)
+            return NowCampHeroActionState(
+                kind: .care,
+                cost: focusGrant,
+                focusEnergy: focusEnergy,
+                availability: .careCharging(remainingSeconds: remaining)
+            )
+        }
+        return NowCampHeroActionState(kind: .care, cost: focusGrant, focusEnergy: focusEnergy, availability: .enabled)
     }
 }
 
@@ -249,8 +253,11 @@ struct NowCampHeroPresentation: Equatable {
             lead: lead
         )
         let careAction = NowCampHeroActionState.care(
-            cost: resolver.careFocusCost,
+            focusGrant: resolver.careFocusGrant,
             focusEnergy: focusEnergy,
+            careReady: nowCamp?.careReady ?? false,
+            careElapsedSeconds: nowCamp?.careElapsedSeconds ?? 0,
+            careFocusEarnedToday: careFocusEarnedToday(nowCamp),
             lead: lead
         )
         let targetLevelText = targetLevelText(for: lead)
@@ -285,11 +292,11 @@ struct NowCampHeroPresentation: Equatable {
             practiceReadinessText: practiceReadinessText,
             practiceStatusText: practiceStatusText,
             attemptHelpText: attemptHelpText(for: lead, trainAction: trainAction),
-            campStatusLine: campStatusLine(for: lead, trainAction: trainAction),
+            campStatusLine: campStatusLine(for: lead, trainAction: trainAction, careAction: careAction),
             energySourceLine: energySourceLine(focusEnergy: focusEnergy, trainAction: trainAction),
             headerLeadTitle: lead?.displayName ?? TokenmonL10n.string("now.camp.lead.empty"),
             headerLeadDetail: headerLeadDetail(for: lead),
-            careStatusLine: careStatusLine(for: lead),
+            careStatusLine: careStatusLine(for: careAction),
             trainingLevelPipCount: trainingLevelPipCount(for: lead),
             v2: v2,
             trainAction: trainAction,
@@ -322,8 +329,11 @@ struct NowCampHeroPresentation: Equatable {
             lead: leadPresentation
         )
         let careAction = NowCampHeroActionState.care(
-            cost: resolver.careFocusCost,
+            focusGrant: resolver.careFocusGrant,
             focusEnergy: focusEnergy,
+            careReady: false,
+            careElapsedSeconds: 0,
+            careFocusEarnedToday: 0,
             lead: leadPresentation
         )
         let targetLevelText = targetLevelText(for: leadPresentation)
@@ -357,11 +367,11 @@ struct NowCampHeroPresentation: Equatable {
             practiceReadinessText: practiceReadinessText,
             practiceStatusText: practiceStatusText,
             attemptHelpText: attemptHelpText(for: leadPresentation, trainAction: trainAction),
-            campStatusLine: campStatusLine(for: leadPresentation, trainAction: trainAction),
+            campStatusLine: campStatusLine(for: leadPresentation, trainAction: trainAction, careAction: careAction),
             energySourceLine: energySourceLine(focusEnergy: focusEnergy, trainAction: trainAction),
             headerLeadTitle: leadPresentation?.displayName ?? TokenmonL10n.string("now.camp.lead.empty"),
             headerLeadDetail: headerLeadDetail(for: leadPresentation),
-            careStatusLine: careStatusLine(for: leadPresentation),
+            careStatusLine: careStatusLine(for: careAction),
             trainingLevelPipCount: trainingLevelPipCount(for: leadPresentation),
             v2: v2,
             trainAction: trainAction,
@@ -395,6 +405,15 @@ struct NowCampHeroPresentation: Equatable {
             }
             return .empty(index: index)
         }
+    }
+
+    private static func careFocusEarnedToday(_ nowCamp: NowCampSummary?) -> Int {
+        guard let nowCamp else {
+            return 0
+        }
+        return nowCamp.careFocusEarnedLocalDate == TokenmonDatabaseManager.currentLocalDate()
+            ? nowCamp.careFocusEarnedToday
+            : 0
     }
 
     private static func trainingLine(for lead: NowCampHeroMemberPresentation?) -> String {
@@ -529,7 +548,7 @@ struct NowCampHeroPresentation: Equatable {
         switch trainAction.availability {
         case .insufficientFocus(let current, let required):
             return TokenmonL10n.format("now.camp.practice.need_more", Int64(max(0, required - current)))
-        case .enabled, .careCharged:
+        case .enabled:
             return TokenmonL10n.format(
                 "now.camp.practice.readiness",
                 Int64(min(focusEnergy, trainAction.cost)),
@@ -539,6 +558,8 @@ struct NowCampHeroPresentation: Equatable {
             return TokenmonL10n.format("now.camp.action.rank_gate.short", Int64(current), Int64(required))
         case .missingLead:
             return TokenmonL10n.string("now.camp.action.no_lead.short")
+        case .careCharging, .focusStorageFull, .careDailyCapReached:
+            return TokenmonL10n.string("now.camp.practice.status.preparing")
         }
     }
 
@@ -552,16 +573,16 @@ struct NowCampHeroPresentation: Equatable {
             return TokenmonL10n.string("now.camp.practice.status.bond_gate")
         case .missingLead:
             return TokenmonL10n.string("now.camp.practice.status.no_lead")
-        case .careCharged:
-            return TokenmonL10n.string("now.camp.practice.status.ready")
+        case .careCharging, .focusStorageFull, .careDailyCapReached:
+            return TokenmonL10n.string("now.camp.practice.status.preparing")
         }
     }
 
     private static func practiceControlTitleText(for trainAction: NowCampHeroActionState) -> String {
         switch trainAction.availability {
-        case .enabled, .careCharged:
+        case .enabled:
             return TokenmonL10n.string("now.camp.practice.action")
-        case .insufficientFocus, .rankAtAffinityGate, .missingLead:
+        case .insufficientFocus, .rankAtAffinityGate, .missingLead, .careCharging, .focusStorageFull, .careDailyCapReached:
             return practiceStatusText(for: trainAction)
         }
     }
@@ -572,7 +593,7 @@ struct NowCampHeroPresentation: Equatable {
         targetLevelText: String
     ) -> String {
         switch trainAction.availability {
-        case .enabled, .careCharged:
+        case .enabled:
             return targetLevelText
         case .insufficientFocus:
             return TokenmonL10n.format("now.camp.practice.preparing.detail", readinessText)
@@ -580,6 +601,8 @@ struct NowCampHeroPresentation: Equatable {
             return TokenmonL10n.format("now.camp.action.rank_gate.short", Int64(current), Int64(required))
         case .missingLead:
             return TokenmonL10n.string("now.camp.action.no_lead.short")
+        case .careCharging, .focusStorageFull, .careDailyCapReached:
+            return readinessText
         }
     }
 
@@ -611,8 +634,7 @@ struct NowCampHeroPresentation: Equatable {
         do {
             probability = try resolver.successProbability(
                 rarity: lead.rarity,
-                targetRank: targetRank,
-                careCharge: lead.careCharge
+                targetRank: targetRank
             )
             ceiling = try resolver.ceilingFailures(probability: probability)
         } catch {
@@ -621,26 +643,11 @@ struct NowCampHeroPresentation: Equatable {
 
         let probabilityPercent = Int64((probability * 100).rounded())
         let baseHelp: String
-        if lead.trainingResonance >= ceiling, lead.careCharge {
-            baseHelp = TokenmonL10n.format(
-                "now.camp.practice.help.guaranteed_care",
-                Int64(targetRank.rawValue),
-                probabilityPercent,
-                Int64(ceiling)
-            )
-        } else if lead.trainingResonance >= ceiling {
+        if lead.trainingResonance >= ceiling {
             baseHelp = TokenmonL10n.format(
                 "now.camp.practice.help.guaranteed",
                 Int64(targetRank.rawValue),
                 probabilityPercent,
-                Int64(ceiling)
-            )
-        } else if lead.careCharge {
-            baseHelp = TokenmonL10n.format(
-                "now.camp.practice.help.care_ready",
-                Int64(targetRank.rawValue),
-                probabilityPercent,
-                Int64(ceiling - lead.trainingResonance),
                 Int64(ceiling)
             )
         } else {
@@ -671,19 +678,23 @@ struct NowCampHeroPresentation: Equatable {
             )
         case .missingLead:
             return TokenmonL10n.string("now.camp.action.missing_lead")
-        case .careCharged:
+        case .careCharging, .focusStorageFull, .careDailyCapReached:
             return baseHelp
         }
     }
 
     private static func campStatusLine(
         for lead: NowCampHeroMemberPresentation?,
-        trainAction: NowCampHeroActionState
+        trainAction: NowCampHeroActionState,
+        careAction: NowCampHeroActionState
     ) -> String {
-        guard let lead else {
+        guard lead != nil else {
             return TokenmonL10n.string("now.camp.status.no_lead")
         }
-        if lead.careCharge {
+        if trainAction.isEnabled {
+            return TokenmonL10n.string("now.camp.status.ready")
+        }
+        if careAction.isEnabled {
             return TokenmonL10n.string("now.camp.status.care_ready")
         }
         switch trainAction.availability {
@@ -693,8 +704,8 @@ struct NowCampHeroPresentation: Equatable {
             return TokenmonL10n.string("now.camp.status.gathering")
         case .missingLead:
             return TokenmonL10n.string("now.camp.status.no_lead")
-        case .careCharged:
-            return TokenmonL10n.string("now.camp.status.care_ready")
+        case .careCharging, .focusStorageFull, .careDailyCapReached:
+            return TokenmonL10n.string("now.camp.status.gathering")
         }
     }
 
@@ -715,11 +726,49 @@ struct NowCampHeroPresentation: Equatable {
         return trainingLevelText(for: lead)
     }
 
-    private static func careStatusLine(for lead: NowCampHeroMemberPresentation?) -> String? {
-        guard lead?.careCharge == true else {
-            return nil
+    private static func careStatusLine(for careAction: NowCampHeroActionState) -> String? {
+        careAction.kind == .care ? careDisplayText(for: careAction) : nil
+    }
+
+    static func careDisplayText(for careAction: NowCampHeroActionState) -> String {
+        switch careAction.availability {
+        case .enabled:
+            return TokenmonL10n.string("now.camp.care.ready.short")
+        case .careCharging(let remainingSeconds):
+            return TokenmonL10n.format(
+                "now.camp.care.minutes_remaining",
+                Int64(max(1, (remainingSeconds + 59) / 60))
+            )
+        case .focusStorageFull:
+            return TokenmonL10n.string("now.camp.care.full")
+        case .careDailyCapReached:
+            return TokenmonL10n.string("now.camp.care.daily_cap")
+        case .rankAtAffinityGate(let current, let required):
+            return TokenmonL10n.format("now.camp.action.rank_gate.short", Int64(current), Int64(required))
+        case .missingLead:
+            return TokenmonL10n.string("now.camp.action.no_lead.short")
+        case .insufficientFocus:
+            return TokenmonL10n.string("now.camp.care.blocked")
         }
-        return TokenmonL10n.string("now.camp.care.ready.short")
+    }
+
+    static func careDetailText(for careAction: NowCampHeroActionState) -> String {
+        switch careAction.availability {
+        case .enabled:
+            return TokenmonL10n.format("now.camp.care.grant", Int64(careAction.cost))
+        case .careCharging:
+            return TokenmonL10n.string("now.camp.care.charging")
+        case .focusStorageFull:
+            return TokenmonL10n.string("now.camp.care.full.detail")
+        case .careDailyCapReached:
+            return TokenmonL10n.string("now.camp.care.daily_cap.detail")
+        case .rankAtAffinityGate:
+            return TokenmonL10n.string("now.camp.practice.status.bond_gate")
+        case .missingLead:
+            return TokenmonL10n.string("now.camp.action.no_lead.short")
+        case .insufficientFocus:
+            return TokenmonL10n.string("now.camp.care.blocked")
+        }
     }
 
     private static func trainingLevelPipCount(for lead: NowCampHeroMemberPresentation?) -> Int {
@@ -761,8 +810,7 @@ struct NowCampHeroPresentation: Equatable {
         do {
             let probability = try LeaderTrainingResolver().successProbability(
                 rarity: lead.rarity,
-                targetRank: targetRank,
-                careCharge: lead.careCharge
+                targetRank: targetRank
             )
             return TokenmonL10n.format(
                 "now.camp.v2.percent",
@@ -791,8 +839,7 @@ struct NowCampHeroPresentation: Equatable {
             let resolver = LeaderTrainingResolver()
             let probability = try resolver.successProbability(
                 rarity: lead.rarity,
-                targetRank: targetRank,
-                careCharge: lead.careCharge
+                targetRank: targetRank
             )
             let ceiling = try resolver.ceilingFailures(probability: probability)
             let resonance = min(max(lead.trainingResonance, 0), ceiling)
@@ -1066,21 +1113,30 @@ enum NowCampHeroFeedbackMotion: Equatable {
     case tilt
 }
 
+enum NowCampHeroFeedbackEffect: Equatable {
+    case none
+    case careHearts
+    case levelUp(Int)
+}
+
 struct NowCampHeroFeedback {
     let message: String
     let systemImage: String
     let tint: Color
     let motion: NowCampHeroFeedbackMotion
+    let effect: NowCampHeroFeedbackEffect
 
-    static func careApplied(focusEnergyAfter: Int) -> NowCampHeroFeedback {
+    static func careApplied(focusGranted: Int, focusEnergyAfter: Int) -> NowCampHeroFeedback {
         NowCampHeroFeedback(
             message: TokenmonL10n.format(
                 "now.camp.feedback.care_applied",
+                Int64(focusGranted),
                 Int64(focusEnergyAfter)
             ),
             systemImage: "heart.fill",
             tint: .pink,
-            motion: .hop
+            motion: .hop,
+            effect: .careHearts
         )
     }
 
@@ -1094,7 +1150,8 @@ struct NowCampHeroFeedback {
                 ),
                 systemImage: "checkmark.seal.fill",
                 tint: .green,
-                motion: .hop
+                motion: .hop,
+                effect: .levelUp(attempt.resolution.newRank.rawValue)
             )
         case .guaranteedSuccess:
             return NowCampHeroFeedback(
@@ -1104,14 +1161,16 @@ struct NowCampHeroFeedback {
                 ),
                 systemImage: "sparkles",
                 tint: .yellow,
-                motion: .hop
+                motion: .hop,
+                effect: .levelUp(attempt.resolution.newRank.rawValue)
             )
         case .failure:
             return NowCampHeroFeedback(
                 message: TokenmonL10n.string("now.camp.feedback.train_failure"),
                 systemImage: "arrow.triangle.2.circlepath",
                 tint: .orange,
-                motion: .tilt
+                motion: .tilt,
+                effect: .none
             )
         }
     }
@@ -1121,7 +1180,8 @@ struct NowCampHeroFeedback {
             message: TokenmonL10n.format("now.camp.feedback.action_failed", message),
             systemImage: "exclamationmark.triangle.fill",
             tint: .orange,
-            motion: .tilt
+            motion: .tilt,
+            effect: .none
         )
     }
 }
@@ -1157,6 +1217,7 @@ struct TokenmonNowCampHeroCard: View {
             feedback: feedback,
             actionPulse: !reduceMotion && leadActionPulse,
             onTrain: handleTrain,
+            onCare: handleCare,
             onScout: onScout,
             headerAccessory: {
                 leadPicker
@@ -1218,15 +1279,19 @@ struct TokenmonNowCampHeroCard: View {
     private var careMenuTitle: String {
         switch presentation.careAction.availability {
         case .enabled:
-            return TokenmonL10n.string("now.camp.care.menu.prepare")
+            return TokenmonL10n.string("now.camp.care.menu.claim")
         case .missingLead:
             return TokenmonL10n.string("now.camp.action.no_lead.short")
         case .insufficientFocus(let current, let required):
             return TokenmonL10n.format("now.camp.care.menu.insufficient_focus", Int64(current), Int64(required))
         case .rankAtAffinityGate(let current, let required):
             return TokenmonL10n.format("now.camp.care.menu.rank_gate", Int64(current), Int64(required))
-        case .careCharged:
-            return TokenmonL10n.string("now.camp.care.menu.ready")
+        case .careCharging:
+            return NowCampHeroPresentation.careDisplayText(for: presentation.careAction)
+        case .focusStorageFull:
+            return TokenmonL10n.string("now.camp.care.full")
+        case .careDailyCapReached:
+            return TokenmonL10n.string("now.camp.care.daily_cap")
         }
     }
 
@@ -1234,8 +1299,12 @@ struct TokenmonNowCampHeroCard: View {
         switch presentation.careAction.availability {
         case .enabled:
             return "heart.fill"
-        case .careCharged:
-            return "checkmark.circle.fill"
+        case .careCharging:
+            return "hourglass.circle.fill"
+        case .focusStorageFull:
+            return "bolt.slash.fill"
+        case .careDailyCapReached:
+            return "calendar.badge.exclamationmark"
         case .insufficientFocus:
             return "bolt.fill"
         case .rankAtAffinityGate:
@@ -1267,7 +1336,7 @@ struct TokenmonNowCampHeroCard: View {
         let result = model.applyNowCampCareToLead()
         switch result {
         case .applied(let care):
-            showFeedback(NowCampHeroFeedback.careApplied(focusEnergyAfter: care.focusEnergyAfter))
+            showFeedback(NowCampHeroFeedback.careApplied(focusGranted: care.focusGranted, focusEnergyAfter: care.focusEnergyAfter))
         case .failed(let message):
             showFailure(message)
         }
@@ -1292,7 +1361,7 @@ struct TokenmonNowCampHeroCard: View {
         triggerLeadActionPulse()
         let token = UUID()
         feedbackToken = token
-        DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.25) {
             guard feedbackToken == token else {
                 return
             }
@@ -1349,6 +1418,7 @@ struct TokenmonNowCampHeroV2Card: View {
             feedback: feedback,
             actionPulse: !reduceMotion && leadActionPulse,
             onTrain: handleTrain,
+            onCare: handleCare,
             onScout: onScout,
             headerAccessory: {
                 leadPicker
@@ -1410,15 +1480,19 @@ struct TokenmonNowCampHeroV2Card: View {
     private var careMenuTitle: String {
         switch presentation.careAction.availability {
         case .enabled:
-            return TokenmonL10n.string("now.camp.care.menu.prepare")
+            return TokenmonL10n.string("now.camp.care.menu.claim")
         case .missingLead:
             return TokenmonL10n.string("now.camp.action.no_lead.short")
         case .insufficientFocus(let current, let required):
             return TokenmonL10n.format("now.camp.care.menu.insufficient_focus", Int64(current), Int64(required))
         case .rankAtAffinityGate(let current, let required):
             return TokenmonL10n.format("now.camp.care.menu.rank_gate", Int64(current), Int64(required))
-        case .careCharged:
-            return TokenmonL10n.string("now.camp.care.menu.ready")
+        case .careCharging:
+            return NowCampHeroPresentation.careDisplayText(for: presentation.careAction)
+        case .focusStorageFull:
+            return TokenmonL10n.string("now.camp.care.full")
+        case .careDailyCapReached:
+            return TokenmonL10n.string("now.camp.care.daily_cap")
         }
     }
 
@@ -1426,8 +1500,12 @@ struct TokenmonNowCampHeroV2Card: View {
         switch presentation.careAction.availability {
         case .enabled:
             return "heart.fill"
-        case .careCharged:
-            return "checkmark.circle.fill"
+        case .careCharging:
+            return "hourglass.circle.fill"
+        case .focusStorageFull:
+            return "bolt.slash.fill"
+        case .careDailyCapReached:
+            return "calendar.badge.exclamationmark"
         case .insufficientFocus:
             return "bolt.fill"
         case .rankAtAffinityGate:
@@ -1456,7 +1534,7 @@ struct TokenmonNowCampHeroV2Card: View {
         let result = model.applyNowCampCareToLead()
         switch result {
         case .applied(let care):
-            showFeedback(NowCampHeroFeedback.careApplied(focusEnergyAfter: care.focusEnergyAfter))
+            showFeedback(NowCampHeroFeedback.careApplied(focusGranted: care.focusGranted, focusEnergyAfter: care.focusEnergyAfter))
         case .failed(let message):
             showFailure(message)
         }
@@ -1481,7 +1559,7 @@ struct TokenmonNowCampHeroV2Card: View {
         triggerLeadActionPulse()
         let token = UUID()
         feedbackToken = token
-        DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.25) {
             guard feedbackToken == token else {
                 return
             }
@@ -1507,6 +1585,31 @@ struct TokenmonNowCampHeroV2Card: View {
     }
 }
 
+private struct NowCampHeroCareActionButtonLabel: View {
+    let displayText: String
+    let detailText: String
+    let iconName: String
+
+    var body: some View {
+        HStack(spacing: 6) {
+            Image(systemName: iconName)
+                .font(.system(size: 13, weight: .black))
+            VStack(alignment: .leading, spacing: 1) {
+                Text(displayText)
+                    .font(.system(size: 13, weight: .heavy, design: .rounded))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.58)
+                Text(detailText)
+                    .font(.system(size: 9, weight: .semibold, design: .rounded))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.58)
+            }
+        }
+        .frame(width: 112)
+        .frame(minHeight: 46)
+    }
+}
+
 struct TokenmonNowCampHeroV2PresentationCard<HeaderAccessory: View>: View {
     let presentation: NowCampHeroPresentation
     let animates: Bool
@@ -1514,6 +1617,7 @@ struct TokenmonNowCampHeroV2PresentationCard<HeaderAccessory: View>: View {
     let actionPulse: Bool
     let feedbackMotion: NowCampHeroFeedbackMotion
     let onTrain: () -> Void
+    let onCare: () -> Void
     let onScout: () -> Void
     let headerAccessory: HeaderAccessory
 
@@ -1525,6 +1629,7 @@ struct TokenmonNowCampHeroV2PresentationCard<HeaderAccessory: View>: View {
         feedback: NowCampHeroFeedback?,
         actionPulse: Bool = false,
         onTrain: @escaping () -> Void,
+        onCare: @escaping () -> Void = {},
         onScout: @escaping () -> Void,
         @ViewBuilder headerAccessory: () -> HeaderAccessory
     ) {
@@ -1534,6 +1639,7 @@ struct TokenmonNowCampHeroV2PresentationCard<HeaderAccessory: View>: View {
         self.actionPulse = actionPulse
         self.feedbackMotion = feedback?.motion ?? .none
         self.onTrain = onTrain
+        self.onCare = onCare
         self.onScout = onScout
         self.headerAccessory = headerAccessory()
     }
@@ -1690,6 +1796,10 @@ struct TokenmonNowCampHeroV2PresentationCard<HeaderAccessory: View>: View {
                         .animation(.easeInOut(duration: 1.35).repeatForever(autoreverses: true), value: idlePulse)
                         .animation(.spring(response: 0.22, dampingFraction: 0.62), value: actionPulse)
 
+                    if let feedback {
+                        feedbackStageEffect(feedback, size: size)
+                    }
+
                     if feedback == nil {
                         campStatusBubble
                             .position(x: size.width * 0.78, y: 48)
@@ -1750,6 +1860,50 @@ struct TokenmonNowCampHeroV2PresentationCard<HeaderAccessory: View>: View {
                 .opacity(animates && idlePulse ? 0.76 : 0.38)
                 .offset(y: animates && idlePulse ? -2 : 2)
                 .position(x: size.width * 0.64, y: 143)
+        }
+    }
+
+    @ViewBuilder
+    private func feedbackStageEffect(_ feedback: NowCampHeroFeedback, size: CGSize) -> some View {
+        switch feedback.effect {
+        case .careHearts:
+            ForEach(0..<3, id: \.self) { index in
+                let xOffsets: [CGFloat] = [-34, 0, 34]
+                let yOffsets: [CGFloat] = [0, -8, 2]
+                Image(systemName: "heart.fill")
+                    .font(.system(size: index == 1 ? 16 : 13, weight: .bold))
+                    .foregroundStyle(Color.pink.opacity(0.88))
+                    .shadow(color: Color.black.opacity(0.20), radius: 2, y: 1)
+                    .offset(
+                        x: xOffsets[index],
+                        y: (animates && actionPulse ? -24 : -8) + yOffsets[index]
+                    )
+                    .opacity(animates && actionPulse ? 0.95 : 0.72)
+                    .position(x: size.width * 0.52, y: 164)
+            }
+        case .levelUp(let rank):
+            HStack(spacing: 5) {
+                Image(systemName: "sparkles")
+                    .font(.system(size: 12, weight: .black))
+                Text(TokenmonL10n.format("now.camp.feedback.level_badge", Int64(rank)))
+                    .font(.system(size: 12, weight: .black, design: .rounded))
+                    .monospacedDigit()
+            }
+            .foregroundStyle(Color.white.opacity(0.96))
+            .padding(.horizontal, 9)
+            .padding(.vertical, 5)
+            .background(
+                Capsule(style: .continuous)
+                    .fill(Color.green.opacity(0.78))
+            )
+            .overlay(
+                Capsule(style: .continuous)
+                    .stroke(Color.white.opacity(0.42), lineWidth: 0.8)
+            )
+            .offset(y: animates && actionPulse ? -14 : -4)
+            .position(x: size.width * 0.66, y: 146)
+        case .none:
+            EmptyView()
         }
     }
 
@@ -1895,6 +2049,32 @@ struct TokenmonNowCampHeroV2PresentationCard<HeaderAccessory: View>: View {
             .shadow(color: actionButtonShadow(for: presentation.trainAction), radius: 7, y: 2)
             .help(presentation.attemptHelpText)
             .disabled(!presentation.trainAction.isEnabled)
+
+            Button {
+                guard presentation.careAction.isEnabled else {
+                    return
+                }
+                onCare()
+            } label: {
+                NowCampHeroCareActionButtonLabel(
+                    displayText: careActionDisplayText,
+                    detailText: careActionDetailText,
+                    iconName: careActionIconName
+                )
+            }
+            .buttonStyle(.plain)
+            .foregroundStyle(presentation.careAction.isEnabled ? Color.white.opacity(0.96) : Color.secondary.opacity(0.82))
+            .background(
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    .fill(presentation.careAction.isEnabled ? Color.pink.opacity(0.72) : Color.secondary.opacity(0.08))
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    .stroke(presentation.careAction.isEnabled ? Color.white.opacity(0.42) : Color.secondary.opacity(0.14), lineWidth: 0.9)
+            )
+            .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+            .help(careActionDetailText)
+            .disabled(!presentation.careAction.isEnabled)
 
             Button(action: onScout) {
                 Label {
@@ -2146,8 +2326,27 @@ struct TokenmonNowCampHeroV2PresentationCard<HeaderAccessory: View>: View {
             return "heart.circle.fill"
         case .missingLead:
             return "crown"
-        case .careCharged:
-            return "figure.strengthtraining.traditional"
+        case .careCharging, .focusStorageFull, .careDailyCapReached:
+            return "hourglass.circle.fill"
+        }
+    }
+
+    private func careIcon(for state: NowCampHeroActionState) -> String {
+        switch state.availability {
+        case .enabled:
+            return "heart.fill"
+        case .careCharging:
+            return "hourglass.circle.fill"
+        case .focusStorageFull:
+            return "bolt.slash.fill"
+        case .careDailyCapReached:
+            return "calendar.badge.exclamationmark"
+        case .rankAtAffinityGate:
+            return "heart.circle.fill"
+        case .missingLead:
+            return "crown"
+        case .insufficientFocus:
+            return "bolt.fill"
         }
     }
 
@@ -2166,6 +2365,18 @@ struct TokenmonNowCampHeroV2PresentationCard<HeaderAccessory: View>: View {
 
     private func actionButtonShadow(for state: NowCampHeroActionState) -> Color {
         state.isEnabled ? presentation.field.nowCampTint.opacity(0.28) : Color.black.opacity(0.12)
+    }
+
+    private var careActionDisplayText: String {
+        NowCampHeroPresentation.careDisplayText(for: presentation.careAction)
+    }
+
+    private var careActionDetailText: String {
+        NowCampHeroPresentation.careDetailText(for: presentation.careAction)
+    }
+
+    private var careActionIconName: String {
+        careIcon(for: presentation.careAction)
     }
 
     private var focusFraction: CGFloat {
@@ -2294,6 +2505,7 @@ struct TokenmonNowCampHeroPresentationCard<HeaderAccessory: View>: View {
     let actionPulse: Bool
     let feedbackMotion: NowCampHeroFeedbackMotion
     let onTrain: () -> Void
+    let onCare: () -> Void
     let onScout: () -> Void
     let headerAccessory: HeaderAccessory
 
@@ -2305,6 +2517,7 @@ struct TokenmonNowCampHeroPresentationCard<HeaderAccessory: View>: View {
         feedback: NowCampHeroFeedback?,
         actionPulse: Bool = false,
         onTrain: @escaping () -> Void,
+        onCare: @escaping () -> Void = {},
         onScout: @escaping () -> Void = {},
         @ViewBuilder headerAccessory: () -> HeaderAccessory
     ) {
@@ -2314,6 +2527,7 @@ struct TokenmonNowCampHeroPresentationCard<HeaderAccessory: View>: View {
         self.actionPulse = actionPulse
         self.feedbackMotion = feedback?.motion ?? .none
         self.onTrain = onTrain
+        self.onCare = onCare
         self.onScout = onScout
         self.headerAccessory = headerAccessory()
     }
@@ -2414,6 +2628,10 @@ struct TokenmonNowCampHeroPresentationCard<HeaderAccessory: View>: View {
                         .position(x: size.width * 0.52, y: size.height * 0.70)
                         .animation(.easeInOut(duration: 1.35).repeatForever(autoreverses: true), value: idlePulse)
                         .animation(.spring(response: 0.22, dampingFraction: 0.62), value: actionPulse)
+
+                    if let feedback {
+                        feedbackStageEffect(feedback, size: size)
+                    }
                 } else {
                     emptyLead
                         .position(x: size.width * 0.52, y: size.height * 0.70)
@@ -2472,13 +2690,66 @@ struct TokenmonNowCampHeroPresentationCard<HeaderAccessory: View>: View {
         }
     }
 
+    @ViewBuilder
+    private func feedbackStageEffect(_ feedback: NowCampHeroFeedback, size: CGSize) -> some View {
+        switch feedback.effect {
+        case .careHearts:
+            ForEach(0..<3, id: \.self) { index in
+                let xOffsets: [CGFloat] = [-24, 0, 24]
+                let yOffsets: [CGFloat] = [0, -6, 2]
+                Image(systemName: "heart.fill")
+                    .font(.system(size: index == 1 ? 13 : 11, weight: .bold))
+                    .foregroundStyle(Color.pink.opacity(0.88))
+                    .shadow(color: Color.black.opacity(0.20), radius: 2, y: 1)
+                    .offset(
+                        x: xOffsets[index],
+                        y: (animates && actionPulse ? -18 : -6) + yOffsets[index]
+                    )
+                    .opacity(animates && actionPulse ? 0.94 : 0.72)
+                    .position(x: size.width * 0.52, y: size.height * 0.48)
+            }
+        case .levelUp(let rank):
+            HStack(spacing: 4) {
+                Image(systemName: "sparkles")
+                    .font(.system(size: 9, weight: .black))
+                Text(TokenmonL10n.format("now.camp.feedback.level_badge", Int64(rank)))
+                    .font(.system(size: 10, weight: .black, design: .rounded))
+                    .monospacedDigit()
+            }
+            .foregroundStyle(Color.white.opacity(0.96))
+            .padding(.horizontal, 7)
+            .padding(.vertical, 4)
+            .background(
+                Capsule(style: .continuous)
+                    .fill(Color.green.opacity(0.78))
+            )
+            .overlay(
+                Capsule(style: .continuous)
+                    .stroke(Color.white.opacity(0.38), lineWidth: 0.7)
+            )
+            .offset(y: animates && actionPulse ? -11 : -3)
+            .position(x: size.width * 0.66, y: size.height * 0.47)
+        case .none:
+            EmptyView()
+        }
+    }
+
     private var compactTrainingRow: some View {
         GeometryReader { geometry in
             let rowWidth = geometry.size.width
-            let effectWidth = max(108, min(124, rowWidth * 0.39))
+            let effectWidth = max(86, min(104, rowWidth * 0.30))
+            let careWidth = max(76, min(92, rowWidth * 0.25))
             HStack(spacing: 8) {
                 compactLeadEffectColumn
                     .frame(width: effectWidth, height: 54)
+
+                Capsule(style: .continuous)
+                    .fill(Color.secondary.opacity(0.14))
+                    .frame(width: 0.8, height: 38)
+
+                compactCareColumn
+                    .frame(width: careWidth)
+                    .frame(minHeight: 54, maxHeight: 54)
 
                 Capsule(style: .continuous)
                     .fill(Color.secondary.opacity(0.14))
@@ -2538,6 +2809,44 @@ struct TokenmonNowCampHeroPresentationCard<HeaderAccessory: View>: View {
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
+    }
+
+    private var compactCareColumn: some View {
+        Button {
+            guard presentation.careAction.isEnabled else {
+                return
+            }
+            onCare()
+        } label: {
+            VStack(alignment: .leading, spacing: 2) {
+                HStack(spacing: 5) {
+                    Image(systemName: careIcon(for: presentation.careAction))
+                        .font(.system(size: 9, weight: .black))
+                    Text(NowCampHeroPresentation.careDisplayText(for: presentation.careAction))
+                        .font(.system(size: 10, weight: .heavy, design: .rounded))
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.48)
+                }
+                Text(NowCampHeroPresentation.careDetailText(for: presentation.careAction))
+                    .font(.system(size: 8, weight: .semibold, design: .rounded))
+                    .foregroundStyle(compactActionDetailForeground(for: presentation.careAction))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.44)
+            }
+            .padding(.horizontal, 7)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
+        }
+        .buttonStyle(.plain)
+        .foregroundStyle(compactActionForeground(for: presentation.careAction))
+        .background(compactActionBackground(for: presentation.careAction))
+        .overlay(
+            RoundedRectangle(cornerRadius: 9, style: .continuous)
+                .stroke(compactActionStroke(for: presentation.careAction), lineWidth: 0.9)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 9, style: .continuous))
+        .shadow(color: compactActionShadow(for: presentation.careAction), radius: 3, y: 1)
+        .help(NowCampHeroPresentation.careDetailText(for: presentation.careAction))
+        .disabled(!presentation.careAction.isEnabled)
     }
 
     private var compactTrainColumn: some View {
@@ -2634,7 +2943,7 @@ struct TokenmonNowCampHeroPresentationCard<HeaderAccessory: View>: View {
 
                 Rectangle()
                     .fill(compactActionProgressFill(for: state))
-                    .frame(width: max(0, geometry.size.width * focusRequirementProgress))
+                    .frame(width: max(0, geometry.size.width * compactProgress(for: state)))
                     .clipShape(shape)
 
                 LinearGradient(
@@ -2674,8 +2983,19 @@ struct TokenmonNowCampHeroPresentationCard<HeaderAccessory: View>: View {
         )
     }
 
-    private var focusRequirementProgress: CGFloat {
-        CGFloat(presentation.practiceProgressFraction)
+    private func compactProgress(for state: NowCampHeroActionState) -> CGFloat {
+        guard state.kind == .care else {
+            return CGFloat(presentation.practiceProgressFraction)
+        }
+        switch state.availability {
+        case .enabled, .focusStorageFull, .careDailyCapReached:
+            return 1
+        case .careCharging(let remainingSeconds):
+            let elapsed = max(0, NowCampCarePolicy.intervalSeconds - remainingSeconds)
+            return CGFloat(min(1.0, max(0.0, Double(elapsed) / Double(NowCampCarePolicy.intervalSeconds))))
+        case .missingLead, .insufficientFocus, .rankAtAffinityGate:
+            return 0
+        }
     }
 
     private func practiceIcon(for state: NowCampHeroActionState) -> String {
@@ -2688,8 +3008,27 @@ struct TokenmonNowCampHeroPresentationCard<HeaderAccessory: View>: View {
             return "heart.circle.fill"
         case .missingLead:
             return "crown"
-        case .careCharged:
-            return "figure.play.circle.fill"
+        case .careCharging, .focusStorageFull, .careDailyCapReached:
+            return "hourglass.circle.fill"
+        }
+    }
+
+    private func careIcon(for state: NowCampHeroActionState) -> String {
+        switch state.availability {
+        case .enabled:
+            return "heart.fill"
+        case .careCharging:
+            return "hourglass.circle.fill"
+        case .focusStorageFull:
+            return "bolt.slash.fill"
+        case .careDailyCapReached:
+            return "calendar.badge.exclamationmark"
+        case .rankAtAffinityGate:
+            return "heart.circle.fill"
+        case .missingLead:
+            return "crown"
+        case .insufficientFocus:
+            return "bolt.fill"
         }
     }
 
