@@ -753,10 +753,41 @@ final class TokenmonMenuModel: ObservableObject {
             refresh(reason: .partyChanged)
             return .applied(result)
         } catch {
-            let message = error.localizedDescription
+            let message = localizedNowCampCareFailureMessage(for: error)
             loadError = message
             refresh(reason: .partyChanged)
             return .failed(message)
+        }
+    }
+
+    private func localizedNowCampCareFailureMessage(for error: Error) -> String {
+        guard let storeError = error as? NowCampStoreError else {
+            return error.localizedDescription
+        }
+
+        switch storeError {
+        case .missingLead:
+            return TokenmonL10n.string("now.camp.action.missing_lead")
+        case .careNotReady:
+            return TokenmonL10n.string("now.camp.feedback.care_not_ready")
+        case .focusStorageFull:
+            return TokenmonL10n.string("now.camp.feedback.care_full")
+        case .careDailyCapReached:
+            return TokenmonL10n.string("now.camp.feedback.care_daily_cap")
+        case .insufficientFocus(let required, let available):
+            return TokenmonL10n.format(
+                "now.camp.action.insufficient_care_focus",
+                Int64(available),
+                Int64(required)
+            )
+        case .rankAtAffinityGate(_, let rank, let affinityLevel):
+            return TokenmonL10n.format(
+                "now.camp.action.rank_gate",
+                affinityLevel,
+                Int64(min(5, rank.rawValue + 1))
+            )
+        case .leadNotInParty, .missingTraining:
+            return storeError.localizedDescription
         }
     }
 

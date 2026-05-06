@@ -859,6 +859,9 @@
 "now.camp.feedback.train_success" = "Lv.%1$lld 훈련 성공";
 "now.camp.feedback.train_guaranteed_success" = "Lv.%1$lld 확실히 익힘";
 "now.camp.feedback.train_failure" = "실패 보정 +1";
+"now.camp.feedback.care_not_ready" = "돌봄 충전 중";
+"now.camp.feedback.care_full" = "집중이 이미 가득 참";
+"now.camp.feedback.care_daily_cap" = "오늘 돌봄 완료";
 "now.camp.feedback.action_failed" = "%1$@";
 "now.camp.v2.title" = "Now";
 "now.camp.v2.subtitle" = "리드 훈련";

@@ -106,6 +106,15 @@ struct NowCampHeroActionState: Equatable {
         availability == .enabled
     }
 
+    var acceptsTapForFeedback: Bool {
+        switch kind {
+        case .train:
+            return isEnabled
+        case .care:
+            return availability != .missingLead
+        }
+    }
+
     static func train(
         cost: Int,
         focusEnergy: Int,
@@ -1385,7 +1394,7 @@ struct TokenmonNowCampHeroCard: View {
                 } label: {
                     Label(careMenuTitle, systemImage: careMenuSystemImage)
                 }
-                .disabled(presentation.careAction.isEnabled == false)
+                .disabled(presentation.careAction.acceptsTapForFeedback == false)
             }
         } label: {
             HStack(spacing: 6) {
@@ -1591,7 +1600,7 @@ struct TokenmonNowCampHeroV2Card: View {
                 } label: {
                     Label(careMenuTitle, systemImage: careMenuSystemImage)
                 }
-                .disabled(presentation.careAction.isEnabled == false)
+                .disabled(presentation.careAction.acceptsTapForFeedback == false)
             }
         } label: {
             HStack(spacing: 7) {
@@ -2197,7 +2206,7 @@ struct TokenmonNowCampHeroV2PresentationCard<HeaderAccessory: View>: View {
             .disabled(!presentation.trainAction.isEnabled)
 
             Button {
-                guard presentation.careAction.isEnabled else {
+                guard presentation.careAction.acceptsTapForFeedback else {
                     return
                 }
                 onCare()
@@ -2219,8 +2228,9 @@ struct TokenmonNowCampHeroV2PresentationCard<HeaderAccessory: View>: View {
                     .stroke(presentation.careAction.isEnabled ? Color.white.opacity(0.42) : Color.secondary.opacity(0.14), lineWidth: 0.9)
             )
             .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+            .contentShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
             .help(careActionDetailText)
-            .disabled(!presentation.careAction.isEnabled)
+            .disabled(!presentation.careAction.acceptsTapForFeedback)
 
             Button(action: onScout) {
                 Label {
@@ -3013,7 +3023,7 @@ struct TokenmonNowCampHeroPresentationCard<HeaderAccessory: View>: View {
 
     private var compactCareColumn: some View {
         Button {
-            guard presentation.careAction.isEnabled else {
+            guard presentation.careAction.acceptsTapForFeedback else {
                 return
             }
             onCare()
@@ -3044,9 +3054,10 @@ struct TokenmonNowCampHeroPresentationCard<HeaderAccessory: View>: View {
                 .stroke(compactActionStroke(for: presentation.careAction), lineWidth: 0.9)
         )
         .clipShape(RoundedRectangle(cornerRadius: 9, style: .continuous))
+        .contentShape(RoundedRectangle(cornerRadius: 9, style: .continuous))
         .shadow(color: compactActionShadow(for: presentation.careAction), radius: 3, y: 1)
         .help(NowCampHeroPresentation.careDetailText(for: presentation.careAction))
-        .disabled(!presentation.careAction.isEnabled)
+        .disabled(!presentation.careAction.acceptsTapForFeedback)
     }
 
     private var compactTrainColumn: some View {

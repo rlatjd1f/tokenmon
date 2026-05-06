@@ -228,6 +228,7 @@ struct TokenmonPresentationTests {
         #expect(presentation.supportSlots.count == 2)
         #expect(presentation.trainAction.isEnabled)
         #expect(presentation.careAction.availability == .focusStorageFull)
+        #expect(presentation.careAction.acceptsTapForFeedback)
         #expect(presentation.careStatusLine == TokenmonL10n.string("now.camp.care.full"))
         #expect(presentation.trainingLevelText == TokenmonL10n.format("now.camp.training_level", Int64(2), Int64(5)))
         #expect(presentation.headerLeadDetail == presentation.trainingLevelText)
@@ -425,6 +426,8 @@ struct TokenmonPresentationTests {
 
         #expect(presentation.lead == nil)
         #expect(presentation.trainAction.availability == .missingLead)
+        #expect(presentation.careAction.availability == .missingLead)
+        #expect(presentation.careAction.acceptsTapForFeedback == false)
         #expect(presentation.practiceControlTitleText == TokenmonL10n.string("now.camp.practice.status.no_lead"))
         #expect(presentation.practiceControlDetailText == TokenmonL10n.string("now.camp.action.no_lead.short"))
         #expect(presentation.campStatusLine == TokenmonL10n.string("now.camp.status.no_lead"))
@@ -453,6 +456,9 @@ struct TokenmonPresentationTests {
             sceneContext: makeNowCampSceneContext(field: .ice)
         )
         #expect(focusLimited.trainAction.availability == .insufficientFocus(current: 12, required: 50))
+        #expect(focusLimited.careAction.availability == .careCharging(remainingSeconds: NowCampCarePolicy.intervalSeconds))
+        #expect(focusLimited.careAction.isEnabled == false)
+        #expect(focusLimited.careAction.acceptsTapForFeedback)
         #expect(focusLimited.trainTargetLine == TokenmonL10n.format("now.camp.train.target", "I", "II"))
         #expect(focusLimited.trainingLevelText == TokenmonL10n.format("now.camp.training_level", Int64(1), Int64(5)))
         #expect(focusLimited.headerLeadDetail == focusLimited.trainingLevelText)
@@ -585,6 +591,7 @@ struct TokenmonPresentationTests {
             sceneContext: makeNowCampSceneContext(field: .ice)
         )
         #expect(careReady.careAction.availability == .enabled)
+        #expect(careReady.careAction.acceptsTapForFeedback)
         #expect(careReady.careStatusLine == TokenmonL10n.string("now.camp.care.ready.short"))
         #expect(careReady.practiceControlTitleText == TokenmonL10n.string("now.camp.practice.status.preparing"))
         #expect(careReady.campStatusLine == TokenmonL10n.string("now.camp.status.care_ready"))
@@ -781,6 +788,13 @@ struct TokenmonPresentationTests {
             return
         }
         #expect(train.focusEnergyAfter == 0)
+
+        let chargingCareResult = model.applyNowCampCareToLead()
+        guard case .failed(let chargingCareMessage) = chargingCareResult else {
+            Issue.record("expected care charging failure")
+            return
+        }
+        #expect(chargingCareMessage == TokenmonL10n.string("now.camp.feedback.care_not_ready"))
     }
 
     @Test
