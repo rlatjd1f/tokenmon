@@ -3042,32 +3042,26 @@ struct TokenmonDexCard: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack(alignment: .top) {
-                Text(String(format: "#%03d", entry.sortOrder))
-                    .font(.headline.monospacedDigit())
-                    .foregroundStyle(.secondary)
-                Spacer()
-                HStack(spacing: 6) {
+        VStack(alignment: .leading, spacing: 9) {
+            VStack(alignment: .leading, spacing: 7) {
+                HStack(alignment: .center, spacing: 8) {
+                    Text(String(format: "#%03d", entry.sortOrder))
+                        .font(.headline.monospacedDigit())
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                        .fixedSize(horizontal: true, vertical: false)
+                        .layoutPriority(1)
+
+                    Spacer(minLength: 0)
+
                     if isCurrentLead {
-                        Image(systemName: "crown.fill")
-                            .font(.system(size: 10, weight: .black))
-                            .foregroundStyle(.yellow)
-                            .padding(.horizontal, 6)
-                            .padding(.vertical, 4)
-                            .background(
-                                Capsule()
-                                    .fill(Color(nsColor: .controlBackgroundColor).opacity(0.88))
-                            )
-                            .accessibilityHidden(true)
+                        TokenmonDexLeadPill()
                     }
-                    if entry.status == .captured, entry.affinityLevel >= 2, isSelected == false {
-                        TokenmonAffinityBadge(level: entry.affinityLevel, compact: true, emphasized: true)
-                    }
-                    TokenmonDexAlbumRarityPill(rarity: entry.rarity, albumStyle: albumStyle)
-                    TokenmonDexAlbumStatusPill(status: entry.status)
                 }
+
+                TokenmonDexAlbumBadgeStrip(entry: entry, albumStyle: albumStyle)
             }
+            .frame(minHeight: entry.status == .captured ? 67 : 36, alignment: .top)
 
             HStack {
                 Spacer()
@@ -3078,7 +3072,7 @@ struct TokenmonDexCard: View {
                     rarity: entry.rarity,
                     assetKey: entry.assetKey
                 )
-                .frame(width: 120, height: 120)
+                .frame(width: 112, height: 112)
                 Spacer()
             }
 
@@ -3099,21 +3093,10 @@ struct TokenmonDexCard: View {
                         .foregroundStyle(entry.rarity.tint)
                         .lineLimit(1)
                 }
-
-                if let trainingLabel = TokenmonDexPresentation.trainingLevelLabel(for: entry) {
-                    Label {
-                        Text(trainingLabel)
-                    } icon: {
-                        Image(systemName: "figure.strengthtraining.traditional")
-                    }
-                    .font(.caption2.weight(.bold))
-                    .foregroundStyle(entry.field.tint)
-                    .lineLimit(1)
-                }
             }
         }
         .padding(12)
-        .frame(maxWidth: .infinity, minHeight: 184, alignment: .topLeading)
+        .frame(maxWidth: .infinity, minHeight: entry.status == .captured ? 206 : 184, alignment: .topLeading)
         .background(
             RoundedRectangle(cornerRadius: 16)
                 .fill(cardBackground)
@@ -3146,21 +3129,75 @@ struct TokenmonDexCard: View {
     }
 }
 
+private struct TokenmonDexLeadPill: View {
+    var body: some View {
+        Image(systemName: "crown.fill")
+            .font(.system(size: 10, weight: .black))
+            .foregroundStyle(.yellow)
+            .frame(width: 28, height: 24)
+            .background(
+                Capsule()
+                    .fill(Color(nsColor: .controlBackgroundColor).opacity(0.88))
+            )
+            .help(TokenmonL10n.string("dex.context_menu.set_lead"))
+            .accessibilityHidden(true)
+    }
+}
+
+private struct TokenmonDexAlbumBadgeStrip: View {
+    let entry: DexEntrySummary
+    let albumStyle: TokenmonDexAlbumStyle
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 5) {
+            if entry.status == .captured {
+                HStack(spacing: 5) {
+                    TokenmonAffinityBadge(
+                        level: TokenmonDexPresentation.affinityLevelNumber(for: entry),
+                        compact: true,
+                        emphasized: entry.affinityLevel >= 2
+                    )
+                    TokenmonTrainingBadge(
+                        rank: entry.trainingRank,
+                        compact: true,
+                        tint: entry.field.tint,
+                        emphasized: entry.trainingRank.rawValue >= TrainingRank.rankII.rawValue
+                    )
+                    Spacer(minLength: 0)
+                }
+            }
+
+            HStack(spacing: 5) {
+                TokenmonDexAlbumStatusPill(status: entry.status)
+                TokenmonDexAlbumRarityPill(rarity: entry.rarity, albumStyle: albumStyle)
+                Spacer(minLength: 0)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+}
+
 private struct TokenmonDexAlbumRarityPill: View {
     let rarity: RarityTier
     let albumStyle: TokenmonDexAlbumStyle
 
     var body: some View {
-        HStack(spacing: 0) {
+        HStack(spacing: 5) {
             Image(systemName: albumStyle.primarySymbol)
                 .font(.caption2.weight(.bold))
+            Text(rarity.displayName)
+                .font(.caption2.weight(.bold))
+                .lineLimit(1)
         }
         .foregroundStyle(rarity.tint)
-        .frame(width: 30, height: 28)
+        .padding(.horizontal, 7)
+        .frame(height: 28)
         .background(
             RoundedRectangle(cornerRadius: 12)
                 .fill(rarity.tint.opacity(0.12 + (Double(albumStyle.emphasisLevel) * 0.03)))
         )
+        .fixedSize(horizontal: true, vertical: false)
+        .help(rarity.displayName)
     }
 }
 
@@ -3168,14 +3205,23 @@ private struct TokenmonDexAlbumStatusPill: View {
     let status: DexEntryStatus
 
     var body: some View {
-        Image(systemName: status.systemImage)
-            .font(.caption2.weight(.bold))
-            .foregroundStyle(status.tint)
-            .frame(width: 30, height: 28)
-            .background(
-                RoundedRectangle(cornerRadius: 12)
-                    .fill(status.tint.opacity(0.12))
-            )
+        Label {
+            Text(status.detailTitle)
+                .font(.caption2.weight(.bold))
+                .lineLimit(1)
+        } icon: {
+            Image(systemName: status.systemImage)
+                .font(.caption2.weight(.bold))
+        }
+        .foregroundStyle(status.tint)
+        .padding(.horizontal, 7)
+        .frame(height: 28)
+        .background(
+            RoundedRectangle(cornerRadius: 12)
+                .fill(status.tint.opacity(0.12))
+        )
+        .fixedSize(horizontal: true, vertical: false)
+        .help(status.detailTitle)
     }
 }
 
@@ -3511,6 +3557,40 @@ struct TokenmonAffinityBadge: View {
         default:
             return Color.secondary
         }
+    }
+}
+
+struct TokenmonTrainingBadge: View {
+    let rank: TrainingRank
+    var compact: Bool = false
+    var tint: Color = .accentColor
+    var emphasized: Bool = false
+
+    var body: some View {
+        HStack(spacing: compact ? 3 : 6) {
+            Image(systemName: "figure.strengthtraining.traditional")
+                .font(compact ? .system(size: 8, weight: .black) : .caption2.weight(.black))
+
+            Text(compact ? "Lv.\(rank.rawValue)" : TokenmonDexPresentation.trainingLevelLabel(rank: rank))
+                .font(compact ? .caption2.weight(.black) : .caption.weight(.bold))
+                .monospacedDigit()
+                .lineLimit(1)
+                .minimumScaleFactor(0.78)
+        }
+        .foregroundStyle(emphasized ? tint : Color.secondary)
+        .padding(.horizontal, compact ? 6 : 9)
+        .padding(.vertical, compact ? 4 : 6)
+        .background(
+            Capsule()
+                .fill(tint.opacity(emphasized ? 0.20 : 0.11))
+        )
+        .overlay(
+            Capsule()
+                .stroke(tint.opacity(emphasized ? 0.45 : 0.20), lineWidth: emphasized ? 1.2 : 1)
+        )
+        .fixedSize(horizontal: true, vertical: false)
+        .help(TokenmonDexPresentation.trainingLevelLabel(rank: rank))
+        .accessibilityLabel(TokenmonDexPresentation.trainingLevelLabel(rank: rank))
     }
 }
 

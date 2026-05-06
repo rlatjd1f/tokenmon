@@ -312,10 +312,14 @@ enum TokenmonDexPresentation {
 
     static func trainingLevelLabel(for entry: DexEntrySummary, compact: Bool = false) -> String? {
         guard entry.status == .captured else { return nil }
+        return trainingLevelLabel(rank: entry.trainingRank, compact: compact)
+    }
+
+    static func trainingLevelLabel(rank: TrainingRank, compact: Bool = false) -> String {
         let key: StaticString = compact ? "dex.training_level.short" : "dex.training_level"
         return TokenmonL10n.format(
             key,
-            Int64(entry.trainingRank.rawValue),
+            Int64(rank.rawValue),
             Int64(TrainingRank.rankV.rawValue)
         )
     }

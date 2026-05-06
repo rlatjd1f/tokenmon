@@ -653,8 +653,13 @@ private struct TokenmonDexCardHeader: View {
                 TokenmonDexHeaderPillFlow(spacing: 6, rowSpacing: 5) {
                     TokenmonFieldBadge(field: entry.field, compact: true, iconOnly: true)
 
-                    if let trainingLabel = TokenmonDexPresentation.trainingLevelLabel(for: entry, compact: true) {
-                        TokenmonDexHeaderTrainingPill(text: trainingLabel, style: style)
+                    if entry.status == .captured {
+                        TokenmonTrainingBadge(
+                            rank: entry.trainingRank,
+                            compact: true,
+                            tint: entry.field.tint,
+                            emphasized: entry.trainingRank.rawValue >= TrainingRank.rankII.rawValue
+                        )
                     }
 
                     if TokenmonDexPresentation.showsTraitTags(for: entry) {
@@ -687,29 +692,6 @@ private struct TokenmonDexCardHeader: View {
                     .stroke(Color.white.opacity(0.06), lineWidth: 1)
             )
         }
-    }
-}
-
-private struct TokenmonDexHeaderTrainingPill: View {
-    let text: String
-    let style: TokenmonDexDetailCardStyle
-
-    var body: some View {
-        Label {
-            Text(text)
-        } icon: {
-            Image(systemName: "figure.strengthtraining.traditional")
-                .font(.system(size: 8, weight: .black))
-        }
-        .font(.caption2.weight(.semibold))
-        .lineLimit(1)
-        .foregroundStyle(style.primaryText)
-        .padding(.horizontal, 7)
-        .padding(.vertical, 4)
-        .background(
-            Capsule()
-                .fill(Color.white.opacity(0.075))
-        )
     }
 }
 
@@ -1888,31 +1870,63 @@ struct TokenmonDexTrainingPanel: View {
             title: TokenmonL10n.string("dex.training.title"),
             accent: entry.field.tint
         ) {
-            VStack(alignment: .leading, spacing: 10) {
-                if let level = TokenmonDexPresentation.trainingLevelLabel(for: entry) {
-                    TokenmonMetricRow(title: TokenmonL10n.string("dex.training.level"), value: level)
+            VStack(alignment: .leading, spacing: 14) {
+                HStack(alignment: .center, spacing: 10) {
+                    TokenmonTrainingBadge(
+                        rank: entry.trainingRank,
+                        compact: false,
+                        tint: entry.field.tint,
+                        emphasized: true
+                    )
+
+                    Spacer(minLength: 0)
+
+                    if let ability = TokenmonDexPresentation.trainingAbilityTitle(for: entry) {
+                        Label {
+                            Text(ability)
+                                .font(.caption.weight(.black))
+                        } icon: {
+                            Image(systemName: "sparkles")
+                                .font(.caption.weight(.black))
+                        }
+                        .foregroundStyle(entry.field.tint)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.78)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 6)
+                        .background(Capsule().fill(entry.field.tint.opacity(0.13)))
+                        .help(ability)
+                    }
                 }
 
-                if let ability = TokenmonDexPresentation.trainingAbilityTitle(for: entry) {
-                    TokenmonMetricRow(title: TokenmonL10n.string("dex.training.ability"), value: ability)
-                }
+                TokenmonTrainingProgressRail(rank: entry.trainingRank, tint: entry.field.tint)
 
                 if let effect = TokenmonDexPresentation.trainingEffectLine(for: entry) {
-                    Text(effect)
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(entry.field.tint)
-                        .fixedSize(horizontal: false, vertical: true)
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 7)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .background(
-                            RoundedRectangle(cornerRadius: 10, style: .continuous)
-                                .fill(entry.field.tint.opacity(0.11))
-                        )
+                    HStack(spacing: 7) {
+                        Image(systemName: entry.trainingRank.rawValue >= TrainingRank.rankII.rawValue ? "bolt.fill" : "lock.fill")
+                            .font(.caption.weight(.black))
+                        Text(effect)
+                            .font(.caption.weight(.semibold))
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    .foregroundStyle(entry.field.tint)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 7)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(
+                        RoundedRectangle(cornerRadius: 10, style: .continuous)
+                            .fill(entry.field.tint.opacity(0.11))
+                    )
                 }
 
-                if let attempts = TokenmonDexPresentation.trainingAttemptLabel(for: entry) {
-                    TokenmonMetricRow(title: TokenmonL10n.string("dex.training.attempts"), value: attempts)
+                HStack(alignment: .firstTextBaseline) {
+                    Text(TokenmonL10n.string("dex.training.attempts"))
+                        .font(.caption2.weight(.bold))
+                        .foregroundStyle(.secondary)
+                    Spacer(minLength: 0)
+                    Text(TokenmonDexPresentation.trainingAttemptLabel(for: entry) ?? TokenmonL10n.string("common.unknown"))
+                        .font(.caption.monospacedDigit().weight(.semibold))
+                        .foregroundStyle(.primary)
                 }
 
                 Text(TokenmonL10n.string("dex.training.footnote"))
@@ -1921,6 +1935,63 @@ struct TokenmonDexTrainingPanel: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
         }
+    }
+}
+
+private struct TokenmonTrainingProgressRail: View {
+    let rank: TrainingRank
+    let tint: Color
+
+    var body: some View {
+        VStack(spacing: 8) {
+            GeometryReader { proxy in
+                let nodeSize: CGFloat = 30
+                let lineInset = nodeSize / 2
+                let usableWidth = max(1, proxy.size.width - nodeSize)
+                let filledWidth = usableWidth * CGFloat(max(0, min(4, rank.rawValue - 1))) / 4
+
+                ZStack(alignment: .leading) {
+                    Capsule()
+                        .fill(Color.secondary.opacity(0.18))
+                        .frame(height: 3)
+                        .padding(.horizontal, lineInset)
+
+                    Capsule()
+                        .fill(tint.opacity(0.72))
+                        .frame(width: filledWidth, height: 3)
+                        .offset(x: lineInset)
+
+                    ForEach(TrainingRank.allCases, id: \.self) { step in
+                        TokenmonAffinityProgressNode(
+                            step: Int64(step.rawValue),
+                            currentLevel: Int64(rank.rawValue),
+                            tint: tint
+                        )
+                        .position(
+                            x: lineInset + usableWidth * CGFloat(step.rawValue - 1) / 4,
+                            y: 20
+                        )
+                    }
+                }
+            }
+            .frame(height: 40)
+
+            HStack(spacing: 0) {
+                ForEach(TrainingRank.allCases, id: \.self) { step in
+                    VStack(spacing: 2) {
+                        Text(step.romanNumeral)
+                            .font(.caption2.monospacedDigit().weight(.black))
+                        Text("Lv.\(step.rawValue)")
+                            .font(.system(size: 9, weight: .bold, design: .rounded))
+                            .monospacedDigit()
+                    }
+                    .foregroundStyle(step.rawValue <= rank.rawValue ? tint : Color.secondary.opacity(0.62))
+                    .frame(maxWidth: .infinity)
+                }
+            }
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(TokenmonDexPresentation.trainingLevelLabel(rank: rank))
     }
 }
 
