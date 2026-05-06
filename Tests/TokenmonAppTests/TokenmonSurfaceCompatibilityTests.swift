@@ -116,7 +116,7 @@ struct TokenmonSurfaceCompatibilityTests {
         assertHostedRender(heroV2PopoverContainer, size: CGSize(width: 560, height: 720))
         assertHostedRender(compactPopoverContainer, size: CGSize(width: 360, height: 520))
         assertHostedRender(reducedMotionHeroCard, size: CGSize(width: 528, height: 586))
-        assertHostedRender(compactCareFeedbackHeroCard, size: CGSize(width: 328, height: 374))
+        assertHostedRender(compactCareFeedbackHeroCard, size: CGSize(width: 328, height: 328))
     }
 
     @MainActor

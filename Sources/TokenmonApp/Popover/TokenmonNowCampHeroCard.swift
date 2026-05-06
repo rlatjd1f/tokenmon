@@ -2723,7 +2723,7 @@ struct TokenmonNowCampHeroPresentationCard<HeaderAccessory: View>: View {
 
                 campStage
             }
-            .frame(height: 220)
+            .frame(height: 176)
             .clipped()
 
             compactTrainingRow
@@ -2731,7 +2731,7 @@ struct TokenmonNowCampHeroPresentationCard<HeaderAccessory: View>: View {
                 .padding(.top, 8)
                 .padding(.bottom, 8)
         }
-        .frame(height: 374)
+        .frame(height: 328)
         .background(compactCardBackground)
         .clipShape(clipShape)
         .overlay(
@@ -2944,19 +2944,19 @@ struct TokenmonNowCampHeroPresentationCard<HeaderAccessory: View>: View {
     private var compactTrainingRow: some View {
         GeometryReader { geometry in
             let rowWidth = geometry.size.width
-            let careWidth = max(88, min(104, rowWidth * 0.30))
+            let careWidth = max(82, min(94, rowWidth * 0.28))
             VStack(spacing: 7) {
-                HStack(spacing: 6) {
-                    compactLeadEffectColumn
-                        .frame(maxWidth: .infinity, minHeight: 40, maxHeight: 40)
+                compactLeadEffectColumn
+                    .frame(maxWidth: .infinity, minHeight: 40, maxHeight: 40)
 
+                HStack(spacing: 6) {
                     compactCareColumn
                         .frame(width: careWidth)
-                        .frame(minHeight: 40, maxHeight: 40)
-                }
+                        .frame(minHeight: 37, maxHeight: 37)
 
-                compactTrainColumn
-                    .frame(maxWidth: .infinity, minHeight: 37, maxHeight: 37)
+                    compactTrainColumn
+                        .frame(maxWidth: .infinity, minHeight: 37, maxHeight: 37)
+                }
             }
             .padding(.horizontal, 8)
             .padding(.vertical, 6)
