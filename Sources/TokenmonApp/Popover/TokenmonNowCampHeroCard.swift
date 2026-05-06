@@ -2192,7 +2192,6 @@ struct TokenmonNowCampHeroV2PresentationCard<HeaderAccessory: View>: View {
             .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
             .shadow(color: actionButtonShadow(for: presentation.trainAction), radius: 7, y: 2)
             .help(presentation.attemptHelpText)
-            .disabled(!presentation.trainAction.isEnabled)
 
             Button {
                 guard presentation.careAction.acceptsTapForFeedback else {
@@ -3081,7 +3080,6 @@ struct TokenmonNowCampHeroPresentationCard<HeaderAccessory: View>: View {
         .clipShape(RoundedRectangle(cornerRadius: 9, style: .continuous))
         .shadow(color: compactActionShadow(for: presentation.trainAction), radius: 3, y: 1)
         .help(presentation.attemptHelpText)
-        .disabled(!presentation.trainAction.isEnabled)
     }
 
     private func compactTrainIcon(for state: NowCampHeroActionState) -> some View {
