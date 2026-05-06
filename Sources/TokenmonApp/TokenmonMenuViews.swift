@@ -406,7 +406,7 @@ private struct TokenmonNowCampSceneDebugPreview: View {
             sceneContext: sceneContext,
             lead: sampleSpecies.first,
             supports: Array(sampleSpecies.dropFirst()),
-            focusEnergy: 68
+            focusEnergy: 50
         )
 
         TokenmonNowCampHeroPresentationCard(

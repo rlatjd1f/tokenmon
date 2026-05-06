@@ -1163,6 +1163,17 @@ public final class TokenmonDatabaseManager {
         let normalizedStatement = statement
             .trimmingCharacters(in: .whitespacesAndNewlines)
             .uppercased()
+        if normalizedStatement.hasPrefix("INSERT INTO NOW_CAMP_STATE")
+            && message.localizedCaseInsensitiveContains("care_focus_earned_local_date")
+        {
+            return true
+        }
+        if normalizedStatement.hasPrefix("INSERT OR IGNORE INTO SPECIES_TRAINING")
+            && message.localizedCaseInsensitiveContains("care_charge")
+        {
+            return true
+        }
+
         return normalizedStatement.hasPrefix("ALTER TABLE")
             && normalizedStatement.contains(" ADD COLUMN ")
             && message.localizedCaseInsensitiveContains("duplicate column name")
@@ -2600,7 +2611,7 @@ public final class TokenmonDatabaseManager {
                 CREATE TABLE IF NOT EXISTS now_camp_state (
                     singleton_id INTEGER PRIMARY KEY NOT NULL CHECK(singleton_id = 1),
                     lead_species_id TEXT REFERENCES species(species_id),
-                    focus_energy INTEGER NOT NULL DEFAULT 0 CHECK(focus_energy BETWEEN 0 AND 100),
+                    focus_energy INTEGER NOT NULL DEFAULT 0 CHECK(focus_energy BETWEEN 0 AND 50),
                     focus_remainder_tokens INTEGER NOT NULL DEFAULT 0 CHECK(focus_remainder_tokens >= 0 AND focus_remainder_tokens < 50000),
                     focus_earned_local_date TEXT NOT NULL,
                     focus_earned_today INTEGER NOT NULL DEFAULT 0 CHECK(focus_earned_today >= 0),
@@ -2665,7 +2676,7 @@ public final class TokenmonDatabaseManager {
                 CREATE TABLE IF NOT EXISTS now_camp_state_v17 (
                     singleton_id INTEGER PRIMARY KEY NOT NULL CHECK(singleton_id = 1),
                     lead_species_id TEXT REFERENCES species(species_id),
-                    focus_energy INTEGER NOT NULL DEFAULT 0 CHECK(focus_energy BETWEEN 0 AND 100),
+                    focus_energy INTEGER NOT NULL DEFAULT 0 CHECK(focus_energy BETWEEN 0 AND 50),
                     focus_remainder_tokens INTEGER NOT NULL DEFAULT 0 CHECK(focus_remainder_tokens >= 0 AND focus_remainder_tokens < 25000),
                     focus_earned_local_date TEXT NOT NULL,
                     focus_earned_today INTEGER NOT NULL DEFAULT 0 CHECK(focus_earned_today >= 0),
@@ -2701,7 +2712,7 @@ public final class TokenmonDatabaseManager {
                            updated_at,
                            CASE
                                WHEN focus_remainder_tokens >= 25000 THEN
-                                   min(1, max(0, 100 - focus_energy), max(0, 120 - focus_earned_today_before))
+                                   min(1, max(0, 50 - focus_energy), max(0, 120 - focus_earned_today_before))
                                ELSE 0
                            END AS focus_granted
                     FROM normalized
@@ -2722,8 +2733,11 @@ public final class TokenmonDatabaseManager {
                 )
                 SELECT singleton_id,
                        lead_species_id,
-                       focus_energy + focus_granted,
-                       focus_remainder_tokens % 25000,
+                       min(focus_energy + focus_granted, 50),
+                       CASE
+                           WHEN focus_energy + focus_granted >= 50 THEN 0
+                           ELSE focus_remainder_tokens % 25000
+                       END,
                        date('now', 'localtime'),
                        focus_earned_today_before + focus_granted,
                        save_training_seed,
@@ -2763,6 +2777,55 @@ public final class TokenmonDatabaseManager {
                 "DROP TABLE species_training;",
                 "ALTER TABLE species_training_v17 RENAME TO species_training;",
                 "CREATE INDEX IF NOT EXISTS idx_species_training_rank ON species_training(training_rank);",
+            ]),
+            SQLiteMigration(version: 18, statements: [
+                """
+                CREATE TABLE IF NOT EXISTS now_camp_state_v18 (
+                    singleton_id INTEGER PRIMARY KEY NOT NULL CHECK(singleton_id = 1),
+                    lead_species_id TEXT REFERENCES species(species_id),
+                    focus_energy INTEGER NOT NULL DEFAULT 0 CHECK(focus_energy BETWEEN 0 AND 50),
+                    focus_remainder_tokens INTEGER NOT NULL DEFAULT 0 CHECK(focus_remainder_tokens >= 0 AND focus_remainder_tokens < 25000),
+                    focus_earned_local_date TEXT NOT NULL,
+                    focus_earned_today INTEGER NOT NULL DEFAULT 0 CHECK(focus_earned_today >= 0),
+                    save_training_seed TEXT NOT NULL,
+                    care_ready INTEGER NOT NULL DEFAULT 0 CHECK(care_ready IN (0, 1)),
+                    care_elapsed_seconds INTEGER NOT NULL DEFAULT 0 CHECK(care_elapsed_seconds BETWEEN 0 AND 3600),
+                    care_focus_earned_local_date TEXT NOT NULL,
+                    care_focus_earned_today INTEGER NOT NULL DEFAULT 0 CHECK(care_focus_earned_today >= 0),
+                    updated_at TEXT NOT NULL
+                );
+                """,
+                """
+                INSERT INTO now_camp_state_v18 (
+                    singleton_id,
+                    lead_species_id,
+                    focus_energy,
+                    focus_remainder_tokens,
+                    focus_earned_local_date,
+                    focus_earned_today,
+                    save_training_seed,
+                    care_ready,
+                    care_elapsed_seconds,
+                    care_focus_earned_local_date,
+                    care_focus_earned_today,
+                    updated_at
+                )
+                SELECT singleton_id,
+                       lead_species_id,
+                       min(focus_energy, 50),
+                       CASE WHEN focus_energy >= 50 THEN 0 ELSE focus_remainder_tokens END,
+                       focus_earned_local_date,
+                       focus_earned_today,
+                       save_training_seed,
+                       care_ready,
+                       care_elapsed_seconds,
+                       care_focus_earned_local_date,
+                       care_focus_earned_today,
+                       updated_at
+                FROM now_camp_state;
+                """,
+                "DROP TABLE now_camp_state;",
+                "ALTER TABLE now_camp_state_v18 RENAME TO now_camp_state;",
             ]),
         ]
     }

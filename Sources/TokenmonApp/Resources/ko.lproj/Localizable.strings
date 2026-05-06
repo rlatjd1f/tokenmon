@@ -854,7 +854,7 @@
 "now.camp.action.insufficient_care_focus" = "집중 %1$lld/%2$lld.";
 "now.camp.action.rank_gate" = "Bond %1$lld/%2$lld 필요.";
 "now.camp.action.rank_max" = "훈련 Lv.5/5입니다.";
-"now.camp.feedback.care_applied" = "집중 +%1$lld · %2$lld/100";
+"now.camp.feedback.care_applied" = "집중 +%1$lld · %2$lld/50";
 "now.camp.feedback.level_badge" = "Lv.%1$lld";
 "now.camp.feedback.train_success" = "Lv.%1$lld 훈련 성공";
 "now.camp.feedback.train_guaranteed_success" = "Lv.%1$lld 확실히 익힘";

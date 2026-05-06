@@ -51,7 +51,7 @@ public struct NowCampFocusAccumulator: Sendable {
 
     public init(
         tokensPerFocus: Int64 = 25_000,
-        storageCap: Int = 100,
+        storageCap: Int = 50,
         dailyEarnCap: Int = 120
     ) {
         self.tokensPerFocus = tokensPerFocus
@@ -80,15 +80,16 @@ public struct NowCampFocusAccumulator: Sendable {
         let tokenFocusGain = Int(remainderTotal / tokensPerFocus)
         let activityFocusGain = gameplayDeltaTokens > 0 ? 1 : 0
         let rawFocusGain = max(tokenFocusGain, activityFocusGain)
-        let remainderAfter = remainderTotal % tokensPerFocus
         let dailyAllowed = min(rawFocusGain, max(0, dailyEarnCap - earnedTodayBefore))
         let storageAllowed = min(dailyAllowed, max(0, storageCap - state.focusEnergy))
+        let focusEnergyAfter = state.focusEnergy + storageAllowed
+        let remainderAfter = focusEnergyAfter >= storageCap ? 0 : remainderTotal % tokensPerFocus
         let discardedByDailyCap = max(0, rawFocusGain - dailyAllowed)
         let discardedByStorageCap = max(0, dailyAllowed - storageAllowed)
 
         return NowCampFocusAccumulation(
             updatedState: NowCampFocusState(
-                focusEnergy: state.focusEnergy + storageAllowed,
+                focusEnergy: focusEnergyAfter,
                 focusRemainderTokens: remainderAfter,
                 focusEarnedLocalDate: localDate,
                 focusEarnedToday: earnedTodayBefore + storageAllowed

@@ -529,7 +529,7 @@
 "now.camp.action.insufficient_care_focus" = "Focus %1$lld/%2$lld.";
 "now.camp.action.rank_gate" = "Bond %1$lld/%2$lld required.";
 "now.camp.action.rank_max" = "Training is Lv.5/5.";
-"now.camp.feedback.care_applied" = "+%1$lld Focus · %2$lld/100";
+"now.camp.feedback.care_applied" = "+%1$lld Focus · %2$lld/50";
 "now.camp.feedback.level_badge" = "Lv.%1$lld";
 "now.camp.feedback.train_success" = "Lv.%1$lld training succeeded";
 "now.camp.feedback.train_guaranteed_success" = "Lv.%1$lld mastered";

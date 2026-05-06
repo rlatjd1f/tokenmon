@@ -216,7 +216,7 @@ struct TokenmonPresentationTests {
             nowCamp: makeNowCampSummary(
                 lead: lead,
                 supports: [supportOne, supportTwo],
-                focusEnergy: 100,
+                focusEnergy: 50,
                 affinityLevel: 3,
                 trainingRank: .rankII
             ),
@@ -253,7 +253,7 @@ struct TokenmonPresentationTests {
         #expect(presentation.campStatusLine == TokenmonL10n.string("now.camp.status.ready"))
         #expect(presentation.energySourceLine == TokenmonL10n.string("now.camp.energy.source.ready"))
         #expect(presentation.trainingLevelPipCount == 2)
-        #expect(presentation.v2.focusValueText == "100/100")
+        #expect(presentation.v2.focusValueText == "50/50")
         #expect(presentation.v2.practiceTitleText == TokenmonL10n.string("now.camp.v2.practice.title"))
         #expect(presentation.v2.practiceChanceText == expectedNowCampV2PracticeChance(
             rarity: lead.rarity,
@@ -360,7 +360,7 @@ struct TokenmonPresentationTests {
             nowCamp: makeNowCampSummary(
                 lead: selectedLead,
                 supports: [],
-                focusEnergy: 88,
+                focusEnergy: 50,
                 affinityLevel: 2,
                 trainingRank: .rankII,
                 careReady: true,
@@ -375,7 +375,7 @@ struct TokenmonPresentationTests {
         )
 
         #expect(presentation.trainAction.availability == .rankAtAffinityGate(current: 2, required: 3))
-        #expect(presentation.careAction.availability == .enabled)
+        #expect(presentation.careAction.availability == .focusStorageFull)
         #expect(presentation.practiceControlDetailText == TokenmonL10n.format(
             "now.camp.practice.bond_gate.alternative",
             Int64(2),
@@ -430,7 +430,7 @@ struct TokenmonPresentationTests {
         #expect(presentation.campStatusLine == TokenmonL10n.string("now.camp.status.no_lead"))
         #expect(presentation.trainingLevelPipCount == 0)
         #expect(presentation.practiceProgressFraction == 0.0)
-        #expect(presentation.v2.focusValueText == "0/100")
+        #expect(presentation.v2.focusValueText == "0/50")
         #expect(presentation.v2.practiceChanceText == TokenmonL10n.string("now.camp.v2.unavailable"))
         #expect(presentation.v2.resonanceValueText == TokenmonL10n.string("now.camp.v2.unavailable"))
         #expect(presentation.v2.rewardPreview.valueText == TokenmonL10n.string("now.camp.v2.unavailable"))
@@ -471,7 +471,7 @@ struct TokenmonPresentationTests {
         #expect(focusLimited.campStatusLine == TokenmonL10n.string("now.camp.status.gathering"))
         #expect(focusLimited.energySourceLine == TokenmonL10n.string("now.camp.energy.source.live"))
         #expect(focusLimited.attemptHelpText.contains("Need 38"))
-        #expect(focusLimited.v2.focusValueText == "12/100")
+        #expect(focusLimited.v2.focusValueText == "12/50")
         #expect(focusLimited.v2.practiceChanceText == expectedNowCampV2PracticeChance(
             rarity: lead.rarity,
             trainingRank: .rankI
@@ -526,7 +526,7 @@ struct TokenmonPresentationTests {
             nowCamp: makeNowCampSummary(
                 lead: lead,
                 supports: [],
-                focusEnergy: 88,
+                focusEnergy: 50,
                 affinityLevel: 2,
                 trainingRank: .rankII
             ),
@@ -598,7 +598,7 @@ struct TokenmonPresentationTests {
             nowCamp: makeNowCampSummary(
                 lead: lead,
                 supports: [],
-                focusEnergy: 88,
+                focusEnergy: 50,
                 affinityLevel: 5,
                 trainingRank: .rankV
             ),
@@ -633,7 +633,7 @@ struct TokenmonPresentationTests {
                 nowCamp: makeNowCampSummary(
                     lead: lead,
                     supports: [],
-                    focusEnergy: 88,
+                    focusEnergy: 50,
                     affinityLevel: 5,
                     trainingRank: rank
                 ),
@@ -668,7 +668,7 @@ struct TokenmonPresentationTests {
                 nowCamp: makeNowCampSummary(
                     lead: lead,
                     supports: [],
-                    focusEnergy: 68,
+                    focusEnergy: 50,
                     affinityLevel: 3,
                     trainingRank: .rankI
                 ),

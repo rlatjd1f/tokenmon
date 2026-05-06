@@ -211,7 +211,7 @@ struct NowCampHeroV2Telemetry: Equatable {
 }
 
 struct NowCampHeroPresentation: Equatable {
-    static let focusCapacity = 100
+    static let focusCapacity = 50
 
     let sceneContext: TokenmonSceneContext
     let field: FieldType
