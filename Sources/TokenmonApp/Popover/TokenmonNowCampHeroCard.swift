@@ -2939,18 +2939,18 @@ struct TokenmonNowCampHeroPresentationCard<HeaderAccessory: View>: View {
     private var compactTrainingRow: some View {
         GeometryReader { geometry in
             let rowWidth = geometry.size.width
-            let careWidth = max(82, min(94, rowWidth * 0.28))
+            let careWidth = max(104, min(118, rowWidth * 0.32))
             VStack(spacing: 7) {
                 compactLeadEffectColumn
-                    .frame(maxWidth: .infinity, minHeight: 40, maxHeight: 40)
+                    .frame(maxWidth: .infinity, minHeight: 34, maxHeight: 34)
 
                 HStack(spacing: 6) {
                     compactCareColumn
                         .frame(width: careWidth)
-                        .frame(minHeight: 37, maxHeight: 37)
+                        .frame(minHeight: 42, maxHeight: 42)
 
                     compactTrainColumn
-                        .frame(maxWidth: .infinity, minHeight: 37, maxHeight: 37)
+                        .frame(maxWidth: .infinity, minHeight: 42, maxHeight: 42)
                 }
             }
             .padding(.horizontal, 8)
@@ -3005,31 +3005,23 @@ struct TokenmonNowCampHeroPresentationCard<HeaderAccessory: View>: View {
     }
 
     private var compactCareColumn: some View {
-        Button {
-            guard presentation.careAction.acceptsTapForFeedback else {
-                return
-            }
-            onCare()
-        } label: {
-            VStack(alignment: .leading, spacing: 2) {
-                HStack(spacing: 5) {
-                    Image(systemName: careIcon(for: presentation.careAction))
-                        .font(.system(size: 9, weight: .black))
-                    Text(NowCampHeroPresentation.careDisplayText(for: presentation.careAction))
-                        .font(.system(size: 9.8, weight: .heavy, design: .rounded))
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.62)
-                }
-                Text(NowCampHeroPresentation.careDetailText(for: presentation.careAction))
-                    .font(.system(size: 8, weight: .semibold, design: .rounded))
-                    .foregroundStyle(compactActionDetailForeground(for: presentation.careAction))
+        VStack(alignment: .leading, spacing: 2) {
+            HStack(spacing: 5) {
+                Image(systemName: careIcon(for: presentation.careAction))
+                    .font(.system(size: 10, weight: .black))
+                Text(NowCampHeroPresentation.careDisplayText(for: presentation.careAction))
+                    .font(.system(size: 10.2, weight: .heavy, design: .rounded))
                     .lineLimit(1)
-                    .minimumScaleFactor(0.58)
+                    .minimumScaleFactor(0.62)
             }
-            .padding(.horizontal, 6)
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
+            Text(NowCampHeroPresentation.careDetailText(for: presentation.careAction))
+                .font(.system(size: 8.2, weight: .semibold, design: .rounded))
+                .foregroundStyle(compactActionDetailForeground(for: presentation.careAction))
+                .lineLimit(1)
+                .minimumScaleFactor(0.58)
         }
-        .buttonStyle(.plain)
+        .padding(.horizontal, 8)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
         .foregroundStyle(compactActionForeground(for: presentation.careAction))
         .background(compactActionBackground(for: presentation.careAction))
         .overlay(
@@ -3040,7 +3032,22 @@ struct TokenmonNowCampHeroPresentationCard<HeaderAccessory: View>: View {
         .contentShape(RoundedRectangle(cornerRadius: 9, style: .continuous))
         .shadow(color: compactActionShadow(for: presentation.careAction), radius: 3, y: 1)
         .help(NowCampHeroPresentation.careDetailText(for: presentation.careAction))
-        .disabled(!presentation.careAction.acceptsTapForFeedback)
+        .onTapGesture(perform: triggerCompactCare)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(NowCampHeroPresentation.careDisplayText(for: presentation.careAction))
+        .accessibilityHint(NowCampHeroPresentation.careDetailText(for: presentation.careAction))
+        .accessibilityIdentifier("now-camp-compact-care-action")
+        .accessibilityAddTraits(.isButton)
+        .accessibilityAction {
+            triggerCompactCare()
+        }
+    }
+
+    private func triggerCompactCare() {
+        guard presentation.careAction.acceptsTapForFeedback else {
+            return
+        }
+        onCare()
     }
 
     private var compactTrainColumn: some View {
