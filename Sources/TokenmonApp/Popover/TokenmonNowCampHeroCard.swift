@@ -2783,7 +2783,6 @@ struct TokenmonNowCampHeroPresentationCard<HeaderAccessory: View>: View {
                 campForegroundWash(size: size)
 
                 campFoundation(size: size)
-                compactCampProps(size: size)
 
                 if let lead = presentation.lead {
                     leadSprite(lead)
@@ -2860,28 +2859,6 @@ struct TokenmonNowCampHeroPresentationCard<HeaderAccessory: View>: View {
                 .frame(width: 116, height: 10)
                 .blur(radius: 1.4)
                 .position(x: size.width * 0.52, y: size.height - 28)
-        }
-    }
-
-    private func compactCampProps(size: CGSize) -> some View {
-        ZStack {
-            NowCampEffectSpriteImage(scope: .field(presentation.field), variant: .campMat64)
-                .frame(width: 166, height: 74)
-                .opacity(0.88)
-                .shadow(color: Color.black.opacity(0.14), radius: 3, y: 1)
-                .position(x: size.width * 0.52, y: size.height - 36)
-
-            NowCampEffectSpriteImage(scope: .field(presentation.field), variant: .campPropPrimary32)
-                .frame(width: 46, height: 46)
-                .opacity(compactPropOpacity * 0.86)
-                .shadow(color: Color.black.opacity(0.14), radius: 2.5, y: 1)
-                .position(x: size.width * 0.22, y: size.height - 48)
-
-            NowCampEffectSpriteImage(scope: .field(presentation.field), variant: .campPropSecondary32)
-                .frame(width: 44, height: 44)
-                .opacity(compactPropOpacity * 0.82)
-                .shadow(color: Color.black.opacity(0.14), radius: 2.5, y: 1)
-                .position(x: size.width * 0.80, y: size.height - 47)
         }
     }
 
@@ -3348,13 +3325,6 @@ struct TokenmonNowCampHeroPresentationCard<HeaderAccessory: View>: View {
 
     private var compactCareAccent: Color {
         Color(red: 1.0, green: 0.43, blue: 0.60)
-    }
-
-    private var compactPropOpacity: Double {
-        guard animates else {
-            return 0.82
-        }
-        return idlePulse ? 0.92 : 0.76
     }
 
     private func leadSprite(_ lead: NowCampHeroMemberPresentation) -> some View {
