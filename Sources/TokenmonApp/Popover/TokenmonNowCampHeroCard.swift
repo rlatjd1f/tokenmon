@@ -2991,8 +2991,8 @@ struct TokenmonNowCampHeroPresentationCard<HeaderAccessory: View>: View {
 
             VStack(alignment: .leading, spacing: 1) {
                 Text(TokenmonL10n.string("now.camp.v2.reward.compact.title"))
-                    .font(.system(size: 8.8, weight: .bold, design: .rounded))
-                    .foregroundStyle(Color.white.opacity(0.66))
+                    .font(.system(size: 9.1, weight: .bold, design: .rounded))
+                    .foregroundStyle(Color.white.opacity(0.72))
                     .lineLimit(1)
                     .minimumScaleFactor(0.86)
 
@@ -3005,16 +3005,16 @@ struct TokenmonNowCampHeroPresentationCard<HeaderAccessory: View>: View {
     }
 
     private func compactEffectLine(_ line: NowCampHeroV2EffectLine) -> some View {
-        HStack(spacing: 3) {
+        HStack(spacing: 4) {
             Text(line.labelText)
-                .font(.system(size: 8.6, weight: .bold, design: .rounded))
+                .font(.system(size: 8.4, weight: .bold, design: .rounded))
                 .foregroundStyle(Color.white.opacity(0.60))
                 .lineLimit(1)
-                .minimumScaleFactor(0.82)
-                .frame(width: 40, alignment: .leading)
+                .minimumScaleFactor(0.72)
+                .frame(width: 54, alignment: .leading)
 
             Text(line.valueText)
-                .font(.system(size: 10.1, weight: .heavy, design: .rounded))
+                .font(.system(size: 10, weight: .heavy, design: .rounded))
                 .monospacedDigit()
                 .foregroundStyle(line.isActive ? Color.white.opacity(0.94) : Color.white.opacity(0.76))
                 .lineLimit(1)
@@ -3035,12 +3035,12 @@ struct TokenmonNowCampHeroPresentationCard<HeaderAccessory: View>: View {
                     Image(systemName: careIcon(for: presentation.careAction))
                         .font(.system(size: 9, weight: .black))
                     Text(NowCampHeroPresentation.careDisplayText(for: presentation.careAction))
-                        .font(.system(size: 9.6, weight: .heavy, design: .rounded))
+                        .font(.system(size: 9.8, weight: .heavy, design: .rounded))
                         .lineLimit(1)
                         .minimumScaleFactor(0.62)
                 }
                 Text(NowCampHeroPresentation.careDetailText(for: presentation.careAction))
-                    .font(.system(size: 7.8, weight: .semibold, design: .rounded))
+                    .font(.system(size: 8, weight: .semibold, design: .rounded))
                     .foregroundStyle(compactActionDetailForeground(for: presentation.careAction))
                     .lineLimit(1)
                     .minimumScaleFactor(0.58)
@@ -3079,7 +3079,7 @@ struct TokenmonNowCampHeroPresentationCard<HeaderAccessory: View>: View {
                         .minimumScaleFactor(0.56)
 
                     Text(compactTrainDetailText)
-                        .font(.system(size: 8, weight: .semibold, design: .rounded))
+                        .font(.system(size: 8.2, weight: .semibold, design: .rounded))
                         .foregroundStyle(compactActionDetailForeground(for: presentation.trainAction))
                         .lineLimit(1)
                         .minimumScaleFactor(0.50)
@@ -3295,14 +3295,14 @@ struct TokenmonNowCampHeroPresentationCard<HeaderAccessory: View>: View {
     }
 
     private func compactActionForeground(for state: NowCampHeroActionState) -> Color {
-        state.isEnabled ? Color.white.opacity(0.96) : Color.white.opacity(0.56)
+        state.isEnabled ? Color.white.opacity(0.96) : Color.white.opacity(0.68)
     }
 
     private func compactActionDetailForeground(for state: NowCampHeroActionState) -> Color {
         if state.isEnabled, state.kind == .care {
             return compactCareAccent.opacity(0.84)
         }
-        return state.isEnabled ? Color.white.opacity(0.70) : Color.white.opacity(0.40)
+        return state.isEnabled ? Color.white.opacity(0.70) : Color.white.opacity(0.52)
     }
 
     private func compactActionStroke(for state: NowCampHeroActionState) -> Color {
@@ -3320,7 +3320,7 @@ struct TokenmonNowCampHeroPresentationCard<HeaderAccessory: View>: View {
         if state.isEnabled, state.kind == .care {
             return compactCareAccent.opacity(0.92)
         }
-        return state.isEnabled ? Color.white.opacity(0.92) : Color.white.opacity(0.50)
+        return state.isEnabled ? Color.white.opacity(0.92) : Color.white.opacity(0.62)
     }
 
     private func compactActionIconFill(for state: NowCampHeroActionState) -> Color {
