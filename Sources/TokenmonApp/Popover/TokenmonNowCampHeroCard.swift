@@ -284,13 +284,12 @@ struct NowCampHeroPresentation: Equatable {
             status.isSelected == false && status.isTrainable
         }
         let v2 = v2Telemetry(focusEnergy: focusEnergy, lead: lead, trainAction: trainAction)
-        let presentationField = lead?.field ?? sceneContext.fieldKind.heroFieldType
 
         return NowCampHeroPresentation(
             sceneContext: sceneContext,
-            field: presentationField,
-            fieldTitle: presentationField.displayName,
-            fieldSystemImage: presentationField.systemImage,
+            field: sceneContext.fieldKind.heroFieldType,
+            fieldTitle: sceneContext.fieldKind.heroFieldTitle,
+            fieldSystemImage: sceneContext.fieldKind.heroFieldSystemImage,
             lead: lead,
             supportSlots: supportSlots,
             focusEnergy: focusEnergy,
@@ -363,12 +362,11 @@ struct NowCampHeroPresentation: Equatable {
         let practiceStatusText = practiceStatusText(for: trainAction)
         let leadMenuStatuses: [NowCampHeroLeadMenuStatus] = []
         let v2 = v2Telemetry(focusEnergy: focusEnergy, lead: leadPresentation, trainAction: trainAction)
-        let presentationField = leadPresentation?.field ?? sceneContext.fieldKind.heroFieldType
         return NowCampHeroPresentation(
             sceneContext: sceneContext,
-            field: presentationField,
-            fieldTitle: presentationField.displayName,
-            fieldSystemImage: presentationField.systemImage,
+            field: sceneContext.fieldKind.heroFieldType,
+            fieldTitle: sceneContext.fieldKind.heroFieldTitle,
+            fieldSystemImage: sceneContext.fieldKind.heroFieldSystemImage,
             lead: leadPresentation,
             supportSlots: supportSlots,
             focusEnergy: focusEnergy,
@@ -1790,6 +1788,10 @@ struct TokenmonNowCampHeroV2PresentationCard<HeaderAccessory: View>: View {
         self.headerAccessory = headerAccessory()
     }
 
+    private var leadEffectTint: Color {
+        (presentation.lead?.field ?? presentation.field).nowCampTint
+    }
+
     var body: some View {
         let clipShape = RoundedRectangle(cornerRadius: 12, style: .continuous)
 
@@ -2084,7 +2086,7 @@ struct TokenmonNowCampHeroV2PresentationCard<HeaderAccessory: View>: View {
                 title: presentation.v2.rewardTitleText,
                 value: "\(presentation.v2.rewardPreview.titleText) \(presentation.v2.rewardPreview.valueText)",
                 detail: presentation.v2.rewardPreview.detailText,
-                tint: presentation.field.nowCampTint,
+                tint: leadEffectTint,
                 footer: AnyView(EmptyView())
             )
         }
@@ -2678,6 +2680,10 @@ struct TokenmonNowCampHeroPresentationCard<HeaderAccessory: View>: View {
         self.headerAccessory = headerAccessory()
     }
 
+    private var leadEffectTint: Color {
+        (presentation.lead?.field ?? presentation.field).nowCampTint
+    }
+
     var body: some View {
         let clipShape = RoundedRectangle(cornerRadius: 12, style: .continuous)
 
@@ -2972,7 +2978,7 @@ struct TokenmonNowCampHeroPresentationCard<HeaderAccessory: View>: View {
         HStack(alignment: .center, spacing: 6) {
             Image(systemName: presentation.v2.rewardPreview.systemImage)
                 .font(.system(size: 13, weight: .black))
-                .foregroundStyle(presentation.field.nowCampTint.opacity(0.82))
+                .foregroundStyle(leadEffectTint.opacity(0.82))
                 .frame(width: 17)
 
             VStack(alignment: .leading, spacing: 1) {

@@ -638,7 +638,7 @@ struct TokenmonPresentationTests {
     }
 
     @Test
-    func nowCampHeroPresentationUsesLeadHomeFieldForStageAndTrainingBonus() throws {
+    func nowCampHeroPresentationSeparatesRandomFieldFromLeadTrainingBonus() throws {
         let lead = try #require(SpeciesCatalog.all.first {
             $0.field == .sky && $0.trainingTrait == .trail
         })
@@ -654,9 +654,9 @@ struct TokenmonPresentationTests {
             sceneContext: makeNowCampSceneContext(field: .grassland)
         )
 
-        #expect(presentation.field == .sky)
-        #expect(presentation.fieldTitle == FieldType.sky.displayName)
-        #expect(presentation.fieldSystemImage == FieldType.sky.systemImage)
+        #expect(presentation.field == .grassland)
+        #expect(presentation.fieldTitle == FieldType.grassland.displayName)
+        #expect(presentation.fieldSystemImage == FieldType.grassland.systemImage)
         #expect(presentation.v2.rewardPreview.currentLine.valueText == TokenmonL10n.string("now.camp.v2.reward.current.none"))
         #expect(presentation.v2.rewardPreview.successLine.valueText.contains(FieldType.sky.displayName))
         #expect(presentation.v2.rewardPreview.successLine.valueText.contains(FieldType.grassland.displayName) == false)
