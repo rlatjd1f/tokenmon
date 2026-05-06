@@ -2750,9 +2750,9 @@ struct TokenmonNowCampHeroPresentationCard<HeaderAccessory: View>: View {
         .background(
             LinearGradient(
                 colors: [
-                    Color(nsColor: .controlBackgroundColor).opacity(0.74),
-                    presentation.field.nowCampTint.opacity(0.13),
-                    Color.white.opacity(0.035),
+                    Color(nsColor: .controlBackgroundColor).opacity(0.96),
+                    Color(nsColor: .windowBackgroundColor).opacity(0.92),
+                    presentation.field.nowCampTint.opacity(0.055),
                 ],
                 startPoint: .top,
                 endPoint: .bottom
@@ -2762,13 +2762,14 @@ struct TokenmonNowCampHeroPresentationCard<HeaderAccessory: View>: View {
 
     private var compactCardBackground: some View {
         ZStack {
-            Color(nsColor: .controlBackgroundColor).opacity(0.62)
-            presentation.field.nowCampTint.opacity(0.055)
+            Color(nsColor: .windowBackgroundColor)
+            Color(nsColor: .controlBackgroundColor).opacity(0.88)
+            presentation.field.nowCampTint.opacity(0.030)
             LinearGradient(
                 colors: [
-                    Color.white.opacity(0.055),
+                    Color.white.opacity(0.045),
                     Color.clear,
-                    Color.black.opacity(0.035),
+                    Color.black.opacity(0.060),
                 ],
                 startPoint: .topLeading,
                 endPoint: .bottomTrailing
@@ -2956,9 +2957,9 @@ struct TokenmonNowCampHeroPresentationCard<HeaderAccessory: View>: View {
                 .fill(
                     LinearGradient(
                         colors: [
-                            Color.white.opacity(0.075),
-                            presentation.field.nowCampTint.opacity(0.070),
-                            Color.white.opacity(0.026),
+                            Color(nsColor: .controlBackgroundColor).opacity(0.94),
+                            Color(nsColor: .windowBackgroundColor).opacity(0.90),
+                            presentation.field.nowCampTint.opacity(0.052),
                         ],
                         startPoint: .top,
                         endPoint: .bottom
