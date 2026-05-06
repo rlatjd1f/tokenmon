@@ -284,12 +284,13 @@ struct NowCampHeroPresentation: Equatable {
             status.isSelected == false && status.isTrainable
         }
         let v2 = v2Telemetry(focusEnergy: focusEnergy, lead: lead, trainAction: trainAction)
+        let presentationField = lead?.field ?? sceneContext.fieldKind.heroFieldType
 
         return NowCampHeroPresentation(
             sceneContext: sceneContext,
-            field: sceneContext.fieldKind.heroFieldType,
-            fieldTitle: sceneContext.fieldKind.heroFieldTitle,
-            fieldSystemImage: sceneContext.fieldKind.heroFieldSystemImage,
+            field: presentationField,
+            fieldTitle: presentationField.displayName,
+            fieldSystemImage: presentationField.systemImage,
             lead: lead,
             supportSlots: supportSlots,
             focusEnergy: focusEnergy,
@@ -362,11 +363,12 @@ struct NowCampHeroPresentation: Equatable {
         let practiceStatusText = practiceStatusText(for: trainAction)
         let leadMenuStatuses: [NowCampHeroLeadMenuStatus] = []
         let v2 = v2Telemetry(focusEnergy: focusEnergy, lead: leadPresentation, trainAction: trainAction)
+        let presentationField = leadPresentation?.field ?? sceneContext.fieldKind.heroFieldType
         return NowCampHeroPresentation(
             sceneContext: sceneContext,
-            field: sceneContext.fieldKind.heroFieldType,
-            fieldTitle: sceneContext.fieldKind.heroFieldTitle,
-            fieldSystemImage: sceneContext.fieldKind.heroFieldSystemImage,
+            field: presentationField,
+            fieldTitle: presentationField.displayName,
+            fieldSystemImage: presentationField.systemImage,
             lead: leadPresentation,
             supportSlots: supportSlots,
             focusEnergy: focusEnergy,
