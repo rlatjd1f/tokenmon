@@ -3099,6 +3099,17 @@ struct TokenmonDexCard: View {
                         .foregroundStyle(entry.rarity.tint)
                         .lineLimit(1)
                 }
+
+                if let trainingLabel = TokenmonDexPresentation.trainingLevelLabel(for: entry) {
+                    Label {
+                        Text(trainingLabel)
+                    } icon: {
+                        Image(systemName: "figure.strengthtraining.traditional")
+                    }
+                    .font(.caption2.weight(.bold))
+                    .foregroundStyle(entry.field.tint)
+                    .lineLimit(1)
+                }
             }
         }
         .padding(12)
@@ -3180,6 +3191,7 @@ struct TokenmonDexDetailPane: View {
 
                         VStack(spacing: 10) {
                             if entry.status == .captured {
+                                TokenmonDexTrainingPanel(entry: entry)
                                 TokenmonDexAffinityPanel(entry: entry)
                             }
 

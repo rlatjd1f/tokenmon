@@ -297,6 +297,9 @@ enum TokenmonDexPresentation {
 
     static func metadataLine(for entry: DexEntrySummary) -> String {
         var parts = [entry.field.displayName, entry.rarity.displayName]
+        if let trainingLabel = trainingLevelLabel(for: entry) {
+            parts.append(trainingLabel)
+        }
         if let affinityLabel = affinityLevelLabel(for: entry, compact: false) {
             parts.append(affinityLabel)
             let bonus = affinityRaidBonus(for: affinityLevelNumber(for: entry))
@@ -305,6 +308,43 @@ enum TokenmonDexPresentation {
             }
         }
         return parts.joined(separator: " · ")
+    }
+
+    static func trainingLevelLabel(for entry: DexEntrySummary, compact: Bool = false) -> String? {
+        guard entry.status == .captured else { return nil }
+        let key: StaticString = compact ? "dex.training_level.short" : "dex.training_level"
+        return TokenmonL10n.format(
+            key,
+            Int64(entry.trainingRank.rawValue),
+            Int64(TrainingRank.rankV.rawValue)
+        )
+    }
+
+    static func trainingAbilityTitle(for entry: DexEntrySummary) -> String? {
+        guard entry.status == .captured else { return nil }
+        return trainingAbilityTitle(for: entry.trainingTrait)
+    }
+
+    static func trainingEffectLine(for entry: DexEntrySummary) -> String? {
+        guard entry.status == .captured else { return nil }
+        let preview = LeaderTraitBonusResolver().previewBonus(
+            lead: LeaderTraitContext(
+                speciesID: entry.speciesID,
+                homeField: entry.field,
+                rarity: entry.rarity,
+                trait: entry.trainingTrait,
+                trainingRank: entry.trainingRank
+            )
+        )
+        if preview.isActive == false {
+            return TokenmonL10n.string("dex.training.effect.inactive")
+        }
+        return trainingEffectLine(for: preview)
+    }
+
+    static func trainingAttemptLabel(for entry: DexEntrySummary) -> String? {
+        guard entry.status == .captured else { return nil }
+        return TokenmonL10n.format("dex.training.attempts.value", Int64(entry.trainingAttemptCount))
     }
 
     static func affinityLevelLabel(for entry: DexEntrySummary, compact: Bool = false) -> String? {
@@ -643,6 +683,42 @@ enum TokenmonDexPresentation {
     private static func percentLabel(_ probability: Double) -> String {
         let percent = Int((probability * 100).rounded())
         return "\(percent)%"
+    }
+
+    private static func trainingAbilityTitle(for trait: TrainingTrait) -> String {
+        switch trait {
+        case .trail:
+            return TokenmonL10n.string("now.camp.v2.reward.trail.title")
+        case .scout:
+            return TokenmonL10n.string("now.camp.v2.reward.scout.title")
+        case .capture:
+            return TokenmonL10n.string("now.camp.v2.reward.capture.title")
+        case .raider:
+            return TokenmonL10n.string("now.camp.v2.reward.raider.title")
+        }
+    }
+
+    private static func trainingEffectLine(for preview: LeaderTraitBonusPreview) -> String {
+        let value = trainingEffectValue(for: preview)
+        switch preview.kind {
+        case .trail:
+            return TokenmonL10n.format("now.camp.v2.reward.trail.effect_line", preview.field.displayName, value)
+        case .scout:
+            return TokenmonL10n.format("now.camp.v2.reward.scout.effect_line", preview.field.displayName, value)
+        case .capture:
+            return TokenmonL10n.format("now.camp.v2.reward.capture.effect_line", preview.field.displayName, value)
+        case .raider:
+            return TokenmonL10n.format("now.camp.v2.reward.raider.effect_line", preview.field.displayName, value)
+        }
+    }
+
+    private static func trainingEffectValue(for preview: LeaderTraitBonusPreview) -> String {
+        switch preview.unit {
+        case .fieldWeight, .rarityWeightShift, .raidPower:
+            return TokenmonL10n.format("now.camp.v2.signed_integer", Int64(preview.bonusAmount.rounded()))
+        case .probabilityPoints:
+            return TokenmonL10n.format("now.camp.v2.points", Int64((preview.bonusAmount * 100).rounded()))
+        }
     }
 
     private static func statusRank(_ status: DexEntryStatus) -> Int {

@@ -203,6 +203,9 @@ struct DexPreviewGrid: View {
         let baseLabel = TokenmonDexPresentation.visibleSpeciesName(for: entry)
         var parts = [baseLabel]
         if entry.status == .captured {
+            if let trainingLabel = TokenmonDexPresentation.trainingLevelLabel(for: entry) {
+                parts.append(trainingLabel)
+            }
             let level = TokenmonDexPresentation.affinityLevelNumber(for: entry)
             parts.append(TokenmonDexPresentation.affinityLevelLabel(level: level))
             parts.append(TokenmonDexPresentation.affinityRaidBonusShortLabel(level: level))
@@ -222,6 +225,9 @@ struct DexPreviewGrid: View {
         let displayName = TokenmonDexPresentation.visibleSpeciesName(for: entry, style: .sentence)
         var tooltip = TokenmonL10n.format("dex.preview.tooltip.known", displayName, entry.rarity.displayName, entry.field.displayName, date)
         if entry.status == .captured {
+            if let trainingLabel = TokenmonDexPresentation.trainingLevelLabel(for: entry) {
+                tooltip += " · \(trainingLabel)"
+            }
             let level = TokenmonDexPresentation.affinityLevelNumber(for: entry)
             tooltip += " · \(TokenmonDexPresentation.affinityLevelLabel(level: level)) · \(TokenmonDexPresentation.affinityRaidBonusShortLabel(level: level))"
         }

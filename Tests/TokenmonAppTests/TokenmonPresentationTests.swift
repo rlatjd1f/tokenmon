@@ -2008,10 +2008,41 @@ struct TokenmonPresentationTests {
     func dexPresentationSurfacesAffinityRaidBonus() {
         let entry = makeDexEntry(status: .captured, sortOrder: 8, capturedCount: 5, affinityLevel: 4)
 
+        #expect(TokenmonDexPresentation.metadataLine(for: entry).contains("Training Lv.1/5"))
         #expect(TokenmonDexPresentation.metadataLine(for: entry).contains("Raid +3"))
         #expect(TokenmonDexPresentation.affinityRaidBonusValueLabel(level: 4) == "+3")
         #expect(TokenmonDexPresentation.affinityRaidBonusShortLabel(level: 2) == "Raid +1")
         #expect(TokenmonDexPresentation.affinityNextTargetLabel(for: entry) == "Bond V")
+    }
+
+    @Test
+    func dexPresentationSurfacesTrainingLevelAndAbility() {
+        let inactive = makeDexEntry(
+            status: .captured,
+            sortOrder: 28,
+            field: .sky,
+            rarity: .rare,
+            trainingTrait: .scout,
+            trainingRank: .rankI,
+            trainingAttemptCount: 2
+        )
+        let active = makeDexEntry(
+            status: .captured,
+            sortOrder: 29,
+            field: .sky,
+            rarity: .rare,
+            trainingTrait: .scout,
+            trainingRank: .rankIII,
+            trainingAttemptCount: 5
+        )
+
+        #expect(TokenmonDexPresentation.trainingLevelLabel(for: inactive) == "Training Lv.1/5")
+        #expect(TokenmonDexPresentation.trainingLevelLabel(for: inactive, compact: true) == "Lv.1/5")
+        #expect(TokenmonDexPresentation.trainingAbilityTitle(for: inactive) == "Rarity Bonus")
+        #expect(TokenmonDexPresentation.trainingEffectLine(for: inactive) == "Unlocks at Training Lv.2")
+        #expect(TokenmonDexPresentation.trainingAttemptLabel(for: inactive) == "2")
+        #expect(TokenmonDexPresentation.metadataLine(for: active).contains("Training Lv.3/5"))
+        #expect(TokenmonDexPresentation.trainingEffectLine(for: active)?.contains("Sky rarity") == true)
     }
 
     @Test
@@ -2037,9 +2068,18 @@ struct TokenmonPresentationTests {
             affinityLastOutcome: "max_level"
         )
         let escaped = makeEncounter(outcome: .escaped)
+        let entry = makeDexEntry(
+            status: .captured,
+            sortOrder: 30,
+            capturedCount: 3,
+            affinityLevel: 2,
+            affinityPityCount: 1,
+            affinityLastProbability: 0.2652
+        )
 
         #expect(TokenmonDexPresentation.affinityResultLine(for: success) == "Bond II reached")
-        #expect(TokenmonDexPresentation.affinityResultLine(for: failure) == "Resonance 1/4")
+        #expect(TokenmonDexPresentation.affinityResultLine(for: failure) == "Bond buffer 1/4")
+        #expect(TokenmonDexPresentation.affinityResonanceLabel(for: entry) == "Bond buffer 1/4")
         #expect(TokenmonDexPresentation.affinityResultLine(for: maxed) == "Max bond")
         #expect(TokenmonDexPresentation.affinityResultLine(for: escaped) == nil)
     }
@@ -5224,6 +5264,9 @@ struct TokenmonPresentationTests {
         affinityPityCount: Int64 = 0,
         affinityLastProbability: Double? = nil,
         affinityLastOutcome: String? = nil,
+        trainingTrait: TrainingTrait = .trail,
+        trainingRank: TrainingRank = .rankI,
+        trainingAttemptCount: Int = 0,
         traits: [String] = []
     ) -> DexEntrySummary {
         let resolvedSeenCount = seenCount ?? (status == .unknown ? 0 : 2)
@@ -5247,6 +5290,9 @@ struct TokenmonPresentationTests {
             affinityPityCount: affinityPityCount,
             affinityLastProbability: affinityLastProbability,
             affinityLastOutcome: affinityLastOutcome,
+            trainingTrait: trainingTrait,
+            trainingRank: trainingRank,
+            trainingAttemptCount: trainingAttemptCount,
             stats: SpeciesStatBlock(
                 planning: 1,
                 design: 1,

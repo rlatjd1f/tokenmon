@@ -653,6 +653,10 @@ private struct TokenmonDexCardHeader: View {
                 TokenmonDexHeaderPillFlow(spacing: 6, rowSpacing: 5) {
                     TokenmonFieldBadge(field: entry.field, compact: true, iconOnly: true)
 
+                    if let trainingLabel = TokenmonDexPresentation.trainingLevelLabel(for: entry, compact: true) {
+                        TokenmonDexHeaderTrainingPill(text: trainingLabel, style: style)
+                    }
+
                     if TokenmonDexPresentation.showsTraitTags(for: entry) {
                         ForEach(entry.stats.traits, id: \.self) { trait in
                             TokenmonDexHeaderTraitPill(trait: trait, style: style)
@@ -683,6 +687,29 @@ private struct TokenmonDexCardHeader: View {
                     .stroke(Color.white.opacity(0.06), lineWidth: 1)
             )
         }
+    }
+}
+
+private struct TokenmonDexHeaderTrainingPill: View {
+    let text: String
+    let style: TokenmonDexDetailCardStyle
+
+    var body: some View {
+        Label {
+            Text(text)
+        } icon: {
+            Image(systemName: "figure.strengthtraining.traditional")
+                .font(.system(size: 8, weight: .black))
+        }
+        .font(.caption2.weight(.semibold))
+        .lineLimit(1)
+        .foregroundStyle(style.primaryText)
+        .padding(.horizontal, 7)
+        .padding(.vertical, 4)
+        .background(
+            Capsule()
+                .fill(Color.white.opacity(0.075))
+        )
     }
 }
 
@@ -1849,6 +1876,50 @@ private struct TokenmonAffinityResonanceMeter: View {
             }
             .frame(height: 7)
             .accessibilityLabel(label)
+        }
+    }
+}
+
+struct TokenmonDexTrainingPanel: View {
+    let entry: DexEntrySummary
+
+    var body: some View {
+        TokenmonDexSupportingPanel(
+            title: TokenmonL10n.string("dex.training.title"),
+            accent: entry.field.tint
+        ) {
+            VStack(alignment: .leading, spacing: 10) {
+                if let level = TokenmonDexPresentation.trainingLevelLabel(for: entry) {
+                    TokenmonMetricRow(title: TokenmonL10n.string("dex.training.level"), value: level)
+                }
+
+                if let ability = TokenmonDexPresentation.trainingAbilityTitle(for: entry) {
+                    TokenmonMetricRow(title: TokenmonL10n.string("dex.training.ability"), value: ability)
+                }
+
+                if let effect = TokenmonDexPresentation.trainingEffectLine(for: entry) {
+                    Text(effect)
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(entry.field.tint)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 7)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .background(
+                            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                                .fill(entry.field.tint.opacity(0.11))
+                        )
+                }
+
+                if let attempts = TokenmonDexPresentation.trainingAttemptLabel(for: entry) {
+                    TokenmonMetricRow(title: TokenmonL10n.string("dex.training.attempts"), value: attempts)
+                }
+
+                Text(TokenmonL10n.string("dex.training.footnote"))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
         }
     }
 }

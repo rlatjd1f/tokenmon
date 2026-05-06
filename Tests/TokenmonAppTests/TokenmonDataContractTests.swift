@@ -2862,6 +2862,40 @@ struct TokenmonDataContractTests {
     }
 
     @Test
+    func dexEntrySummaryIncludesTrainingStateForCapturedSpecies() throws {
+        let manager = try makeManager(prefix: "dex-training-state")
+        _ = try manager.forgeEncounter(
+            TokenmonDeveloperEncounterForgeRequest(
+                provider: .codex,
+                field: .grassland,
+                rarity: .common,
+                speciesID: "GRS_001",
+                outcome: .captured,
+                occurredAt: "2026-04-20T00:00:00Z"
+            )
+        )
+
+        let database = try manager.open()
+        try database.execute(
+            """
+            UPDATE species_training
+            SET training_rank = 3,
+                training_resonance = 2,
+                training_attempt_count = 4
+            WHERE species_id = 'GRS_001';
+            """
+        )
+
+        let entry = try #require(try manager.dexEntrySummaries(database: database).first { $0.speciesID == "GRS_001" })
+
+        #expect(entry.status == .captured)
+        #expect(entry.trainingRank == .rankIII)
+        #expect(entry.trainingResonance == 2)
+        #expect(entry.trainingAttemptCount == 4)
+        #expect(entry.trainingTrait == SpeciesCatalog.all.first { $0.id == "GRS_001" }?.trainingTrait)
+    }
+
+    @Test
     func repeatedOpenDoesNotReseedProvidersOnceProcessBootstrapCompletes() throws {
         let manager = try makeManager(prefix: "tokenmon-bootstrap-cache")
         let database = try manager.open()

@@ -196,6 +196,15 @@
 "dex.metric.last_encountered" = "Last encountered";
 "dex.metric.first_captured" = "First captured";
 "dex.metric.last_captured" = "Last captured";
+"dex.training.title" = "Training";
+"dex.training.level" = "Level";
+"dex.training.ability" = "Ability";
+"dex.training.attempts" = "Attempts";
+"dex.training.attempts.value" = "%1$lld";
+"dex.training_level" = "Training Lv.%1$lld/%2$lld";
+"dex.training_level.short" = "Lv.%1$lld/%2$lld";
+"dex.training.effect.inactive" = "Unlocks at Training Lv.2";
+"dex.training.footnote" = "Applies only while this species is the Lead; Scout and Capture need its home field.";
 "dex.count.time.one" = "%1$lld time";
 "dex.count.time.other" = "%1$lld times";
 "dex.count.encounter.one" = "%1$lld encounter";
@@ -203,13 +212,13 @@
 "affinity.label" = "Bond";
 "affinity.level" = "Bond %1$@";
 "affinity.level.reached" = "Bond %1$@ reached";
-"affinity.resonance_label" = "Resonance";
-"affinity.resonance" = "Resonance %1$lld/%2$lld";
+"affinity.resonance_label" = "Bond buffer";
+"affinity.resonance" = "Bond buffer %1$lld/%2$lld";
 "affinity.success_chance" = "Success chance";
 "affinity.raid_bonus" = "Raid bonus";
 "affinity.raid_bonus_short" = "Raid +%1$d";
 "affinity.next_target" = "Next";
-"affinity.progress_footnote" = "Duplicate captures automatically raise bond over time.";
+"affinity.progress_footnote" = "Duplicate captures fill the buffer when bond does not rise; a full buffer guarantees the next bond increase.";
 "affinity.guaranteed" = "Guaranteed";
 "affinity.max" = "Max bond";
 
