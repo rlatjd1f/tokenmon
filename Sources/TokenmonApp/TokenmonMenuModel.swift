@@ -772,8 +772,6 @@ final class TokenmonMenuModel: ObservableObject {
             return TokenmonL10n.string("now.camp.feedback.care_not_ready")
         case .focusStorageFull:
             return TokenmonL10n.string("now.camp.feedback.care_full")
-        case .careDailyCapReached:
-            return TokenmonL10n.string("now.camp.feedback.care_daily_cap")
         case .insufficientFocus(let required, let available):
             return TokenmonL10n.format(
                 "now.camp.action.insufficient_care_focus",

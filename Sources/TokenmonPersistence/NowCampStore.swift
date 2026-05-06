@@ -108,7 +108,6 @@ public struct NowCampCareAdvanceResult: Equatable, Sendable {
 
 public enum NowCampCarePolicy {
     public static let intervalSeconds = 3_600
-    public static let dailyFocusCap = 20
 }
 
 public struct NowCampTrainingAttemptResult: Equatable, Sendable {
@@ -123,7 +122,6 @@ public enum NowCampStoreError: Error, LocalizedError, Equatable {
     case insufficientFocus(required: Int, available: Int)
     case careNotReady
     case focusStorageFull
-    case careDailyCapReached
     case rankAtAffinityGate(speciesID: String, rank: TrainingRank, affinityLevel: Int64)
 
     public var errorDescription: String? {
@@ -140,8 +138,6 @@ public enum NowCampStoreError: Error, LocalizedError, Equatable {
             return "Care is still charging."
         case .focusStorageFull:
             return "Focus storage is already full."
-        case .careDailyCapReached:
-            return "Daily Care Focus cap has been reached."
         case .rankAtAffinityGate(let speciesID, let rank, let affinityLevel):
             return "Species \(speciesID) Training Rank \(rank.romanNumeral) has reached Bond \(affinityLevel)."
         }
@@ -387,11 +383,7 @@ public extension TokenmonDatabaseManager {
             guard storageRemaining > 0 else {
                 throw NowCampStoreError.focusStorageFull
             }
-            let dailyRemaining = max(0, NowCampCarePolicy.dailyFocusCap - careEarnedTodayBefore)
-            guard dailyRemaining > 0 else {
-                throw NowCampStoreError.careDailyCapReached
-            }
-            let focusGranted = min(LeaderTrainingResolver().careFocusGrant, storageRemaining, dailyRemaining)
+            let focusGranted = min(LeaderTrainingResolver().careFocusGrant, storageRemaining)
             let focusAfter = state.focusEnergy + focusGranted
             let careEarnedTodayAfter = careEarnedTodayBefore + focusGranted
             let now = ISO8601DateFormatter().string(from: Date())

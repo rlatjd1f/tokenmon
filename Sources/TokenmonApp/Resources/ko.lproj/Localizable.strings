@@ -809,8 +809,6 @@
 "now.camp.care.charging" = "다음 돌봄";
 "now.camp.care.full" = "집중 가득";
 "now.camp.care.full.detail" = "훈련 후 가능";
-"now.camp.care.daily_cap" = "오늘 끝";
-"now.camp.care.daily_cap.detail" = "내일 다시";
 "now.camp.care.blocked" = "대기";
 "now.camp.training_line" = "훈련 Lv.%1$@/5";
 "now.camp.practice.target_level" = "Lv.%1$lld → Lv.%2$lld";
@@ -837,6 +835,8 @@
 "now.camp.practice.help.insufficient" = "집중 에너지가 %1$lld 더 필요합니다. %2$@";
 "now.camp.practice.help.bond_gate" = "친밀도 %1$lld/%2$lld 때문에 다음 Lv. 훈련이 잠겨 있습니다. %3$@";
 "now.camp.practice.help.fallback" = "성공률과 보장 성공 조건은 훈련 규칙을 따릅니다.";
+"now.camp.practice.help.reward" = "훈련 성공 시 능력: %1$@.";
+"now.camp.practice.help.with_reward" = "%1$@ %2$@";
 "now.camp.status.ready" = "훈련 가능";
 "now.camp.status.gathering" = "훈련 준비 중";
 "now.camp.status.bond_gate" = "더 친해져야 함";
@@ -861,13 +861,12 @@
 "now.camp.feedback.train_failure" = "실패 보정 +1";
 "now.camp.feedback.care_not_ready" = "돌봄 충전 중";
 "now.camp.feedback.care_full" = "집중이 이미 가득 참";
-"now.camp.feedback.care_daily_cap" = "오늘 돌봄 완료";
 "now.camp.feedback.action_failed" = "%1$@";
 "now.camp.v2.title" = "Now";
 "now.camp.v2.subtitle" = "리드 훈련";
 "now.camp.v2.focus.title" = "공유 집중";
 "now.camp.v2.practice.title" = "훈련 성공률";
-"now.camp.v2.reward.title" = "리드 보너스";
+"now.camp.v2.reward.title" = "리드 능력";
 "now.camp.v2.train" = "훈련";
 "now.camp.v2.train_preparing" = "훈련 준비";
 "now.camp.v2.scout" = "도감 보기";
@@ -898,7 +897,7 @@
 "now.camp.v2.reward.current.none" = "효과 없음";
 "now.camp.v2.reward.success.none" = "추가 효과 없음";
 "now.camp.v2.reward.current_success.detail" = "지금 %1$@ · 훈련 성공 %2$@";
-"now.camp.v2.reward.compact.title" = "리드 보너스";
+"now.camp.v2.reward.compact.title" = "리드 능력";
 "now.camp.v2.reward.trail.compact_value" = "%1$@ 등장↑";
 "now.camp.v2.reward.scout.compact_value" = "%1$@ 희귀도↑";
 "now.camp.v2.reward.capture.compact_value" = "%1$@ 포획↑";

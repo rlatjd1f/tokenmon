@@ -484,8 +484,6 @@
 "now.camp.care.charging" = "next care";
 "now.camp.care.full" = "Focus full";
 "now.camp.care.full.detail" = "after Train";
-"now.camp.care.daily_cap" = "Done today";
-"now.camp.care.daily_cap.detail" = "tomorrow";
 "now.camp.care.blocked" = "blocked";
 "now.camp.training_line" = "Training Lv.%1$@/5";
 "now.camp.practice.target_level" = "Lv.%1$lld → Lv.%2$lld";
@@ -512,6 +510,8 @@
 "now.camp.practice.help.insufficient" = "Need %1$lld more Focus. %2$@";
 "now.camp.practice.help.bond_gate" = "Bond %1$lld/%2$lld is gating the next Lv. training. %3$@";
 "now.camp.practice.help.fallback" = "Success rate and guaranteed success follow the training rules.";
+"now.camp.practice.help.reward" = "On success: %1$@.";
+"now.camp.practice.help.with_reward" = "%1$@ %2$@";
 "now.camp.status.ready" = "ready to train";
 "now.camp.status.gathering" = "training prep";
 "now.camp.status.bond_gate" = "needs bond";
@@ -536,13 +536,12 @@
 "now.camp.feedback.train_failure" = "Failure buffer +1";
 "now.camp.feedback.care_not_ready" = "Care is still charging";
 "now.camp.feedback.care_full" = "Focus is already full";
-"now.camp.feedback.care_daily_cap" = "Daily Care is done";
 "now.camp.feedback.action_failed" = "%1$@";
 "now.camp.v2.title" = "Now";
 "now.camp.v2.subtitle" = "Lead training";
 "now.camp.v2.focus.title" = "Shared Focus";
 "now.camp.v2.practice.title" = "Train Odds";
-"now.camp.v2.reward.title" = "Lead Bonus";
+"now.camp.v2.reward.title" = "Lead Ability";
 "now.camp.v2.train" = "Train";
 "now.camp.v2.train_preparing" = "Training Prep";
 "now.camp.v2.scout" = "Open Dex";
@@ -573,7 +572,7 @@
 "now.camp.v2.reward.current.none" = "No effect";
 "now.camp.v2.reward.success.none" = "No new effect";
 "now.camp.v2.reward.current_success.detail" = "Active %1$@ · Train Success %2$@";
-"now.camp.v2.reward.compact.title" = "Lead Bonus";
+"now.camp.v2.reward.compact.title" = "Lead Ability";
 "now.camp.v2.reward.trail.compact_value" = "%1$@ appears more";
 "now.camp.v2.reward.scout.compact_value" = "%1$@ rarity↑";
 "now.camp.v2.reward.capture.compact_value" = "%1$@ capture↑";

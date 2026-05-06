@@ -526,6 +526,12 @@ struct TokenmonPresentationTests {
                 ? expectedNowCampV2EffectLineText(for: focusLimitedRewardPreview)
                 : TokenmonL10n.string("now.camp.v2.reward.success.none")
         ))
+        if focusLimitedRewardPreview.isActive {
+            #expect(focusLimited.attemptHelpText.contains(TokenmonL10n.format(
+                "now.camp.practice.help.reward",
+                expectedNowCampV2EffectLineText(for: focusLimitedRewardPreview)
+            )))
+        }
         #expect(focusLimited.v2.rewardPreview.isActive == focusLimitedCurrentReward.isActive)
 
         let rankLimited = NowCampHeroPresentation.make(

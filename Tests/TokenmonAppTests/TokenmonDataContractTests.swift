@@ -4664,8 +4664,8 @@ struct TokenmonDataContractTests {
     }
 
     @Test
-    func nowCampCareClaimRespectsStorageAndDailyFocusCaps() throws {
-        let manager = try makeManager(prefix: "now-camp-care-caps")
+    func nowCampCareClaimRespectsStorageCapWithoutDailyLimit() throws {
+        let manager = try makeManager(prefix: "now-camp-care-storage-cap")
         let database = try manager.open()
         let localDate = TokenmonDatabaseManager.currentLocalDate()
         _ = try manager.forgeEncounter(
@@ -4697,10 +4697,10 @@ struct TokenmonDataContractTests {
             bindings: [.text(localDate)]
         )
 
-        let cappedGrant = try manager.applyLeadCare()
-        #expect(cappedGrant.focusGranted == 2)
-        #expect(cappedGrant.focusEnergyAfter == 50)
-        #expect(cappedGrant.careFocusEarnedTodayAfter == NowCampCarePolicy.dailyFocusCap)
+        let storageCappedGrant = try manager.applyLeadCare()
+        #expect(storageCappedGrant.focusGranted == 2)
+        #expect(storageCappedGrant.focusEnergyAfter == 50)
+        #expect(storageCappedGrant.careFocusEarnedTodayAfter == 20)
 
         try database.execute(
             """
@@ -4726,9 +4726,10 @@ struct TokenmonDataContractTests {
             WHERE singleton_id = 1;
             """
         )
-        #expect(throws: NowCampStoreError.careDailyCapReached) {
-            try manager.applyLeadCare()
-        }
+        let uncappedGrant = try manager.applyLeadCare()
+        #expect(uncappedGrant.focusGranted == 5)
+        #expect(uncappedGrant.focusEnergyAfter == 45)
+        #expect(uncappedGrant.careFocusEarnedTodayAfter == 25)
     }
 
     @Test
