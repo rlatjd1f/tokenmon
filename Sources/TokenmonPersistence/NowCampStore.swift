@@ -121,7 +121,6 @@ public enum NowCampStoreError: Error, LocalizedError, Equatable {
     case missingTraining(String)
     case insufficientFocus(required: Int, available: Int)
     case careNotReady
-    case focusStorageFull
     case rankAtAffinityGate(speciesID: String, rank: TrainingRank, affinityLevel: Int64)
 
     public var errorDescription: String? {
@@ -136,8 +135,6 @@ public enum NowCampStoreError: Error, LocalizedError, Equatable {
             return "Focus \(required) required; \(available) available."
         case .careNotReady:
             return "Care is still charging."
-        case .focusStorageFull:
-            return "Focus storage is already full."
         case .rankAtAffinityGate(let speciesID, let rank, let affinityLevel):
             return "Species \(speciesID) Training Rank \(rank.romanNumeral) has reached Bond \(affinityLevel)."
         }
@@ -379,11 +376,7 @@ public extension TokenmonDatabaseManager {
 
             let localDate = Self.currentLocalDate()
             let careEarnedTodayBefore = state.careFocusEarnedLocalDate == localDate ? state.careFocusEarnedToday : 0
-            let storageRemaining = max(0, NowCampFocusAccumulator().storageCap - state.focusEnergy)
-            guard storageRemaining > 0 else {
-                throw NowCampStoreError.focusStorageFull
-            }
-            let focusGranted = min(LeaderTrainingResolver().careFocusGrant, storageRemaining)
+            let focusGranted = LeaderTrainingResolver().careFocusGrant
             let focusAfter = state.focusEnergy + focusGranted
             let careEarnedTodayAfter = careEarnedTodayBefore + focusGranted
             let now = ISO8601DateFormatter().string(from: Date())

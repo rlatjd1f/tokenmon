@@ -2827,6 +2827,55 @@ public final class TokenmonDatabaseManager {
                 "DROP TABLE now_camp_state;",
                 "ALTER TABLE now_camp_state_v18 RENAME TO now_camp_state;",
             ]),
+            SQLiteMigration(version: 19, statements: [
+                """
+                CREATE TABLE IF NOT EXISTS now_camp_state_v19 (
+                    singleton_id INTEGER PRIMARY KEY NOT NULL CHECK(singleton_id = 1),
+                    lead_species_id TEXT REFERENCES species(species_id),
+                    focus_energy INTEGER NOT NULL DEFAULT 0 CHECK(focus_energy >= 0),
+                    focus_remainder_tokens INTEGER NOT NULL DEFAULT 0 CHECK(focus_remainder_tokens >= 0),
+                    focus_earned_local_date TEXT NOT NULL,
+                    focus_earned_today INTEGER NOT NULL DEFAULT 0 CHECK(focus_earned_today >= 0),
+                    save_training_seed TEXT NOT NULL,
+                    care_ready INTEGER NOT NULL DEFAULT 0 CHECK(care_ready IN (0, 1)),
+                    care_elapsed_seconds INTEGER NOT NULL DEFAULT 0 CHECK(care_elapsed_seconds BETWEEN 0 AND 3600),
+                    care_focus_earned_local_date TEXT NOT NULL,
+                    care_focus_earned_today INTEGER NOT NULL DEFAULT 0 CHECK(care_focus_earned_today >= 0),
+                    updated_at TEXT NOT NULL
+                );
+                """,
+                """
+                INSERT INTO now_camp_state_v19 (
+                    singleton_id,
+                    lead_species_id,
+                    focus_energy,
+                    focus_remainder_tokens,
+                    focus_earned_local_date,
+                    focus_earned_today,
+                    save_training_seed,
+                    care_ready,
+                    care_elapsed_seconds,
+                    care_focus_earned_local_date,
+                    care_focus_earned_today,
+                    updated_at
+                )
+                SELECT singleton_id,
+                       lead_species_id,
+                       max(focus_energy, 0),
+                       0,
+                       focus_earned_local_date,
+                       focus_earned_today,
+                       save_training_seed,
+                       care_ready,
+                       care_elapsed_seconds,
+                       care_focus_earned_local_date,
+                       care_focus_earned_today,
+                       updated_at
+                FROM now_camp_state;
+                """,
+                "DROP TABLE now_camp_state;",
+                "ALTER TABLE now_camp_state_v19 RENAME TO now_camp_state;",
+            ]),
         ]
     }
 }

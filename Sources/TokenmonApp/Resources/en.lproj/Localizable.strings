@@ -482,8 +482,6 @@
 "now.camp.care.minutes_remaining" = "%1$lldm left";
 "now.camp.care.grant" = "+%1$lld Focus";
 "now.camp.care.charging" = "next care";
-"now.camp.care.full" = "Focus full";
-"now.camp.care.full.detail" = "after Train";
 "now.camp.care.blocked" = "blocked";
 "now.camp.training_line" = "Training Lv.%1$@/5";
 "now.camp.practice.target_level" = "Lv.%1$lld → Lv.%2$lld";
@@ -529,13 +527,12 @@
 "now.camp.action.insufficient_care_focus" = "Focus %1$lld/%2$lld.";
 "now.camp.action.rank_gate" = "Bond %1$lld/%2$lld required.";
 "now.camp.action.rank_max" = "Training is Lv.5/5.";
-"now.camp.feedback.care_applied" = "+%1$lld Focus · %2$lld/50";
+"now.camp.feedback.care_applied" = "+%1$lld Focus · %2$lld banked";
 "now.camp.feedback.level_badge" = "Lv.%1$lld";
 "now.camp.feedback.train_success" = "Lv.%1$lld training succeeded";
 "now.camp.feedback.train_guaranteed_success" = "Lv.%1$lld mastered";
 "now.camp.feedback.train_failure" = "Failure buffer +1";
 "now.camp.feedback.care_not_ready" = "Care is still charging";
-"now.camp.feedback.care_full" = "Focus is already full";
 "now.camp.feedback.action_failed" = "%1$@";
 "now.camp.v2.title" = "Now";
 "now.camp.v2.subtitle" = "Lead training";

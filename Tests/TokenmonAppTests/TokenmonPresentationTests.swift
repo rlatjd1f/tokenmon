@@ -227,9 +227,9 @@ struct TokenmonPresentationTests {
         #expect(presentation.lead?.speciesID == lead.id)
         #expect(presentation.supportSlots.count == 2)
         #expect(presentation.trainAction.isEnabled)
-        #expect(presentation.careAction.availability == .focusStorageFull)
+        #expect(presentation.careAction.availability == .careCharging(remainingSeconds: NowCampCarePolicy.intervalSeconds))
         #expect(presentation.careAction.acceptsTapForFeedback)
-        #expect(presentation.careStatusLine == TokenmonL10n.string("now.camp.care.full"))
+        #expect(presentation.careStatusLine == TokenmonL10n.format("now.camp.care.minutes_remaining", Int64(60)))
         #expect(presentation.trainingLevelText == TokenmonL10n.format("now.camp.training_level", Int64(2), Int64(5)))
         #expect(presentation.headerLeadDetail == presentation.trainingLevelText)
         #expect(presentation.trainTargetLine == TokenmonL10n.format("now.camp.train.target", "II", "III"))
@@ -254,7 +254,7 @@ struct TokenmonPresentationTests {
         #expect(presentation.campStatusLine == TokenmonL10n.string("now.camp.status.ready"))
         #expect(presentation.energySourceLine == TokenmonL10n.string("now.camp.energy.source.ready"))
         #expect(presentation.trainingLevelPipCount == 2)
-        #expect(presentation.v2.focusValueText == "50/50")
+        #expect(presentation.v2.focusValueText == "50")
         #expect(presentation.v2.practiceTitleText == TokenmonL10n.string("now.camp.v2.practice.title"))
         #expect(presentation.v2.practiceChanceText == expectedNowCampV2PracticeChance(
             rarity: lead.rarity,
@@ -376,7 +376,7 @@ struct TokenmonPresentationTests {
         )
 
         #expect(presentation.trainAction.availability == .rankAtAffinityGate(current: 2, required: 3))
-        #expect(presentation.careAction.availability == .focusStorageFull)
+        #expect(presentation.careAction.availability == .enabled)
         #expect(presentation.practiceControlDetailText == TokenmonL10n.format(
             "now.camp.practice.bond_gate.alternative",
             Int64(2),

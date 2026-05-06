@@ -136,13 +136,13 @@ struct TokenmonDataContractTests {
     }
 
     @Test
-    func nowCampFocusAccumulatorAppliesRemainderDailyAndStorageCaps() throws {
+    func nowCampFocusAccumulatorAddsOneFocusPerPositiveLiveSampleWithoutCaps() throws {
         let accumulator = NowCampFocusAccumulator()
         let state = NowCampFocusState(
-            focusEnergy: 49,
+            focusEnergy: 120,
             focusRemainderTokens: 24_000,
             focusEarnedLocalDate: "2026-04-30",
-            focusEarnedToday: 119
+            focusEarnedToday: 300
         )
 
         let result = try accumulator.accumulate(
@@ -151,25 +151,25 @@ struct TokenmonDataContractTests {
             localDate: "2026-04-30"
         )
 
-        #expect(result.rawFocusGain == 3)
-        #expect(result.tokenFocusGain == 3)
+        #expect(result.rawFocusGain == 1)
+        #expect(result.tokenFocusGain == 0)
         #expect(result.activityFocusGain == 1)
         #expect(result.focusEarned == 1)
-        #expect(result.discardedByDailyCap == 2)
+        #expect(result.discardedByDailyCap == 0)
         #expect(result.discardedByStorageCap == 0)
-        #expect(result.updatedState.focusEnergy == 50)
+        #expect(result.updatedState.focusEnergy == 121)
         #expect(result.updatedState.focusRemainderTokens == 0)
-        #expect(result.updatedState.focusEarnedToday == 120)
+        #expect(result.updatedState.focusEarnedToday == 301)
     }
 
     @Test
-    func nowCampFocusAccumulatorDiscardsUsageWhenOneTrainChargeIsFull() throws {
+    func nowCampFocusAccumulatorResetsDateAuditWithoutLimitingBank() throws {
         let accumulator = NowCampFocusAccumulator()
         let state = NowCampFocusState(
-            focusEnergy: 50,
+            focusEnergy: 49,
             focusRemainderTokens: 2_000,
-            focusEarnedLocalDate: "2026-05-05",
-            focusEarnedToday: 8
+            focusEarnedLocalDate: "2026-05-04",
+            focusEarnedToday: 119
         )
 
         let result = try accumulator.accumulate(
@@ -179,12 +179,12 @@ struct TokenmonDataContractTests {
         )
 
         #expect(result.rawFocusGain == 1)
-        #expect(result.focusEarned == 0)
+        #expect(result.focusEarned == 1)
         #expect(result.discardedByDailyCap == 0)
-        #expect(result.discardedByStorageCap == 1)
+        #expect(result.discardedByStorageCap == 0)
         #expect(result.updatedState.focusEnergy == 50)
         #expect(result.updatedState.focusRemainderTokens == 0)
-        #expect(result.updatedState.focusEarnedToday == 8)
+        #expect(result.updatedState.focusEarnedToday == 1)
     }
 
     @Test
@@ -208,7 +208,7 @@ struct TokenmonDataContractTests {
         #expect(smallUsage.rawFocusGain == 1)
         #expect(smallUsage.focusEarned == 1)
         #expect(smallUsage.updatedState.focusEnergy == 43)
-        #expect(smallUsage.updatedState.focusRemainderTokens == 3_500)
+        #expect(smallUsage.updatedState.focusRemainderTokens == 0)
         #expect(smallUsage.updatedState.focusEarnedToday == 9)
 
         let noUsage = try accumulator.accumulate(
@@ -222,12 +222,12 @@ struct TokenmonDataContractTests {
         #expect(noUsage.rawFocusGain == 0)
         #expect(noUsage.focusEarned == 0)
         #expect(noUsage.updatedState.focusEnergy == 42)
-        #expect(noUsage.updatedState.focusRemainderTokens == 2_000)
+        #expect(noUsage.updatedState.focusRemainderTokens == 0)
     }
 
     @Test
-    func nowCampFocusEarnedEventAuditsActivityFloorAndTokenGain() throws {
-        let manager = try makeManager(prefix: "now-camp-focus-activity-floor")
+    func nowCampFocusEarnedEventAuditsUsageCountGain() throws {
+        let manager = try makeManager(prefix: "now-camp-focus-usage-count")
         let database = try manager.open()
 
         let accumulation = try manager.addNowCampFocus(
@@ -269,7 +269,7 @@ struct TokenmonDataContractTests {
         #expect(payload?.1 == 1)
         #expect(payload?.2 == 0)
         #expect(payload?.3 == 1)
-        #expect(payload?.4 == 1_500)
+        #expect(payload?.4 == 0)
     }
 
     @Test
@@ -4201,7 +4201,7 @@ struct TokenmonDataContractTests {
     }
 
     @Test
-    func nowCampV18SchemaExistsAfterBootstrap() throws {
+    func nowCampV19SchemaExistsAfterBootstrap() throws {
         let manager = try makeManager(prefix: "now-camp-schema")
         let database = try manager.open()
 
@@ -4253,11 +4253,12 @@ struct TokenmonDataContractTests {
         ) { statement in
             SQLiteDatabase.columnText(statement, index: 0)
         })
-        #expect(nowCampCreateSQL.contains("focus_energy BETWEEN 0 AND 50"))
+        #expect(nowCampCreateSQL.contains("focus_energy >= 0"))
+        #expect(nowCampCreateSQL.contains("focus_energy BETWEEN 0 AND 50") == false)
     }
 
     @Test
-    func nowCampV18ClearsHiddenRemainderAtFullFocus() throws {
+    func nowCampV19ClearsHiddenRemainderAndKeepsFocusBankUncapped() throws {
         let manager = try makeManager(prefix: "now-camp-v18-remainder")
         let database = try manager.open()
         try database.execute(
@@ -4287,6 +4288,20 @@ struct TokenmonDataContractTests {
 
         #expect(migrated.focusEnergy == 50)
         #expect(migrated.focusRemainderTokens == 0)
+
+        try migratedDatabase.execute(
+            """
+            UPDATE now_camp_state
+            SET focus_energy = 72
+            WHERE singleton_id = 1;
+            """
+        )
+        let uncappedFocus = try migratedDatabase.fetchOne(
+            "SELECT focus_energy FROM now_camp_state WHERE singleton_id = 1;"
+        ) { statement in
+            SQLiteDatabase.columnInt64(statement, index: 0)
+        }
+        #expect(uncappedFocus == 72)
     }
 
     @Test
@@ -4418,7 +4433,7 @@ struct TokenmonDataContractTests {
             sourceKey: "now-camp-focus-live",
             sourceKind: "ndjson_file"
         )
-        #expect(try manager.nowCampSummary().focusEnergy == 2)
+        #expect(try manager.nowCampSummary().focusEnergy == 1)
 
         _ = try service.ingestProviderEvents(
             [
@@ -4433,7 +4448,7 @@ struct TokenmonDataContractTests {
             sourceKey: "now-camp-focus-recovery",
             sourceKind: "recovery_scan"
         )
-        #expect(try manager.nowCampSummary().focusEnergy == 2)
+        #expect(try manager.nowCampSummary().focusEnergy == 1)
     }
 
     @Test
@@ -4664,8 +4679,8 @@ struct TokenmonDataContractTests {
     }
 
     @Test
-    func nowCampCareClaimRespectsStorageCapWithoutDailyLimit() throws {
-        let manager = try makeManager(prefix: "now-camp-care-storage-cap")
+    func nowCampCareClaimBanksFocusWithoutStorageOrDailyLimit() throws {
+        let manager = try makeManager(prefix: "now-camp-care-uncapped")
         let database = try manager.open()
         let localDate = TokenmonDatabaseManager.currentLocalDate()
         _ = try manager.forgeEncounter(
@@ -4697,29 +4712,15 @@ struct TokenmonDataContractTests {
             bindings: [.text(localDate)]
         )
 
-        let storageCappedGrant = try manager.applyLeadCare()
-        #expect(storageCappedGrant.focusGranted == 2)
-        #expect(storageCappedGrant.focusEnergyAfter == 50)
-        #expect(storageCappedGrant.careFocusEarnedTodayAfter == 20)
+        let firstGrant = try manager.applyLeadCare()
+        #expect(firstGrant.focusGranted == 5)
+        #expect(firstGrant.focusEnergyAfter == 53)
+        #expect(firstGrant.careFocusEarnedTodayAfter == 23)
 
         try database.execute(
             """
             UPDATE now_camp_state
-            SET focus_energy = 50,
-                care_ready = 1,
-                care_elapsed_seconds = 3600,
-                care_focus_earned_today = 0
-            WHERE singleton_id = 1;
-            """
-        )
-        #expect(throws: NowCampStoreError.focusStorageFull) {
-            try manager.applyLeadCare()
-        }
-
-        try database.execute(
-            """
-            UPDATE now_camp_state
-            SET focus_energy = 40,
+            SET focus_energy = 120,
                 care_ready = 1,
                 care_elapsed_seconds = 3600,
                 care_focus_earned_today = 20
@@ -4728,7 +4729,7 @@ struct TokenmonDataContractTests {
         )
         let uncappedGrant = try manager.applyLeadCare()
         #expect(uncappedGrant.focusGranted == 5)
-        #expect(uncappedGrant.focusEnergyAfter == 45)
+        #expect(uncappedGrant.focusEnergyAfter == 125)
         #expect(uncappedGrant.careFocusEarnedTodayAfter == 25)
     }
 

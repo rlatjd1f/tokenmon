@@ -45,19 +45,7 @@ public enum NowCampFocusAccumulatorError: Error, LocalizedError {
 }
 
 public struct NowCampFocusAccumulator: Sendable {
-    public let tokensPerFocus: Int64
-    public let storageCap: Int
-    public let dailyEarnCap: Int
-
-    public init(
-        tokensPerFocus: Int64 = 25_000,
-        storageCap: Int = 50,
-        dailyEarnCap: Int = 120
-    ) {
-        self.tokensPerFocus = tokensPerFocus
-        self.storageCap = storageCap
-        self.dailyEarnCap = dailyEarnCap
-    }
+    public init() {}
 
     public func accumulate(
         state: NowCampFocusState,
@@ -68,38 +56,29 @@ public struct NowCampFocusAccumulator: Sendable {
             throw NowCampFocusAccumulatorError.negativeGameplayDelta(gameplayDeltaTokens)
         }
         guard state.focusEnergy >= 0,
-              state.focusEnergy <= storageCap,
               state.focusRemainderTokens >= 0,
-              state.focusRemainderTokens < tokensPerFocus,
               state.focusEarnedToday >= 0 else {
             throw NowCampFocusAccumulatorError.invalidState(state)
         }
 
         let earnedTodayBefore = state.focusEarnedLocalDate == localDate ? state.focusEarnedToday : 0
-        let remainderTotal = state.focusRemainderTokens + gameplayDeltaTokens
-        let tokenFocusGain = Int(remainderTotal / tokensPerFocus)
         let activityFocusGain = gameplayDeltaTokens > 0 ? 1 : 0
-        let rawFocusGain = max(tokenFocusGain, activityFocusGain)
-        let dailyAllowed = min(rawFocusGain, max(0, dailyEarnCap - earnedTodayBefore))
-        let storageAllowed = min(dailyAllowed, max(0, storageCap - state.focusEnergy))
-        let focusEnergyAfter = state.focusEnergy + storageAllowed
-        let remainderAfter = focusEnergyAfter >= storageCap ? 0 : remainderTotal % tokensPerFocus
-        let discardedByDailyCap = max(0, rawFocusGain - dailyAllowed)
-        let discardedByStorageCap = max(0, dailyAllowed - storageAllowed)
+        let rawFocusGain = activityFocusGain
+        let focusEnergyAfter = state.focusEnergy + activityFocusGain
 
         return NowCampFocusAccumulation(
             updatedState: NowCampFocusState(
                 focusEnergy: focusEnergyAfter,
-                focusRemainderTokens: remainderAfter,
+                focusRemainderTokens: 0,
                 focusEarnedLocalDate: localDate,
-                focusEarnedToday: earnedTodayBefore + storageAllowed
+                focusEarnedToday: earnedTodayBefore + activityFocusGain
             ),
-            focusEarned: storageAllowed,
+            focusEarned: activityFocusGain,
             rawFocusGain: rawFocusGain,
-            tokenFocusGain: tokenFocusGain,
+            tokenFocusGain: 0,
             activityFocusGain: activityFocusGain,
-            discardedByDailyCap: discardedByDailyCap,
-            discardedByStorageCap: discardedByStorageCap
+            discardedByDailyCap: 0,
+            discardedByStorageCap: 0
         )
     }
 }
