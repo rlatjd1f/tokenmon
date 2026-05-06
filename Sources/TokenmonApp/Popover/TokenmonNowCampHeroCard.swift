@@ -2185,17 +2185,21 @@ struct TokenmonNowCampHeroV2PresentationCard<HeaderAccessory: View>: View {
                         .font(.system(size: 16, weight: .black))
                 }
                 .frame(maxWidth: .infinity, minHeight: 46)
+                .contentShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
             }
             .buttonStyle(.plain)
             .foregroundStyle(presentation.trainAction.isEnabled ? Color.white.opacity(0.96) : Color.white.opacity(0.62))
-            .background(actionButtonBackground(for: presentation.trainAction))
+            .background(actionButtonBackground(for: presentation.trainAction).allowsHitTesting(false))
             .overlay(
                 RoundedRectangle(cornerRadius: 10, style: .continuous)
                     .stroke(actionButtonStroke(for: presentation.trainAction), lineWidth: 1)
+                    .allowsHitTesting(false)
             )
             .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+            .contentShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
             .shadow(color: actionButtonShadow(for: presentation.trainAction), radius: 7, y: 2)
             .help(presentation.attemptHelpText)
+            .accessibilityIdentifier("now-camp-train-action")
 
             Button {
                 guard presentation.careAction.acceptsTapForFeedback else {
@@ -2208,21 +2212,25 @@ struct TokenmonNowCampHeroV2PresentationCard<HeaderAccessory: View>: View {
                     detailText: careActionDetailText,
                     iconName: careActionIconName
                 )
+                .contentShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
             }
             .buttonStyle(.plain)
             .foregroundStyle(presentation.careAction.isEnabled ? Color.white.opacity(0.96) : Color.secondary.opacity(0.82))
             .background(
                 RoundedRectangle(cornerRadius: 10, style: .continuous)
                     .fill(presentation.careAction.isEnabled ? Color.pink.opacity(0.72) : Color.secondary.opacity(0.08))
+                    .allowsHitTesting(false)
             )
             .overlay(
                 RoundedRectangle(cornerRadius: 10, style: .continuous)
                     .stroke(presentation.careAction.isEnabled ? Color.white.opacity(0.42) : Color.secondary.opacity(0.14), lineWidth: 0.9)
+                    .allowsHitTesting(false)
             )
             .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
             .contentShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
             .help(careActionDetailText)
             .disabled(!presentation.careAction.acceptsTapForFeedback)
+            .accessibilityIdentifier("now-camp-care-action")
 
             Button(action: onScout) {
                 Label {
@@ -2234,17 +2242,22 @@ struct TokenmonNowCampHeroV2PresentationCard<HeaderAccessory: View>: View {
                         .font(.system(size: 15, weight: .black))
                 }
                 .frame(maxWidth: .infinity, minHeight: 46)
+                .contentShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
             }
             .buttonStyle(.plain)
             .foregroundStyle(Color.accentColor)
             .background(
                 RoundedRectangle(cornerRadius: 10, style: .continuous)
                     .fill(Color.accentColor.opacity(0.10))
+                    .allowsHitTesting(false)
             )
             .overlay(
                 RoundedRectangle(cornerRadius: 10, style: .continuous)
                     .stroke(Color.accentColor.opacity(0.30), lineWidth: 0.9)
+                    .allowsHitTesting(false)
             )
+            .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+            .contentShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
             .help(presentation.v2.scoutActionHelpText)
         }
     }
@@ -3002,34 +3015,41 @@ struct TokenmonNowCampHeroPresentationCard<HeaderAccessory: View>: View {
     }
 
     private var compactCareColumn: some View {
-        VStack(alignment: .leading, spacing: 2) {
-            HStack(spacing: 5) {
-                Image(systemName: careIcon(for: presentation.careAction))
-                    .font(.system(size: 10, weight: .black))
-                Text(NowCampHeroPresentation.careDisplayText(for: presentation.careAction))
-                    .font(.system(size: 10.2, weight: .heavy, design: .rounded))
+        Button {
+            triggerCompactCare()
+        } label: {
+            VStack(alignment: .leading, spacing: 2) {
+                HStack(spacing: 5) {
+                    Image(systemName: careIcon(for: presentation.careAction))
+                        .font(.system(size: 10, weight: .black))
+                    Text(NowCampHeroPresentation.careDisplayText(for: presentation.careAction))
+                        .font(.system(size: 10.2, weight: .heavy, design: .rounded))
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.62)
+                }
+                Text(NowCampHeroPresentation.careDetailText(for: presentation.careAction))
+                    .font(.system(size: 8.2, weight: .semibold, design: .rounded))
+                    .foregroundStyle(compactActionDetailForeground(for: presentation.careAction))
                     .lineLimit(1)
-                    .minimumScaleFactor(0.62)
+                    .minimumScaleFactor(0.58)
             }
-            Text(NowCampHeroPresentation.careDetailText(for: presentation.careAction))
-                .font(.system(size: 8.2, weight: .semibold, design: .rounded))
-                .foregroundStyle(compactActionDetailForeground(for: presentation.careAction))
-                .lineLimit(1)
-                .minimumScaleFactor(0.58)
+            .padding(.horizontal, 8)
+            .frame(maxWidth: .infinity, minHeight: 42, maxHeight: 42, alignment: .leading)
+            .contentShape(compactActionShape)
         }
-        .padding(.horizontal, 8)
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
+        .buttonStyle(.plain)
         .foregroundStyle(compactActionForeground(for: presentation.careAction))
-        .background(compactActionBackground(for: presentation.careAction))
+        .background(compactActionBackground(for: presentation.careAction).allowsHitTesting(false))
         .overlay(
-            RoundedRectangle(cornerRadius: 9, style: .continuous)
+            compactActionShape
                 .stroke(compactActionStroke(for: presentation.careAction), lineWidth: 0.9)
+                .allowsHitTesting(false)
         )
-        .clipShape(RoundedRectangle(cornerRadius: 9, style: .continuous))
-        .contentShape(RoundedRectangle(cornerRadius: 9, style: .continuous))
+        .clipShape(compactActionShape)
+        .contentShape(compactActionShape)
         .shadow(color: compactActionShadow(for: presentation.careAction), radius: 3, y: 1)
         .help(NowCampHeroPresentation.careDetailText(for: presentation.careAction))
-        .onTapGesture(perform: triggerCompactCare)
+        .disabled(!presentation.careAction.acceptsTapForFeedback)
         .accessibilityElement(children: .combine)
         .accessibilityLabel(NowCampHeroPresentation.careDisplayText(for: presentation.careAction))
         .accessibilityHint(NowCampHeroPresentation.careDetailText(for: presentation.careAction))
@@ -3076,18 +3096,26 @@ struct TokenmonNowCampHeroPresentationCard<HeaderAccessory: View>: View {
                 compactTrainTrailingGlyph(for: presentation.trainAction)
             }
             .padding(.horizontal, 9)
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
+            .frame(maxWidth: .infinity, minHeight: 42, maxHeight: 42, alignment: .leading)
+            .contentShape(compactActionShape)
         }
         .buttonStyle(.plain)
         .foregroundStyle(compactActionForeground(for: presentation.trainAction))
-        .background(compactActionBackground(for: presentation.trainAction))
+        .background(compactActionBackground(for: presentation.trainAction).allowsHitTesting(false))
         .overlay(
-            RoundedRectangle(cornerRadius: 9, style: .continuous)
+            compactActionShape
                 .stroke(compactActionStroke(for: presentation.trainAction), lineWidth: 0.9)
+                .allowsHitTesting(false)
         )
-        .clipShape(RoundedRectangle(cornerRadius: 9, style: .continuous))
+        .clipShape(compactActionShape)
+        .contentShape(compactActionShape)
         .shadow(color: compactActionShadow(for: presentation.trainAction), radius: 3, y: 1)
         .help(presentation.attemptHelpText)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(compactTrainPrimaryText)
+        .accessibilityHint(compactTrainDetailText)
+        .accessibilityIdentifier("now-camp-compact-train-action")
+        .accessibilityAddTraits(.isButton)
     }
 
     private func compactTrainIcon(for state: NowCampHeroActionState) -> some View {
@@ -3134,7 +3162,7 @@ struct TokenmonNowCampHeroPresentationCard<HeaderAccessory: View>: View {
 
     private func compactActionBackground(for state: NowCampHeroActionState) -> some View {
         GeometryReader { geometry in
-            let shape = RoundedRectangle(cornerRadius: 9, style: .continuous)
+            let shape = compactActionShape
             ZStack(alignment: .leading) {
                 shape
                     .fill(actionButtonFill(for: state))
@@ -3158,6 +3186,10 @@ struct TokenmonNowCampHeroPresentationCard<HeaderAccessory: View>: View {
                     .stroke(Color.white.opacity(state.isEnabled ? 0.18 : 0.04), lineWidth: 0.8)
             }
         }
+    }
+
+    private var compactActionShape: RoundedRectangle {
+        RoundedRectangle(cornerRadius: 9, style: .continuous)
     }
 
     private func compactActionProgressFill(for state: NowCampHeroActionState) -> LinearGradient {
