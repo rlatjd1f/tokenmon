@@ -5801,9 +5801,16 @@ struct TokenmonPresentationTests {
     func raidArtLoaderLoadsSeededRaidAssets() {
         #expect(TokenmonRaidArtLoader.image(artKey: "raid_backdrop_treasure_vault") != nil)
         #expect(TokenmonRaidArtLoader.image(artKey: "raid_backdrop_token_vault_chamber") != nil)
+        #expect(TokenmonRaidArtLoader.image(artKey: "raid_backdrop_grassland_vault") != nil)
+        #expect(TokenmonRaidArtLoader.image(artKey: "raid_backdrop_sky_beacon") != nil)
+        #expect(TokenmonRaidArtLoader.image(artKey: "raid_backdrop_coast_tideglass") != nil)
+        #expect(TokenmonRaidArtLoader.image(artKey: "raid_backdrop_ice_aurora_archive") != nil)
         #expect(TokenmonRaidArtLoader.image(artKey: "raid_target_training_trophy_cache") != nil)
         #expect(TokenmonRaidArtLoader.image(artKey: "raid_target_logo_vault") != nil)
         #expect(TokenmonRaidArtLoader.image(artKey: "raid_target_token_vault_sentinel") != nil)
+        for raid in RaidCatalog.allRaids {
+            #expect(TokenmonRaidArtLoader.image(artKey: raid.targetArtKey) != nil)
+        }
         #expect(TokenmonRaidArtLoader.image(artKey: "reward_first_spark_trophy") != nil)
         #expect(TokenmonRaidArtLoader.image(artKey: "reward_2026_04_april_relic") != nil)
         #expect(TokenmonRaidArtLoader.image(artKey: "reward_2026_05_may_relic") != nil)

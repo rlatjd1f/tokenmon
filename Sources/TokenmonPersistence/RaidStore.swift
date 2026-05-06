@@ -54,6 +54,8 @@ public struct RaidProgressSummary: Equatable, Sendable {
     public let totalAttacks: Int64
     public let totalDamage: Int64
     public let partyPower: Int
+    public let fieldMatchCount: Int
+    public let fieldSynergyMultiplier: Double
     public let activeBlessing: RaidBlessingSummary?
     public let rewards: [RaidRewardSummary]
     public let recentAttacks: [RaidAttackSummary]
@@ -92,6 +94,8 @@ struct RaidAttackTriggeredEventPayload: Codable, Equatable, Sendable {
     let usageSampleID: Int64
     let partySize: Int
     let unmodifiedTotalDamage: Int
+    let fieldMatchCount: Int
+    let fieldSynergyMultiplier: Double
     let totalDamage: Int
     let damageBlessingID: String?
     let damageBlessingMultiplier: Double?
@@ -103,6 +107,8 @@ struct RaidAttackTriggeredEventPayload: Codable, Equatable, Sendable {
         case usageSampleID = "usage_sample_id"
         case partySize = "party_size"
         case unmodifiedTotalDamage = "unmodified_total_damage"
+        case fieldMatchCount = "field_match_count"
+        case fieldSynergyMultiplier = "field_synergy_multiplier"
         case totalDamage = "total_damage"
         case damageBlessingID = "damage_blessing_id"
         case damageBlessingMultiplier = "damage_blessing_multiplier"
@@ -729,7 +735,7 @@ private extension TokenmonDatabaseManager {
             raid: raid,
             partyMembers: raidParty,
             damageBlessing: damageBlessing
-        ).totalDamage
+        )
         return RaidProgressSummary(
             raidID: raid.raidID,
             title: raid.title,
@@ -744,7 +750,9 @@ private extension TokenmonDatabaseManager {
             maxHP: raid.maxHP,
             totalAttacks: instance.totalAttacks,
             totalDamage: instance.totalDamage,
-            partyPower: partyPower,
+            partyPower: partyPower.totalDamage,
+            fieldMatchCount: partyPower.fieldMatchCount,
+            fieldSynergyMultiplier: partyPower.fieldSynergyMultiplier,
             activeBlessing: damageBlessing.map {
                 RaidBlessingSummary(
                     id: $0.id,
@@ -1236,6 +1244,8 @@ private extension TokenmonDatabaseManager {
                     usageSampleID: usageSampleID,
                     partySize: resolution.memberHits.count,
                     unmodifiedTotalDamage: resolution.unmodifiedTotalDamage,
+                    fieldMatchCount: resolution.fieldMatchCount,
+                    fieldSynergyMultiplier: resolution.fieldSynergyMultiplier,
                     totalDamage: resolution.totalDamage,
                     damageBlessingID: resolution.damageBlessing?.id,
                     damageBlessingMultiplier: resolution.damageBlessing?.damageMultiplier,

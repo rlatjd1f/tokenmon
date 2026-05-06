@@ -731,10 +731,14 @@
 "raid.blessing.first_spark.format" = "첫 불꽃의 축복: 데미지 x%lld, 공격당 최소 %lld";
 "raid.attacks.format" = "%lld회 공격";
 "raid.damage.format" = "%lld 데미지";
+"raid.field.type_format" = "%@ 보스";
 "raid.party.title" = "파티";
 "raid.party.power_format" = "전투력 %lld";
 "raid.party.empty" = "포획한 토큰몬을 Dex에서 파티에 추가하면 레이드 데미지를 줄 수 있어요.";
 "raid.party.affinity_bonus" = "%1$@ · 보너스 +%2$d";
+"raid.party.field_match_format" = "%lld마리 %@ 매칭 · 필드 데미지 +%lld%%";
+"raid.party.field_match_member_help" = "%@ 필드 매칭";
+"raid.party.field_off_member_help" = "%@ 필드";
 "raid.recent.title" = "최근 공격";
 "raid.recent.empty" = "라이브 사용이 감지되면 파티가 자동으로 출격합니다.";
 "raid.recent.row" = "%lld마리 · %lld 데미지";

@@ -29,6 +29,8 @@ public struct RaidAttackResolution: Equatable, Sendable {
     public let memberHits: [RaidMemberHitResult]
     public let rawPartyDamage: Int
     public let formationMultiplier: Double
+    public let fieldMatchCount: Int
+    public let fieldSynergyMultiplier: Double
     public let unmodifiedTotalDamage: Int
     public let damageBlessing: RaidDamageBlessing?
     public let totalDamage: Int
@@ -82,7 +84,11 @@ public enum RaidDamageCalculator {
         }
         let rawDamage = hits.reduce(0) { $0 + $1.hitPower }
         let multiplier = formationMultiplier(partySize: hits.count)
-        let unmodifiedTotalDamage = hits.isEmpty ? 0 : Int(floor(Double(rawDamage) * multiplier))
+        let fieldMatchCount = hits.filter { $0.member.field == raid.raidField }.count
+        let fieldSynergyMultiplier = Self.fieldSynergyMultiplier(fieldMatchCount: fieldMatchCount)
+        let unmodifiedTotalDamage = hits.isEmpty
+            ? 0
+            : Int(floor(Double(rawDamage) * multiplier * fieldSynergyMultiplier))
         let totalDamage: Int
         if let damageBlessing, unmodifiedTotalDamage > 0 {
             totalDamage = max(
@@ -98,6 +104,8 @@ public enum RaidDamageCalculator {
             memberHits: hits,
             rawPartyDamage: rawDamage,
             formationMultiplier: multiplier,
+            fieldMatchCount: fieldMatchCount,
+            fieldSynergyMultiplier: fieldSynergyMultiplier,
             unmodifiedTotalDamage: unmodifiedTotalDamage,
             damageBlessing: damageBlessing,
             totalDamage: totalDamage
@@ -153,6 +161,21 @@ public enum RaidDamageCalculator {
         case 6...9:
             return 1.10
         case 3...5:
+            return 1.05
+        default:
+            return 1.0
+        }
+    }
+
+    public static func fieldSynergyMultiplier(fieldMatchCount: Int) -> Double {
+        switch fieldMatchCount {
+        case 10...:
+            return 1.30
+        case 6...9:
+            return 1.20
+        case 3...5:
+            return 1.12
+        case 1...2:
             return 1.05
         default:
             return 1.0

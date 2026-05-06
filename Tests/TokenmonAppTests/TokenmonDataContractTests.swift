@@ -4995,6 +4995,41 @@ struct TokenmonDataContractTests {
     }
 
     @Test
+    func raidDamageCalculatorAddsPartyFieldSynergyForMatchingRaidField() throws {
+        let raid = RaidCatalog.allRaids.first { $0.raidID == "raid_2026_06_logo_vault" }!
+        let members = (1...3).map { slot in
+            RaidPartyMember(
+                speciesID: "CST_TEST_\(slot)",
+                assetKey: "cst_test",
+                displayName: "Coralcoder \(slot)",
+                field: .coast,
+                rarity: .rare,
+                slotOrder: slot,
+                capturedCount: 4,
+                affinityLevel: 2,
+                stats: SpeciesStatBlock(
+                    planning: 2,
+                    design: 7,
+                    frontend: 8,
+                    backend: 4,
+                    pm: 2,
+                    infra: 1,
+                    traits: ["Quick Prototyper", "Clean Coder"]
+                )
+            )
+        }
+
+        let resolution = RaidDamageCalculator.resolveAttack(raid: raid, partyMembers: members)
+
+        #expect(resolution.rawPartyDamage == 27)
+        #expect(resolution.formationMultiplier == 1.05)
+        #expect(resolution.fieldMatchCount == 3)
+        #expect(resolution.fieldSynergyMultiplier == 1.12)
+        #expect(resolution.unmodifiedTotalDamage == 31)
+        #expect(resolution.totalDamage == 31)
+    }
+
+    @Test
     func raidDamageRollsAreDeterministicPerUsageSample() throws {
         let raid = RaidCatalog.allRaids.first { $0.raidID == "raid_2026_06_logo_vault" }!
         let member = RaidPartyMember(
@@ -5157,8 +5192,14 @@ struct TokenmonDataContractTests {
         #expect(dashboard.archiveEntries.contains { $0.rewardID == "reward_2026_12_december_relic" })
         #expect(dashboard.archiveEntries.first { $0.rewardID == "reward_2026_04_april_relic" }?.status == .available)
         #expect(dashboard.archiveEntries.first { $0.rewardID == "reward_2026_04_april_relic" }?.sourceRaidTargetName == "Clovercore Sentinel")
-        #expect(dashboard.archiveEntries.first { $0.rewardID == "reward_2026_04_april_relic" }?.sourceRaidTargetArtKey == "raid_target_token_vault_sentinel")
+        #expect(dashboard.archiveEntries.first { $0.rewardID == "reward_2026_04_april_relic" }?.sourceRaidTargetArtKey == "raid_target_2026_04_clovercore_sentinel")
         #expect(dashboard.archiveEntries.first { $0.rewardID == "reward_2026_05_may_relic" }?.status == .unknown)
+
+        let monthlyTargetKeys = RaidCatalog.allRaids
+            .filter { $0.availabilityKind == .scheduled }
+            .map(\.targetArtKey)
+        #expect(Set(monthlyTargetKeys).count == monthlyTargetKeys.count)
+        #expect(monthlyTargetKeys.allSatisfy { $0.hasPrefix("raid_target_2026_") })
 
         let decemberHP = try database.fetchOne(
             "SELECT max_hp FROM raid_definitions WHERE raid_id = 'raid_2026_12_december_vault';"
@@ -5258,8 +5299,11 @@ struct TokenmonDataContractTests {
 
         #expect(totalDamage == 120)
         #expect(attackEventPayload?.contains("\"damage_blessing_id\":\"first_spark_blessing\"") == true)
+        #expect(attackEventPayload?.contains("\"field_match_count\":1") == true)
         #expect(dashboard.currentRaid?.activeBlessing?.id == "first_spark_blessing")
         #expect(dashboard.currentRaid?.partyPower == 120)
+        #expect(dashboard.currentRaid?.fieldMatchCount == 1)
+        #expect(dashboard.currentRaid?.fieldSynergyMultiplier == 1.05)
     }
 
     @Test

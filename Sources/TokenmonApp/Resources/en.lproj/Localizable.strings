@@ -406,10 +406,14 @@
 "raid.blessing.first_spark.format" = "First Spark Blessing: damage x%lld, minimum %lld per attack";
 "raid.attacks.format" = "%lld attacks";
 "raid.damage.format" = "%lld damage";
+"raid.field.type_format" = "%@ boss";
 "raid.party.title" = "Party";
 "raid.party.power_format" = "Power %lld";
 "raid.party.empty" = "Add captured Tokenmon from the Dex to deal raid damage.";
 "raid.party.affinity_bonus" = "%1$@ · bonus +%2$d";
+"raid.party.field_match_format" = "%lld %@ match · +%lld%% field damage";
+"raid.party.field_match_member_help" = "%@ field match";
+"raid.party.field_off_member_help" = "%@ field";
 "raid.recent.title" = "Recent attacks";
 "raid.recent.empty" = "Live usage will send the party forward.";
 "raid.recent.row" = "%lld members · %lld damage";
