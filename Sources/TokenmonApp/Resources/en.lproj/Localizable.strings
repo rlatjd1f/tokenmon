@@ -579,10 +579,10 @@
 "now.camp.v2.reward.scout.compact_detail" = "rarity shift %1$@";
 "now.camp.v2.reward.capture.compact_detail" = "chance %1$@";
 "now.camp.v2.reward.raider.compact_detail" = "power %1$@";
-"now.camp.v2.reward.trail.effect_line" = "%1$@ appear %2$@";
-"now.camp.v2.reward.scout.effect_line" = "%1$@ rarity %2$@";
-"now.camp.v2.reward.capture.effect_line" = "%1$@ capture %2$@";
-"now.camp.v2.reward.raider.effect_line" = "%1$@ raid %2$@";
+"now.camp.v2.reward.trail.effect_line" = "More %1$@ · field %2$@";
+"now.camp.v2.reward.scout.effect_line" = "%1$@ rarity↑ · shift %2$@";
+"now.camp.v2.reward.capture.effect_line" = "%1$@ capture↑ · chance %2$@";
+"now.camp.v2.reward.raider.effect_line" = "%1$@ raid↑ · power %2$@";
 "now.camp.v2.reward.current_to_next" = "%1$@ → %2$@";
 "now.camp.v2.reward.unlock_on_success" = "On success: %1$@";
 "now.camp.v2.reward.unlock_first_success" = "Unlocks on next success";
