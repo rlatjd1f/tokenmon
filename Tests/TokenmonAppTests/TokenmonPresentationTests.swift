@@ -1371,6 +1371,7 @@ struct TokenmonPresentationTests {
         #expect(TokenmonL10n.localizedValue(forKey: "settings.pane.general.title", localeIdentifier: "ko-KR") == "일반")
         #expect(TokenmonL10n.localizedValue(forKey: "window.title.dex", localeIdentifier: "ko") == "Dex")
         #expect(TokenmonL10n.localizedValue(forKey: "outcome.captured", localeIdentifier: "ko") == "포획")
+        #expect(TokenmonL10n.localizedValue(forKey: "now.camp.title", localeIdentifier: "ko") == "Now")
         #expect(TokenmonL10n.format("progress.steps.remaining", 42) == "42 steps left")
     }
 

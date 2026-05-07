@@ -452,7 +452,7 @@
 "raid.reward.status.missed" = "Missed";
 "now.camp.focus.help" = "Training charge %1$lld/%2$lld. Keep Tokenmon running while using Claude/Codex to fill it; stored charge is %3$lld/%4$lld.";
 "now.camp.focus.short" = "Training Charge";
-"now.camp.title" = "Now Camp";
+"now.camp.title" = "Now";
 "now.camp.lead_badge" = "LEAD";
 "now.camp.header.rank" = "Training Lv.%1$@/5";
 "now.camp.header.no_rank" = "Choose Lead";

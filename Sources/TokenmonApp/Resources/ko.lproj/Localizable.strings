@@ -777,7 +777,7 @@
 "raid.reward.status.missed" = "놓침";
 "now.camp.focus.help" = "훈련 충전 %1$lld/%2$lld. Tokenmon을 켠 상태로 Claude/Codex를 사용하면 충전됩니다. 저장된 충전은 %3$lld/%4$lld입니다.";
 "now.camp.focus.short" = "훈련 충전";
-"now.camp.title" = "Now Camp";
+"now.camp.title" = "Now";
 "now.camp.lead_badge" = "LEAD";
 "now.camp.header.rank" = "훈련 Lv.%1$@/5";
 "now.camp.header.no_rank" = "리드 선택";
