@@ -387,29 +387,25 @@ struct TokenmonPresentationTests {
         let selectedStatus = presentation.leadMenuStatus(for: selectedLead.id)
         #expect(selectedStatus?.statusText == TokenmonL10n.format(
             "now.camp.lead_picker.status.bond",
-            "II",
-            "III",
-            Int64(2),
-            Int64(3)
+            "II"
         ))
         #expect(selectedStatus?.titleText == "\(selectedLead.name) · \(selectedStatus?.statusText ?? "")")
-        #expect(selectedStatus?.systemImage == "lock.circle.fill")
+        #expect(selectedStatus?.systemImage == "lock.fill")
         #expect(selectedStatus?.isSelected == true)
         #expect(selectedStatus?.isTrainable == false)
 
         let trainableStatus = presentation.leadMenuStatus(for: trainableLead.id)
         #expect(trainableStatus?.statusText == TokenmonL10n.format(
             "now.camp.lead_picker.status.ready",
-            "I",
-            "II"
+            "I"
         ))
         #expect(trainableStatus?.titleText == "\(trainableLead.name) · \(trainableStatus?.statusText ?? "")")
-        #expect(trainableStatus?.systemImage == "checkmark.circle.fill")
+        #expect(trainableStatus?.systemImage == "lock.open.fill")
         #expect(trainableStatus?.isTrainable == true)
 
         let maxStatus = presentation.leadMenuStatus(for: maxLead.id)
-        #expect(maxStatus?.statusText == TokenmonL10n.string("now.camp.lead_picker.status.max"))
-        #expect(maxStatus?.systemImage == "checkmark.seal.fill")
+        #expect(maxStatus?.statusText == TokenmonL10n.format("now.camp.lead_picker.status.max", "V"))
+        #expect(maxStatus?.systemImage == "lock.fill")
         #expect(maxStatus?.isTrainable == false)
 
         let focusLimited = NowCampHeroPresentation.make(
@@ -428,11 +424,9 @@ struct TokenmonPresentationTests {
 
         #expect(focusLimited.leadMenuStatus(for: selectedLead.id)?.statusText == TokenmonL10n.format(
             "now.camp.lead_picker.status.focus_needed",
-            "I",
-            "II",
-            Int64(38)
+            "I"
         ))
-        #expect(focusLimited.leadMenuStatus(for: selectedLead.id)?.systemImage == "gauge")
+        #expect(focusLimited.leadMenuStatus(for: selectedLead.id)?.systemImage == "lock.fill")
     }
 
     @Test

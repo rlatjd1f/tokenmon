@@ -464,58 +464,30 @@ struct NowCampHeroPresentation: Equatable {
             )
             let isSelected = member.speciesID == selectedLeadSpeciesID
             let currentRankText = lead.trainingRank.romanNumeral
-            let nextRankText = lead.trainingRank.next?.romanNumeral
             let statusText: String
             let systemImage: String
             let isTrainable: Bool
 
             switch action.availability {
             case .enabled:
-                if let nextRankText {
-                    statusText = TokenmonL10n.format(
-                        "now.camp.lead_picker.status.ready",
-                        currentRankText,
-                        nextRankText
-                    )
-                } else {
-                    statusText = TokenmonL10n.string("now.camp.lead_picker.status.max")
-                }
-                systemImage = "checkmark.circle.fill"
+                statusText = TokenmonL10n.format("now.camp.lead_picker.status.ready", currentRankText)
+                systemImage = "lock.open.fill"
                 isTrainable = true
-            case .insufficientFocus(let current, let required):
-                if let nextRankText {
-                    statusText = TokenmonL10n.format(
-                        "now.camp.lead_picker.status.focus_needed",
-                        currentRankText,
-                        nextRankText,
-                        Int64(max(0, required - current))
-                    )
-                } else {
-                    statusText = TokenmonL10n.string("now.camp.lead_picker.status.max")
-                }
-                systemImage = "gauge"
+            case .insufficientFocus(_, _):
+                statusText = TokenmonL10n.format("now.camp.lead_picker.status.focus_needed", currentRankText)
+                systemImage = "lock.fill"
                 isTrainable = false
-            case .rankAtAffinityGate(let current, let required):
-                if let nextRankText {
-                    statusText = TokenmonL10n.format(
-                        "now.camp.lead_picker.status.bond",
-                        currentRankText,
-                        nextRankText,
-                        Int64(current),
-                        Int64(required)
-                    )
-                } else {
-                    statusText = TokenmonL10n.string("now.camp.lead_picker.status.max")
-                }
-                systemImage = "lock.circle.fill"
+            case .rankAtAffinityGate(_, _):
+                statusText = TokenmonL10n.format("now.camp.lead_picker.status.bond", currentRankText)
+                systemImage = "lock.fill"
                 isTrainable = false
             case .rankMaximum:
-                statusText = TokenmonL10n.string("now.camp.lead_picker.status.max")
-                systemImage = "checkmark.seal.fill"
+                statusText = TokenmonL10n.format("now.camp.lead_picker.status.max", currentRankText)
+                systemImage = "lock.fill"
                 isTrainable = false
             case .missingLead, .careCharging, .focusFull:
                 statusText = TokenmonL10n.string("now.camp.lead_picker.status.unavailable")
-                systemImage = "person.crop.circle"
+                systemImage = "lock.fill"
                 isTrainable = false
             }
 
@@ -1508,12 +1480,8 @@ struct NowCampLeadPickerRow: View {
             return .green
         }
         switch status.systemImage {
-        case "gauge":
-            return .cyan
-        case "lock.circle.fill":
+        case "lock.fill":
             return .orange
-        case "checkmark.seal.fill":
-            return .secondary
         default:
             return .secondary
         }
