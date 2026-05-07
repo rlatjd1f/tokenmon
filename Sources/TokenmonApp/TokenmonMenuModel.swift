@@ -770,6 +770,8 @@ final class TokenmonMenuModel: ObservableObject {
             return TokenmonL10n.string("now.camp.action.missing_lead")
         case .careNotReady:
             return TokenmonL10n.string("now.camp.feedback.care_not_ready")
+        case .focusFull:
+            return TokenmonL10n.string("now.camp.feedback.care_focus_full")
         case .insufficientFocus(let required, let available):
             return TokenmonL10n.format(
                 "now.camp.action.insufficient_care_focus",
@@ -830,6 +832,8 @@ final class TokenmonMenuModel: ObservableObject {
             )
         case .careNotReady:
             return TokenmonL10n.string("now.camp.feedback.care_not_ready")
+        case .focusFull:
+            return TokenmonL10n.string("now.camp.feedback.care_focus_full")
         case .leadNotInParty, .missingTraining:
             return storeError.localizedDescription
         }

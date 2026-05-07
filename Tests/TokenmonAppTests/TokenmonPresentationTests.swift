@@ -377,7 +377,7 @@ struct TokenmonPresentationTests {
         )
 
         #expect(presentation.trainAction.availability == .rankAtAffinityGate(current: 2, required: 3))
-        #expect(presentation.careAction.availability == .enabled)
+        #expect(presentation.careAction.availability == .focusFull(capacity: 50))
         #expect(presentation.practiceControlDetailText == TokenmonL10n.format(
             "now.camp.practice.bond_gate.alternative",
             Int64(2),
@@ -602,7 +602,7 @@ struct TokenmonPresentationTests {
         )
         #expect(careReady.careAction.availability == .enabled)
         #expect(careReady.careAction.acceptsTapForFeedback)
-        #expect(careReady.careStatusLine == TokenmonL10n.string("now.camp.care.ready.short"))
+        #expect(careReady.careStatusLine == TokenmonL10n.format("now.camp.care.ready.amount", Int64(5)))
         #expect(careReady.practiceControlTitleText == TokenmonL10n.string("now.camp.practice.status.preparing"))
         #expect(careReady.campStatusLine == TokenmonL10n.string("now.camp.status.care_ready"))
         #expect(careReady.attemptHelpText.contains("+5%") == false)
@@ -610,6 +610,24 @@ struct TokenmonPresentationTests {
             rarity: lead.rarity,
             trainingRank: .rankI
         ))
+
+        let careReadyAtFullFocus = NowCampHeroPresentation.make(
+            nowCamp: makeNowCampSummary(
+                lead: lead,
+                supports: [],
+                focusEnergy: 50,
+                affinityLevel: 3,
+                trainingRank: .rankI,
+                careReady: true,
+                careElapsedSeconds: NowCampCarePolicy.intervalSeconds
+            ),
+            partyMembers: [],
+            sceneContext: makeNowCampSceneContext(field: .ice)
+        )
+        #expect(careReadyAtFullFocus.careAction.availability == .focusFull(capacity: 50))
+        #expect(careReadyAtFullFocus.careAction.isEnabled == false)
+        #expect(careReadyAtFullFocus.careAction.acceptsTapForFeedback)
+        #expect(careReadyAtFullFocus.careStatusLine == TokenmonL10n.string("now.camp.care.focus_full.short"))
 
         let maxRank = NowCampHeroPresentation.make(
             nowCamp: makeNowCampSummary(
@@ -831,6 +849,23 @@ struct TokenmonPresentationTests {
             return
         }
         #expect(chargingCareMessage == TokenmonL10n.string("now.camp.feedback.care_not_ready"))
+
+        try database.execute(
+            """
+            UPDATE now_camp_state
+            SET focus_energy = 50,
+                care_ready = 1,
+                care_elapsed_seconds = 3600,
+                updated_at = '2026-04-24T00:01:20Z'
+            WHERE singleton_id = 1;
+            """
+        )
+        let fullFocusCareResult = model.applyNowCampCareToLead()
+        guard case .failed(let fullFocusCareMessage) = fullFocusCareResult else {
+            Issue.record("expected care full-focus failure")
+            return
+        }
+        #expect(fullFocusCareMessage == TokenmonL10n.string("now.camp.feedback.care_focus_full"))
 
         try database.execute(
             """

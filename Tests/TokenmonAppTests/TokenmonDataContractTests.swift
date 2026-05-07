@@ -136,7 +136,7 @@ struct TokenmonDataContractTests {
     }
 
     @Test
-    func nowCampFocusAccumulatorAddsOneFocusPerPositiveLiveSampleWithoutCaps() throws {
+    func nowCampFocusAccumulatorCapsAtOneTrainingCharge() throws {
         let accumulator = NowCampFocusAccumulator()
         let state = NowCampFocusState(
             focusEnergy: 120,
@@ -154,16 +154,16 @@ struct TokenmonDataContractTests {
         #expect(result.rawFocusGain == 1)
         #expect(result.tokenFocusGain == 0)
         #expect(result.activityFocusGain == 1)
-        #expect(result.focusEarned == 1)
+        #expect(result.focusEarned == 0)
         #expect(result.discardedByDailyCap == 0)
-        #expect(result.discardedByStorageCap == 0)
-        #expect(result.updatedState.focusEnergy == 121)
+        #expect(result.discardedByStorageCap == 1)
+        #expect(result.updatedState.focusEnergy == 50)
         #expect(result.updatedState.focusRemainderTokens == 0)
-        #expect(result.updatedState.focusEarnedToday == 301)
+        #expect(result.updatedState.focusEarnedToday == 300)
     }
 
     @Test
-    func nowCampFocusAccumulatorResetsDateAuditWithoutLimitingBank() throws {
+    func nowCampFocusAccumulatorResetsDateAuditWithoutDailyCap() throws {
         let accumulator = NowCampFocusAccumulator()
         let state = NowCampFocusState(
             focusEnergy: 49,
@@ -4235,7 +4235,7 @@ struct TokenmonDataContractTests {
     }
 
     @Test
-    func nowCampV19SchemaExistsAfterBootstrap() throws {
+    func nowCampV20SchemaExistsAfterBootstrap() throws {
         let manager = try makeManager(prefix: "now-camp-schema")
         let database = try manager.open()
 
@@ -4287,12 +4287,11 @@ struct TokenmonDataContractTests {
         ) { statement in
             SQLiteDatabase.columnText(statement, index: 0)
         })
-        #expect(nowCampCreateSQL.contains("focus_energy >= 0"))
-        #expect(nowCampCreateSQL.contains("focus_energy BETWEEN 0 AND 50") == false)
+        #expect(nowCampCreateSQL.contains("focus_energy BETWEEN 0 AND 50"))
     }
 
     @Test
-    func nowCampV19ClearsHiddenRemainderAndKeepsFocusBankUncapped() throws {
+    func nowCampV20ClearsHiddenRemainderAndCapsFocusCharge() throws {
         let manager = try makeManager(prefix: "now-camp-v18-remainder")
         let database = try manager.open()
         try database.execute(
@@ -4323,19 +4322,15 @@ struct TokenmonDataContractTests {
         #expect(migrated.focusEnergy == 50)
         #expect(migrated.focusRemainderTokens == 0)
 
-        try migratedDatabase.execute(
-            """
-            UPDATE now_camp_state
-            SET focus_energy = 72
-            WHERE singleton_id = 1;
-            """
-        )
-        let uncappedFocus = try migratedDatabase.fetchOne(
-            "SELECT focus_energy FROM now_camp_state WHERE singleton_id = 1;"
-        ) { statement in
-            SQLiteDatabase.columnInt64(statement, index: 0)
+        #expect(throws: (any Error).self) {
+            try migratedDatabase.execute(
+                """
+                UPDATE now_camp_state
+                SET focus_energy = 72
+                WHERE singleton_id = 1;
+                """
+            )
         }
-        #expect(uncappedFocus == 72)
     }
 
     @Test
@@ -4713,8 +4708,8 @@ struct TokenmonDataContractTests {
     }
 
     @Test
-    func nowCampCareClaimBanksFocusWithoutStorageOrDailyLimit() throws {
-        let manager = try makeManager(prefix: "now-camp-care-uncapped")
+    func nowCampCareClaimFillsOneTrainingChargeWithoutBankingExtraFocus() throws {
+        let manager = try makeManager(prefix: "now-camp-care-capped")
         let database = try manager.open()
         let localDate = TokenmonDatabaseManager.currentLocalDate()
         _ = try manager.forgeEncounter(
@@ -4747,24 +4742,28 @@ struct TokenmonDataContractTests {
         )
 
         let firstGrant = try manager.applyLeadCare()
-        #expect(firstGrant.focusGranted == 5)
-        #expect(firstGrant.focusEnergyAfter == 53)
-        #expect(firstGrant.careFocusEarnedTodayAfter == 23)
+        #expect(firstGrant.focusGranted == 2)
+        #expect(firstGrant.focusEnergyAfter == 50)
+        #expect(firstGrant.careFocusEarnedTodayAfter == 20)
 
         try database.execute(
             """
             UPDATE now_camp_state
-            SET focus_energy = 120,
+            SET focus_energy = 50,
                 care_ready = 1,
                 care_elapsed_seconds = 3600,
                 care_focus_earned_today = 20
             WHERE singleton_id = 1;
             """
         )
-        let uncappedGrant = try manager.applyLeadCare()
-        #expect(uncappedGrant.focusGranted == 5)
-        #expect(uncappedGrant.focusEnergyAfter == 125)
-        #expect(uncappedGrant.careFocusEarnedTodayAfter == 25)
+        #expect(throws: NowCampStoreError.focusFull(capacity: 50)) {
+            _ = try manager.applyLeadCare()
+        }
+        let fullChargeSummary = try manager.nowCampSummary()
+        #expect(fullChargeSummary.focusEnergy == 50)
+        #expect(fullChargeSummary.careReady)
+        #expect(fullChargeSummary.careElapsedSeconds == 3600)
+        #expect(fullChargeSummary.careFocusEarnedToday == 20)
     }
 
     @Test

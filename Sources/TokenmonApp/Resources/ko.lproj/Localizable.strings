@@ -812,8 +812,12 @@
 "now.camp.care.detail" = "돌봄 +5";
 "now.camp.care.help" = "앱이 60분 동안 켜져 있으면 돌봄이 준비됩니다. 클릭하면 훈련 성공률은 바꾸지 않고 집중을 최대 5 얻습니다.";
 "now.camp.care.ready.short" = "돌봄 +5";
+"now.camp.care.ready.amount" = "돌봄 +%1$lld";
+"now.camp.care.focus_full.short" = "집중 가득";
 "now.camp.care.menu.prepare" = "돌봄 충전 중";
 "now.camp.care.menu.claim" = "돌봄 +5 받기";
+"now.camp.care.menu.claim_amount" = "돌봄 +%1$lld 받기";
+"now.camp.care.menu.focus_full" = "돌봄 · 집중 가득";
 "now.camp.care.menu.ready" = "돌봄 +5";
 "now.camp.care.menu.insufficient_focus" = "돌봄 · 집중 %1$lld/%2$lld";
 "now.camp.care.menu.rank_gate" = "돌봄 · Bond %1$lld/%2$lld";
@@ -866,6 +870,7 @@
 "now.camp.action.rank_gate" = "Bond %1$lld/%2$lld 필요.";
 "now.camp.action.rank_max" = "훈련 Lv.5/5입니다.";
 "now.camp.feedback.care_applied" = "집중 +%1$lld · 보유 %2$lld";
+"now.camp.feedback.care_focus_full" = "집중이 가득 찼습니다. 먼저 훈련하고 돌봄을 받으세요.";
 "now.camp.feedback.level_badge" = "Lv.%1$lld";
 "now.camp.feedback.train_success" = "Lv.%1$lld 훈련 성공";
 "now.camp.feedback.train_guaranteed_success" = "Lv.%1$lld 확실히 익힘";

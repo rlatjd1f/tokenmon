@@ -45,6 +45,8 @@ public enum NowCampFocusAccumulatorError: Error, LocalizedError {
 }
 
 public struct NowCampFocusAccumulator: Sendable {
+    public static let focusEnergyCapacity = 50
+
     public init() {}
 
     public func accumulate(
@@ -62,23 +64,26 @@ public struct NowCampFocusAccumulator: Sendable {
         }
 
         let earnedTodayBefore = state.focusEarnedLocalDate == localDate ? state.focusEarnedToday : 0
+        let focusEnergyBefore = min(state.focusEnergy, Self.focusEnergyCapacity)
         let activityFocusGain = gameplayDeltaTokens > 0 ? 1 : 0
         let rawFocusGain = activityFocusGain
-        let focusEnergyAfter = state.focusEnergy + activityFocusGain
+        let focusCapacityRemaining = max(0, Self.focusEnergyCapacity - focusEnergyBefore)
+        let focusEarned = min(rawFocusGain, focusCapacityRemaining)
+        let focusEnergyAfter = focusEnergyBefore + focusEarned
 
         return NowCampFocusAccumulation(
             updatedState: NowCampFocusState(
                 focusEnergy: focusEnergyAfter,
                 focusRemainderTokens: 0,
                 focusEarnedLocalDate: localDate,
-                focusEarnedToday: earnedTodayBefore + activityFocusGain
+                focusEarnedToday: earnedTodayBefore + focusEarned
             ),
-            focusEarned: activityFocusGain,
+            focusEarned: focusEarned,
             rawFocusGain: rawFocusGain,
             tokenFocusGain: 0,
             activityFocusGain: activityFocusGain,
             discardedByDailyCap: 0,
-            discardedByStorageCap: 0
+            discardedByStorageCap: rawFocusGain - focusEarned
         )
     }
 }

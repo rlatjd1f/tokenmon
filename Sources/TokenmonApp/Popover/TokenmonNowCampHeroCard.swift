@@ -92,6 +92,7 @@ enum NowCampHeroActionAvailability: Equatable {
     case rankAtAffinityGate(current: Int, required: Int)
     case rankMaximum
     case careCharging(remainingSeconds: Int)
+    case focusFull(capacity: Int)
 }
 
 struct NowCampHeroActionState: Equatable {
@@ -153,19 +154,32 @@ struct NowCampHeroActionState: Equatable {
         careElapsedSeconds: Int,
         lead: NowCampHeroMemberPresentation?
     ) -> NowCampHeroActionState {
+        let trainingFocusCost = LeaderTrainingResolver().trainFocusCost
+        let effectiveFocusGrant = min(
+            focusGrant,
+            max(0, trainingFocusCost - min(focusEnergy, trainingFocusCost))
+        )
         guard lead != nil else {
-            return NowCampHeroActionState(kind: .care, cost: focusGrant, focusEnergy: focusEnergy, availability: .missingLead)
+            return NowCampHeroActionState(kind: .care, cost: effectiveFocusGrant, focusEnergy: focusEnergy, availability: .missingLead)
         }
         guard careReady else {
             let remaining = max(0, NowCampCarePolicy.intervalSeconds - careElapsedSeconds)
             return NowCampHeroActionState(
                 kind: .care,
-                cost: focusGrant,
+                cost: effectiveFocusGrant,
                 focusEnergy: focusEnergy,
                 availability: .careCharging(remainingSeconds: remaining)
             )
         }
-        return NowCampHeroActionState(kind: .care, cost: focusGrant, focusEnergy: focusEnergy, availability: .enabled)
+        guard effectiveFocusGrant > 0 else {
+            return NowCampHeroActionState(
+                kind: .care,
+                cost: effectiveFocusGrant,
+                focusEnergy: focusEnergy,
+                availability: .focusFull(capacity: trainingFocusCost)
+            )
+        }
+        return NowCampHeroActionState(kind: .care, cost: effectiveFocusGrant, focusEnergy: focusEnergy, availability: .enabled)
     }
 }
 
@@ -477,7 +491,7 @@ struct NowCampHeroPresentation: Equatable {
                 statusText = TokenmonL10n.string("now.camp.lead_picker.status.max")
                 systemImage = isSelected ? "crown.fill" : "checkmark.seal.fill"
                 isTrainable = false
-            case .missingLead, .careCharging:
+            case .missingLead, .careCharging, .focusFull:
                 statusText = TokenmonL10n.string("now.camp.lead_picker.status.unavailable")
                 systemImage = isSelected ? "crown.fill" : "person.crop.circle"
                 isTrainable = false
@@ -638,7 +652,7 @@ struct NowCampHeroPresentation: Equatable {
             return TokenmonL10n.string("now.camp.action.rank_max")
         case .missingLead:
             return TokenmonL10n.string("now.camp.action.no_lead.short")
-        case .careCharging:
+        case .careCharging, .focusFull:
             return TokenmonL10n.string("now.camp.practice.status.preparing")
         }
     }
@@ -655,7 +669,7 @@ struct NowCampHeroPresentation: Equatable {
             return TokenmonL10n.string("now.camp.practice.status.max_rank")
         case .missingLead:
             return TokenmonL10n.string("now.camp.practice.status.no_lead")
-        case .careCharging:
+        case .careCharging, .focusFull:
             return TokenmonL10n.string("now.camp.practice.status.preparing")
         }
     }
@@ -664,7 +678,7 @@ struct NowCampHeroPresentation: Equatable {
         switch trainAction.availability {
         case .enabled:
             return TokenmonL10n.string("now.camp.practice.action")
-        case .insufficientFocus, .rankAtAffinityGate, .rankMaximum, .missingLead, .careCharging:
+        case .insufficientFocus, .rankAtAffinityGate, .rankMaximum, .missingLead, .careCharging, .focusFull:
             return practiceStatusText(for: trainAction)
         }
     }
@@ -689,7 +703,7 @@ struct NowCampHeroPresentation: Equatable {
             return TokenmonL10n.string("now.camp.action.rank_max")
         case .missingLead:
             return TokenmonL10n.string("now.camp.action.no_lead.short")
-        case .careCharging:
+        case .careCharging, .focusFull:
             return readinessText
         }
     }
@@ -771,7 +785,7 @@ struct NowCampHeroPresentation: Equatable {
             return TokenmonL10n.string("now.camp.action.rank_max")
         case .missingLead:
             return TokenmonL10n.string("now.camp.action.missing_lead")
-        case .careCharging:
+        case .careCharging, .focusFull:
             return helpText
         }
     }
@@ -821,7 +835,7 @@ struct NowCampHeroPresentation: Equatable {
             return TokenmonL10n.string("now.camp.status.max_rank")
         case .missingLead:
             return TokenmonL10n.string("now.camp.status.no_lead")
-        case .careCharging:
+        case .careCharging, .focusFull:
             return TokenmonL10n.string("now.camp.status.gathering")
         }
     }
@@ -850,7 +864,9 @@ struct NowCampHeroPresentation: Equatable {
     static func careDisplayText(for careAction: NowCampHeroActionState) -> String {
         switch careAction.availability {
         case .enabled:
-            return TokenmonL10n.string("now.camp.care.ready.short")
+            return TokenmonL10n.format("now.camp.care.ready.amount", Int64(careAction.cost))
+        case .focusFull:
+            return TokenmonL10n.string("now.camp.care.focus_full.short")
         case .careCharging(let remainingSeconds):
             return TokenmonL10n.format(
                 "now.camp.care.minutes_remaining",
@@ -871,6 +887,8 @@ struct NowCampHeroPresentation: Equatable {
         switch careAction.availability {
         case .enabled:
             return TokenmonL10n.format("now.camp.care.grant", Int64(careAction.cost))
+        case .focusFull:
+            return TokenmonL10n.string("now.camp.feedback.care_focus_full")
         case .careCharging:
             return TokenmonL10n.string("now.camp.care.charging")
         case .rankAtAffinityGate:
@@ -1430,7 +1448,9 @@ struct TokenmonNowCampHeroCard: View {
     private var careMenuTitle: String {
         switch presentation.careAction.availability {
         case .enabled:
-            return TokenmonL10n.string("now.camp.care.menu.claim")
+            return TokenmonL10n.format("now.camp.care.menu.claim_amount", Int64(presentation.careAction.cost))
+        case .focusFull:
+            return TokenmonL10n.string("now.camp.care.menu.focus_full")
         case .missingLead:
             return TokenmonL10n.string("now.camp.action.no_lead.short")
         case .insufficientFocus(let current, let required):
@@ -1448,6 +1468,8 @@ struct TokenmonNowCampHeroCard: View {
         switch presentation.careAction.availability {
         case .enabled:
             return "heart.fill"
+        case .focusFull:
+            return "checkmark.circle.fill"
         case .careCharging:
             return "hourglass.circle.fill"
         case .insufficientFocus:
@@ -1628,7 +1650,9 @@ struct TokenmonNowCampHeroV2Card: View {
     private var careMenuTitle: String {
         switch presentation.careAction.availability {
         case .enabled:
-            return TokenmonL10n.string("now.camp.care.menu.claim")
+            return TokenmonL10n.format("now.camp.care.menu.claim_amount", Int64(presentation.careAction.cost))
+        case .focusFull:
+            return TokenmonL10n.string("now.camp.care.menu.focus_full")
         case .missingLead:
             return TokenmonL10n.string("now.camp.action.no_lead.short")
         case .insufficientFocus(let current, let required):
@@ -1646,6 +1670,8 @@ struct TokenmonNowCampHeroV2Card: View {
         switch presentation.careAction.availability {
         case .enabled:
             return "heart.fill"
+        case .focusFull:
+            return "checkmark.circle.fill"
         case .careCharging:
             return "hourglass.circle.fill"
         case .insufficientFocus:
@@ -2493,7 +2519,7 @@ struct TokenmonNowCampHeroV2PresentationCard<HeaderAccessory: View>: View {
             return "checkmark.seal.fill"
         case .missingLead:
             return "crown"
-        case .careCharging:
+        case .careCharging, .focusFull:
             return "hourglass.circle.fill"
         }
     }
@@ -2502,6 +2528,8 @@ struct TokenmonNowCampHeroV2PresentationCard<HeaderAccessory: View>: View {
         switch state.availability {
         case .enabled:
             return "heart.fill"
+        case .focusFull:
+            return "checkmark.circle.fill"
         case .careCharging:
             return "hourglass.circle.fill"
         case .rankAtAffinityGate:
@@ -3246,7 +3274,7 @@ struct TokenmonNowCampHeroPresentationCard<HeaderAccessory: View>: View {
             return CGFloat(presentation.practiceProgressFraction)
         }
         switch state.availability {
-        case .enabled:
+        case .enabled, .focusFull:
             return 1
         case .careCharging(let remainingSeconds):
             let elapsed = max(0, NowCampCarePolicy.intervalSeconds - remainingSeconds)
@@ -3268,7 +3296,7 @@ struct TokenmonNowCampHeroPresentationCard<HeaderAccessory: View>: View {
             return "checkmark.seal.fill"
         case .missingLead:
             return "crown"
-        case .careCharging:
+        case .careCharging, .focusFull:
             return "hourglass.circle.fill"
         }
     }
@@ -3277,6 +3305,8 @@ struct TokenmonNowCampHeroPresentationCard<HeaderAccessory: View>: View {
         switch state.availability {
         case .enabled:
             return "heart.fill"
+        case .focusFull:
+            return "checkmark.circle.fill"
         case .careCharging:
             return "hourglass.circle.fill"
         case .rankAtAffinityGate:

@@ -487,8 +487,12 @@
 "now.camp.care.detail" = "Care +5";
 "now.camp.care.help" = "Care becomes ready after 60 minutes of app uptime. Claim it to add up to 5 Focus without changing training odds.";
 "now.camp.care.ready.short" = "Care +5";
+"now.camp.care.ready.amount" = "Care +%1$lld";
+"now.camp.care.focus_full.short" = "Focus full";
 "now.camp.care.menu.prepare" = "Care charging";
 "now.camp.care.menu.claim" = "Claim Care +5";
+"now.camp.care.menu.claim_amount" = "Claim Care +%1$lld";
+"now.camp.care.menu.focus_full" = "Care · Focus full";
 "now.camp.care.menu.ready" = "Care +5";
 "now.camp.care.menu.insufficient_focus" = "Care · Focus %1$lld/%2$lld";
 "now.camp.care.menu.rank_gate" = "Care · Bond %1$lld/%2$lld";
@@ -540,7 +544,8 @@
 "now.camp.action.insufficient_care_focus" = "Focus %1$lld/%2$lld.";
 "now.camp.action.rank_gate" = "Bond %1$lld/%2$lld required.";
 "now.camp.action.rank_max" = "Training is Lv.5/5.";
-"now.camp.feedback.care_applied" = "+%1$lld Focus · %2$lld banked";
+"now.camp.feedback.care_applied" = "+%1$lld Focus · %2$lld held";
+"now.camp.feedback.care_focus_full" = "Focus is full. Train first, then claim Care.";
 "now.camp.feedback.level_badge" = "Lv.%1$lld";
 "now.camp.feedback.train_success" = "Lv.%1$lld training succeeded";
 "now.camp.feedback.train_guaranteed_success" = "Lv.%1$lld mastered";

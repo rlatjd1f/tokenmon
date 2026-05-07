@@ -121,6 +121,7 @@ public enum NowCampStoreError: Error, LocalizedError, Equatable {
     case missingTraining(String)
     case insufficientFocus(required: Int, available: Int)
     case careNotReady
+    case focusFull(capacity: Int)
     case rankAtAffinityGate(speciesID: String, rank: TrainingRank, affinityLevel: Int64)
 
     public var errorDescription: String? {
@@ -135,6 +136,8 @@ public enum NowCampStoreError: Error, LocalizedError, Equatable {
             return "Focus \(required) required; \(available) available."
         case .careNotReady:
             return "Care is still charging."
+        case .focusFull(let capacity):
+            return "Focus is already full at \(capacity)."
         case .rankAtAffinityGate(let speciesID, let rank, let affinityLevel):
             return "Species \(speciesID) Training Rank \(rank.romanNumeral) has reached Bond \(affinityLevel)."
         }
@@ -376,8 +379,17 @@ public extension TokenmonDatabaseManager {
 
             let localDate = Self.currentLocalDate()
             let careEarnedTodayBefore = state.careFocusEarnedLocalDate == localDate ? state.careFocusEarnedToday : 0
-            let focusGranted = LeaderTrainingResolver().careFocusGrant
-            let focusAfter = state.focusEnergy + focusGranted
+            let resolver = LeaderTrainingResolver()
+            let focusCapacity = NowCampFocusAccumulator.focusEnergyCapacity
+            let currentFocus = min(state.focusEnergy, focusCapacity)
+            guard currentFocus < focusCapacity else {
+                throw NowCampStoreError.focusFull(capacity: focusCapacity)
+            }
+            let focusGranted = min(
+                resolver.careFocusGrant,
+                max(0, focusCapacity - currentFocus)
+            )
+            let focusAfter = currentFocus + focusGranted
             let careEarnedTodayAfter = careEarnedTodayBefore + focusGranted
             let now = ISO8601DateFormatter().string(from: Date())
             let actionID = UUID().uuidString.lowercased()
@@ -588,7 +600,7 @@ public extension TokenmonDatabaseManager {
                 resonance: lead.training.trainingResonance,
                 attemptCount: lead.training.trainingAttemptCount
             )
-            let focusAfter = state.focusEnergy - resolver.trainFocusCost
+            let focusAfter = 0
             let now = ISO8601DateFormatter().string(from: Date())
             let actionID = UUID().uuidString.lowercased()
 
