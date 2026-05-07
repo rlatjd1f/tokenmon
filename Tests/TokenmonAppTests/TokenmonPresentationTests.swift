@@ -393,7 +393,6 @@ struct TokenmonPresentationTests {
             Int64(3)
         ))
         #expect(selectedStatus?.titleText == "\(selectedLead.name) · \(selectedStatus?.statusText ?? "")")
-        #expect(selectedStatus?.statusText.contains("blocked") == true)
         #expect(selectedStatus?.isSelected == true)
         #expect(selectedStatus?.isTrainable == false)
 
@@ -403,7 +402,6 @@ struct TokenmonPresentationTests {
             "I",
             "II"
         ))
-        #expect(trainableStatus?.statusText.contains("ready") == true)
         #expect(trainableStatus?.isTrainable == true)
 
         let maxStatus = presentation.leadMenuStatus(for: maxLead.id)
@@ -430,7 +428,6 @@ struct TokenmonPresentationTests {
             "II",
             Int64(38)
         ))
-        #expect(focusLimited.leadMenuStatus(for: selectedLead.id)?.statusText.contains("eligible") == true)
     }
 
     @Test

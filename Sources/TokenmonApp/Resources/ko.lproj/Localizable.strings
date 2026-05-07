@@ -783,11 +783,11 @@
 "now.camp.header.no_rank" = "리드 선택";
 "now.camp.lead.empty" = "리드 없음";
 "now.camp.lead_picker.help" = "Now Camp 리드 선택";
-"now.camp.lead_picker.status.ready" = "훈련 Lv.%1$@→%2$@ 가능";
-"now.camp.lead_picker.status.focus_needed" = "훈련 Lv.%1$@→%2$@ 가능 · 충전 %3$lld 부족";
-"now.camp.lead_picker.status.bond" = "훈련 Lv.%1$@→%2$@ 불가 · 친밀도 %3$lld/%4$lld";
-"now.camp.lead_picker.status.max" = "훈련 Lv.최대";
-"now.camp.lead_picker.status.unavailable" = "훈련 Lv.대기";
+"now.camp.lead_picker.status.ready" = "Lv.%1$@→%2$@";
+"now.camp.lead_picker.status.focus_needed" = "Lv.%1$@→%2$@ · 충전 -%3$lld";
+"now.camp.lead_picker.status.bond" = "Lv.%1$@→%2$@ · 친밀 %3$lld/%4$lld";
+"now.camp.lead_picker.status.max" = "Lv.MAX";
+"now.camp.lead_picker.status.unavailable" = "Lv.--";
 "now.camp.no_party" = "파티 리드 없음";
 "now.camp.training_level" = "훈련 Lv.%1$lld/%2$lld";
 "now.camp.train" = "훈련";
