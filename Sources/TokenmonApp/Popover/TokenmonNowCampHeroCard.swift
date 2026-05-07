@@ -1373,6 +1373,158 @@ struct NowCampHeroFeedback {
     }
 }
 
+struct NowCampLeadPickerControl: View {
+    let presentation: NowCampHeroPresentation
+    let partyMembers: [PartyMemberSummary]
+    @Binding var isPresented: Bool
+    let labelWidth: CGFloat
+    let labelHeight: CGFloat
+    let labelSpacing: CGFloat
+    let labelHorizontalPadding: CGFloat
+    let titleFontSize: CGFloat
+    let crownFontSize: CGFloat
+    let onSelectLead: (String) -> Void
+
+    var body: some View {
+        Button {
+            isPresented.toggle()
+        } label: {
+            HStack(spacing: labelSpacing) {
+                Image(systemName: presentation.lead == nil ? "crown" : "crown.fill")
+                    .font(.system(size: crownFontSize, weight: .semibold))
+                Text(headerLeadMenuText)
+                    .font(.system(size: titleFontSize, weight: .semibold, design: .rounded))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.56)
+                    .layoutPriority(1)
+                Image(systemName: "chevron.down")
+                    .font(.system(size: 8, weight: .bold))
+                    .foregroundStyle(.secondary)
+            }
+            .padding(.horizontal, labelHorizontalPadding)
+            .frame(width: labelWidth, height: labelHeight)
+            .background(
+                Capsule(style: .continuous)
+                    .fill(Color(nsColor: .controlBackgroundColor).opacity(0.76))
+            )
+        }
+        .buttonStyle(.plain)
+        .fixedSize(horizontal: false, vertical: true)
+        .disabled(partyMembers.isEmpty)
+        .help(TokenmonL10n.string("now.camp.lead_picker.help"))
+        .popover(isPresented: $isPresented, arrowEdge: .top) {
+            pickerPanel
+        }
+    }
+
+    private var pickerPanel: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 4) {
+                ForEach(partyMembers, id: \.speciesID) { member in
+                    let status = presentation.leadMenuStatus(for: member.speciesID)
+                    Button {
+                        onSelectLead(member.speciesID)
+                        isPresented = false
+                    } label: {
+                        NowCampLeadPickerRow(
+                            member: member,
+                            status: status,
+                            isSelected: member.speciesID == presentation.lead?.speciesID
+                        )
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            .padding(8)
+        }
+        .frame(width: 268)
+        .frame(maxHeight: 336)
+        .background(Color(nsColor: .windowBackgroundColor))
+    }
+
+    private var headerLeadMenuText: String {
+        guard presentation.lead != nil else {
+            return presentation.headerLeadTitle
+        }
+        return "\(presentation.headerLeadTitle) · \(presentation.headerLeadDetail)"
+    }
+}
+
+struct NowCampLeadPickerRow: View {
+    let member: PartyMemberSummary
+    let status: NowCampHeroLeadMenuStatus?
+    let isSelected: Bool
+
+    var body: some View {
+        HStack(spacing: 8) {
+            ZStack {
+                Circle()
+                    .fill(isSelected ? Color.accentColor.opacity(0.18) : Color.white.opacity(0.05))
+                    .frame(width: 22, height: 22)
+                if isSelected {
+                    Image(systemName: "crown.fill")
+                        .font(.system(size: 10, weight: .bold))
+                        .foregroundStyle(Color.accentColor)
+                }
+            }
+            .frame(width: 24, height: 24)
+
+            Text(member.displayName)
+                .font(.system(size: 12, weight: .semibold, design: .rounded))
+                .foregroundStyle(.primary)
+                .lineLimit(1)
+
+            Spacer(minLength: 8)
+
+            Text(status?.statusText ?? "--")
+                .font(.system(size: 11, weight: .bold, design: .rounded))
+                .monospacedDigit()
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
+
+            Image(systemName: status?.systemImage ?? "person.crop.circle")
+                .font(.system(size: 12, weight: .semibold))
+                .symbolRenderingMode(.hierarchical)
+                .foregroundStyle(statusColor)
+                .frame(width: 16)
+        }
+        .padding(.horizontal, 8)
+        .padding(.vertical, 6)
+        .frame(maxWidth: .infinity, minHeight: 34, alignment: .leading)
+        .background(
+            RoundedRectangle(cornerRadius: 7, style: .continuous)
+                .fill(isSelected ? Color.accentColor.opacity(0.12) : Color.clear)
+        )
+        .contentShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(accessibilityLabel)
+    }
+
+    private var statusColor: Color {
+        guard let status else {
+            return .secondary
+        }
+        if status.isTrainable {
+            return .green
+        }
+        switch status.systemImage {
+        case "gauge":
+            return .cyan
+        case "lock.circle.fill":
+            return .orange
+        case "checkmark.seal.fill":
+            return .secondary
+        default:
+            return .secondary
+        }
+    }
+
+    private var accessibilityLabel: String {
+        let selectedText = isSelected ? ", selected" : ""
+        return "\(member.displayName), \(status?.statusText ?? "--")\(selectedText)"
+    }
+}
+
 struct TokenmonNowCampHeroCard: View {
     @ObservedObject var model: TokenmonMenuModel
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -1383,6 +1535,7 @@ struct TokenmonNowCampHeroCard: View {
     @State private var feedback: NowCampHeroFeedback?
     @State private var feedbackToken = UUID()
     @State private var leadActionPulse = false
+    @State private var isLeadPickerPresented = false
 
     private var partyMembers: [PartyMemberSummary] {
         let runtimeParty = model.raidDashboard?.partyMembers ?? []
@@ -1415,98 +1568,20 @@ struct TokenmonNowCampHeroCard: View {
     }
 
     private var leadPicker: some View {
-        Menu {
-            ForEach(partyMembers, id: \.speciesID) { member in
-                let status = presentation.leadMenuStatus(for: member.speciesID)
-                Button {
-                    model.setNowCampLead(member.speciesID)
-                } label: {
-                    Label(
-                        status?.titleText ?? member.displayName,
-                        systemImage: status?.systemImage ?? (member.speciesID == presentation.lead?.speciesID ? "crown.fill" : "person.crop.circle")
-                    )
-                }
+        NowCampLeadPickerControl(
+            presentation: presentation,
+            partyMembers: partyMembers,
+            isPresented: $isLeadPickerPresented,
+            labelWidth: 158,
+            labelHeight: 24,
+            labelSpacing: 6,
+            labelHorizontalPadding: 6,
+            titleFontSize: 9,
+            crownFontSize: 11,
+            onSelectLead: { speciesID in
+                model.setNowCampLead(speciesID)
             }
-
-            if presentation.lead != nil {
-                Divider()
-
-                Button {
-                    handleCare()
-                } label: {
-                    Label(careMenuTitle, systemImage: careMenuSystemImage)
-                }
-                .disabled(presentation.careAction.acceptsTapForFeedback == false)
-            }
-        } label: {
-            HStack(spacing: 6) {
-                Image(systemName: presentation.lead == nil ? "crown" : "crown.fill")
-                    .font(.system(size: 11, weight: .semibold))
-                Text(headerLeadMenuText)
-                    .font(.system(size: 9, weight: .semibold, design: .rounded))
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.56)
-                    .layoutPriority(1)
-                Image(systemName: "chevron.down")
-                    .font(.system(size: 8, weight: .bold))
-                    .foregroundStyle(.secondary)
-            }
-            .padding(.horizontal, 6)
-            .frame(width: 158, height: 24)
-            .background(
-                Capsule(style: .continuous)
-                    .fill(Color(nsColor: .controlBackgroundColor).opacity(0.74))
-            )
-        }
-        .menuStyle(.borderlessButton)
-        .fixedSize(horizontal: false, vertical: true)
-        .disabled(partyMembers.isEmpty)
-        .help(TokenmonL10n.string("now.camp.lead_picker.help"))
-    }
-
-    private var careMenuTitle: String {
-        switch presentation.careAction.availability {
-        case .enabled:
-            return TokenmonL10n.format("now.camp.care.menu.claim_amount", Int64(presentation.careAction.cost))
-        case .focusFull:
-            return TokenmonL10n.string("now.camp.care.menu.focus_full")
-        case .missingLead:
-            return TokenmonL10n.string("now.camp.action.no_lead.short")
-        case .insufficientFocus(let current, let required):
-            return TokenmonL10n.format("now.camp.care.menu.insufficient_focus", Int64(current), Int64(required))
-        case .rankAtAffinityGate(let current, let required):
-            return TokenmonL10n.format("now.camp.care.menu.rank_gate", Int64(current), Int64(required))
-        case .rankMaximum:
-            return TokenmonL10n.string("now.camp.action.rank_max")
-        case .careCharging:
-            return NowCampHeroPresentation.careDisplayText(for: presentation.careAction)
-        }
-    }
-
-    private var careMenuSystemImage: String {
-        switch presentation.careAction.availability {
-        case .enabled:
-            return "heart.fill"
-        case .focusFull:
-            return "checkmark.circle.fill"
-        case .careCharging:
-            return "hourglass.circle.fill"
-        case .insufficientFocus:
-            return "gauge"
-        case .rankAtAffinityGate:
-            return "heart.circle.fill"
-        case .rankMaximum:
-            return "checkmark.seal.fill"
-        case .missingLead:
-            return "crown"
-        }
-    }
-
-    private var headerLeadMenuText: String {
-        guard presentation.lead != nil else {
-            return presentation.headerLeadTitle
-        }
-        return "\(presentation.headerLeadTitle) · \(presentation.headerLeadDetail)"
+        )
     }
 
     private var accessibilityLabel: String {
@@ -1585,6 +1660,7 @@ struct TokenmonNowCampHeroV2Card: View {
     @State private var feedback: NowCampHeroFeedback?
     @State private var feedbackToken = UUID()
     @State private var leadActionPulse = false
+    @State private var isLeadPickerPresented = false
 
     private var partyMembers: [PartyMemberSummary] {
         let runtimeParty = model.raidDashboard?.partyMembers ?? []
@@ -1617,98 +1693,20 @@ struct TokenmonNowCampHeroV2Card: View {
     }
 
     private var leadPicker: some View {
-        Menu {
-            ForEach(partyMembers, id: \.speciesID) { member in
-                let status = presentation.leadMenuStatus(for: member.speciesID)
-                Button {
-                    model.setNowCampLead(member.speciesID)
-                } label: {
-                    Label(
-                        status?.titleText ?? member.displayName,
-                        systemImage: status?.systemImage ?? (member.speciesID == presentation.lead?.speciesID ? "crown.fill" : "person.crop.circle")
-                    )
-                }
+        NowCampLeadPickerControl(
+            presentation: presentation,
+            partyMembers: partyMembers,
+            isPresented: $isLeadPickerPresented,
+            labelWidth: 208,
+            labelHeight: 30,
+            labelSpacing: 7,
+            labelHorizontalPadding: 9,
+            titleFontSize: 11,
+            crownFontSize: 12,
+            onSelectLead: { speciesID in
+                model.setNowCampLead(speciesID)
             }
-
-            if presentation.lead != nil {
-                Divider()
-
-                Button {
-                    handleCare()
-                } label: {
-                    Label(careMenuTitle, systemImage: careMenuSystemImage)
-                }
-                .disabled(presentation.careAction.acceptsTapForFeedback == false)
-            }
-        } label: {
-            HStack(spacing: 7) {
-                Image(systemName: presentation.lead == nil ? "crown" : "crown.fill")
-                    .font(.system(size: 12, weight: .semibold))
-                Text(headerLeadMenuText)
-                    .font(.system(size: 11, weight: .semibold, design: .rounded))
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.56)
-                    .layoutPriority(1)
-                Image(systemName: "chevron.down")
-                    .font(.system(size: 8, weight: .bold))
-                    .foregroundStyle(.secondary)
-            }
-            .padding(.horizontal, 9)
-            .frame(width: 208, height: 30)
-            .background(
-                Capsule(style: .continuous)
-                    .fill(Color(nsColor: .controlBackgroundColor).opacity(0.76))
-            )
-        }
-        .menuStyle(.borderlessButton)
-        .fixedSize(horizontal: false, vertical: true)
-        .disabled(partyMembers.isEmpty)
-        .help(TokenmonL10n.string("now.camp.lead_picker.help"))
-    }
-
-    private var careMenuTitle: String {
-        switch presentation.careAction.availability {
-        case .enabled:
-            return TokenmonL10n.format("now.camp.care.menu.claim_amount", Int64(presentation.careAction.cost))
-        case .focusFull:
-            return TokenmonL10n.string("now.camp.care.menu.focus_full")
-        case .missingLead:
-            return TokenmonL10n.string("now.camp.action.no_lead.short")
-        case .insufficientFocus(let current, let required):
-            return TokenmonL10n.format("now.camp.care.menu.insufficient_focus", Int64(current), Int64(required))
-        case .rankAtAffinityGate(let current, let required):
-            return TokenmonL10n.format("now.camp.care.menu.rank_gate", Int64(current), Int64(required))
-        case .rankMaximum:
-            return TokenmonL10n.string("now.camp.action.rank_max")
-        case .careCharging:
-            return NowCampHeroPresentation.careDisplayText(for: presentation.careAction)
-        }
-    }
-
-    private var careMenuSystemImage: String {
-        switch presentation.careAction.availability {
-        case .enabled:
-            return "heart.fill"
-        case .focusFull:
-            return "checkmark.circle.fill"
-        case .careCharging:
-            return "hourglass.circle.fill"
-        case .insufficientFocus:
-            return "gauge"
-        case .rankAtAffinityGate:
-            return "heart.circle.fill"
-        case .rankMaximum:
-            return "checkmark.seal.fill"
-        case .missingLead:
-            return "crown"
-        }
-    }
-
-    private var headerLeadMenuText: String {
-        guard presentation.lead != nil else {
-            return presentation.headerLeadTitle
-        }
-        return "\(presentation.headerLeadTitle) · \(presentation.headerLeadDetail)"
+        )
     }
 
     private var accessibilityLabel: String {
