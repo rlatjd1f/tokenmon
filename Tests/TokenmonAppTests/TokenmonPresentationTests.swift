@@ -686,6 +686,42 @@ struct TokenmonPresentationTests {
     }
 
     @Test
+    func nowCampHeroPresentationShowsSeedkitCapturePassiveAtRankII() throws {
+        let seedkit = try #require(SpeciesCatalog.all.first { $0.id == "GRS_003" })
+        #expect(seedkit.name == "Seedkit")
+        #expect(seedkit.rarity == .common)
+        #expect(seedkit.trainingTrait == .capture)
+
+        let presentation = NowCampHeroPresentation.make(
+            nowCamp: makeNowCampSummary(
+                lead: seedkit,
+                supports: [],
+                focusEnergy: 50,
+                affinityLevel: 2,
+                trainingRank: .rankII
+            ),
+            partyMembers: [],
+            sceneContext: makeNowCampSceneContext(field: .grassland)
+        )
+
+        let expectedEffect = TokenmonL10n.format(
+            "now.camp.v2.reward.capture.effect_line",
+            FieldType.grassland.displayName,
+            TokenmonL10n.format("now.camp.v2.points", Int64(1))
+        )
+        #expect(presentation.v2.rewardPreview.currentLine.valueText == expectedEffect)
+        #expect(presentation.v2.rewardPreview.isActive)
+        #expect(presentation.v2.rewardPreview.compactValueText == TokenmonL10n.format(
+            "now.camp.v2.reward.capture.compact_value",
+            FieldType.grassland.displayName
+        ))
+        #expect(presentation.v2.rewardPreview.compactDetailText == TokenmonL10n.format(
+            "now.camp.v2.reward.capture.compact_detail",
+            TokenmonL10n.format("now.camp.v2.points", Int64(1))
+        ))
+    }
+
+    @Test
     func nowCampHeroPresentationMapsTrainingRanksToLevels() {
         let lead = sampleSpecies(field: .grassland, offset: 0)
 

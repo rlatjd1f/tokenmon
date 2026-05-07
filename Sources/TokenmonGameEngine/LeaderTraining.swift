@@ -682,9 +682,7 @@ public struct LeaderTraitBonusResolver: Sendable {
         switch (leadRarity, rank) {
         case (_, .rankI):
             points = 0
-        case (.common, .rankII):
-            points = 0
-        case (.common, .rankIII), (.uncommon, .rankII), (.uncommon, .rankIII),
+        case (.common, .rankII), (.common, .rankIII), (.uncommon, .rankII), (.uncommon, .rankIII),
              (.rare, .rankII), (.epic, .rankII), (.legendary, .rankII):
             points = 1
         case (.common, .rankIV), (.uncommon, .rankIV), (.rare, .rankIII), (.epic, .rankIII):

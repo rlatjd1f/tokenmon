@@ -342,6 +342,22 @@ struct TokenmonDataContractTests {
         #expect(captureHit.application?.kind == .capture)
         #expect(abs(captureHit.probability - 0.41) < 0.000_001)
 
+        let commonCaptureLead = LeaderTraitContext(
+            speciesID: "GRS_003",
+            homeField: .grassland,
+            rarity: .common,
+            trait: .capture,
+            trainingRank: .rankII
+        )
+        let commonCaptureHit = resolver.applyCapture(
+            baseProbability: 0.88,
+            encounterField: .grassland,
+            encounterRarity: .common,
+            lead: commonCaptureLead
+        )
+        #expect(commonCaptureHit.application?.kind == .capture)
+        #expect(abs(commonCaptureHit.probability - 0.89) < 0.000_001)
+
         let raiderResult = resolver.raidBonuses(
             raidField: .sky,
             partyMembers: [
