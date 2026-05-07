@@ -108,6 +108,11 @@ public struct CaptureResolver {
 
     public func resolve(rarity: RarityTier, roll: Double) throws -> CaptureResolution {
         let probability = try captureProbability(for: rarity)
+        return try resolve(rarity: rarity, probability: probability, roll: roll)
+    }
+
+    public func resolve(rarity: RarityTier, probability: Double, roll: Double) throws -> CaptureResolution {
+        try validateProbability(probability, rarity: rarity)
 
         guard (0 ..< 1).contains(roll) else {
             throw CaptureResolverError.invalidRoll(roll)

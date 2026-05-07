@@ -1105,7 +1105,7 @@ final class TokenmonStatusItemController: NSObject {
         let debugOffset = debugController.statusOffset(for: context.fieldKind)
         let updateKey = TokenmonStatusItemRenderUpdateKey(
             context: context,
-            tick: TokenmonSceneTiming.tick(for: context, at: now),
+            tick: TokenmonSceneTiming.statusItemTick(for: context, at: now),
             tooltip: tooltip,
             buttonBounds: button.bounds,
             scaleFactor: NSScreen.main?.backingScaleFactor ?? 2,
@@ -1437,7 +1437,7 @@ enum TokenmonStatusItemImageRenderer {
         buttonBounds: NSRect = NSRect(x: 0, y: 0, width: 44, height: NSStatusBar.system.thickness),
         debugController: TokenmonSceneDebugController = .shared
     ) -> NSImage? {
-        let tick = TokenmonSceneTiming.tick(for: context, at: date)
+        let tick = TokenmonSceneTiming.statusItemTick(for: context, at: date)
         let scaleFactor = NSScreen.main?.backingScaleFactor ?? 2
         let metrics = LayoutMetrics.resolved(buttonBounds: buttonBounds)
         let debugOffset = debugController.statusOffset(for: context.fieldKind)
@@ -1461,23 +1461,26 @@ enum TokenmonStatusItemImageRenderer {
             return lastRenderedImage
         }
 
-        let renderer = ImageRenderer(
-            content: TokenmonSceneCanvas(context: context, tick: tick, layout: metrics.layout)
-                .offset(
-                    x: debugOffset.width,
-                    y: debugOffset.height
-                )
-                .frame(
-                    width: metrics.imageSize.width,
-                    height: metrics.imageSize.height,
-                    alignment: .topLeading
-                )
-                .background(Color.clear)
-        )
-        renderer.scale = scaleFactor
-        renderer.proposedSize = ProposedViewSize(metrics.imageSize)
+        let renderedImage: NSImage? = autoreleasepool {
+            let renderer = ImageRenderer(
+                content: TokenmonSceneCanvas(context: context, tick: tick, layout: metrics.layout)
+                    .offset(
+                        x: debugOffset.width,
+                        y: debugOffset.height
+                    )
+                    .frame(
+                        width: metrics.imageSize.width,
+                        height: metrics.imageSize.height,
+                        alignment: .topLeading
+                    )
+                    .background(Color.clear)
+            )
+            renderer.scale = scaleFactor
+            renderer.proposedSize = ProposedViewSize(metrics.imageSize)
+            return renderer.nsImage
+        }
 
-        guard let image = renderer.nsImage else {
+        guard let image = renderedImage else {
             return nil
         }
         image.size = metrics.imageSize

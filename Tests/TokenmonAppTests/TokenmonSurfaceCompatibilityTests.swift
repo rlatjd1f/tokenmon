@@ -39,37 +39,84 @@ struct TokenmonSurfaceCompatibilityTests {
         let developerPanel = TokenmonDeveloperPanel(model: model)
         let dexPanel = TokenmonDexPanel(model: model)
         let rewardArchivePanel = TokenmonRewardArchivePanel(model: model)
+        let popoverActions = TokenmonPopoverContainerActions(
+            openFullDex: {},
+            openRewardArchive: {},
+            openSettings: { _ in },
+            openDeveloperTools: {},
+            quit: {},
+            selectSpecies: { _ in }
+        )
         let popoverContainer = TokenmonPopoverContainer(
             model: model,
-            actions: TokenmonPopoverContainerActions(
-                openFullDex: {},
-                openRewardArchive: {},
-                openSettings: { _ in },
-                openDeveloperTools: {},
-                quit: {},
-                selectSpecies: { _ in }
-            )
+            actions: popoverActions
         )
         let raidPopoverContainer = TokenmonPopoverContainer(
             model: model,
-            actions: TokenmonPopoverContainerActions(
-                openFullDex: {},
-                openRewardArchive: {},
-                openSettings: { _ in },
-                openDeveloperTools: {},
-                quit: {},
-                selectSpecies: { _ in }
-            ),
+            actions: popoverActions,
             initialActiveTab: .raid
         )
+        let heroV2PopoverContainer = TokenmonPopoverContainer(
+            model: model,
+            actions: popoverActions,
+            layoutStyle: .heroV2
+        )
+        let compactPopoverContainer = TokenmonPopoverContainer(
+            model: model,
+            actions: popoverActions,
+            layoutStyle: .compact
+        )
+        let reducedMotionHeroCard = TokenmonNowCampHeroV2PresentationCard(
+            presentation: NowCampHeroPresentation.make(
+                nowCamp: nil,
+                partyMembers: [],
+                sceneContext: TokenmonSceneContext(
+                    sceneState: .idle,
+                    fieldKind: .grassland,
+                    fieldState: .exploring,
+                    effectState: .none,
+                    wildState: .hidden
+                )
+            ),
+            animates: false,
+            feedback: nil,
+            onTrain: {},
+            onScout: {}
+        ) {
+            EmptyView()
+        }
+        let compactCareFeedbackHeroCard = TokenmonNowCampHeroPresentationCard(
+            presentation: NowCampHeroPresentation.make(
+                nowCamp: nil,
+                partyMembers: [],
+                sceneContext: TokenmonSceneContext(
+                    sceneState: .idle,
+                    fieldKind: .ice,
+                    fieldState: .exploring,
+                    effectState: .none,
+                    wildState: .hidden
+                )
+            ),
+            animates: false,
+            feedback: NowCampHeroFeedback.careApplied(focusGranted: 5, focusEnergyAfter: 50),
+            onTrain: {},
+            onCare: {},
+            onScout: {}
+        ) {
+            EmptyView()
+        }
 
         assertHostedRender(settingsPanel, size: CGSize(width: 760, height: 560))
         assertHostedRender(onboardingPanel, size: CGSize(width: 620, height: 500))
         assertHostedRender(developerPanel, size: CGSize(width: 1040, height: 760))
         assertHostedRender(dexPanel, size: CGSize(width: 1040, height: 720))
         assertHostedRender(rewardArchivePanel, size: CGSize(width: 1120, height: 720))
-        assertHostedRender(popoverContainer, size: CGSize(width: 360, height: 480))
+        assertHostedRender(popoverContainer, size: CGSize(width: 360, height: 520))
         assertHostedRender(raidPopoverContainer, size: CGSize(width: 360, height: 520))
+        assertHostedRender(heroV2PopoverContainer, size: CGSize(width: 560, height: 720))
+        assertHostedRender(compactPopoverContainer, size: CGSize(width: 360, height: 520))
+        assertHostedRender(reducedMotionHeroCard, size: CGSize(width: 528, height: 586))
+        assertHostedRender(compactCareFeedbackHeroCard, size: CGSize(width: 328, height: 302))
     }
 
     @MainActor

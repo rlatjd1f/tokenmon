@@ -56,8 +56,9 @@ public enum SpeciesSeeder {
                         stat_backend,
                         stat_pm,
                         stat_infra,
-                        traits_json
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        traits_json,
+                        training_trait
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     ON CONFLICT(species_id) DO UPDATE SET
                         name = excluded.name,
                         field_code = excluded.field_code,
@@ -73,7 +74,8 @@ public enum SpeciesSeeder {
                         stat_backend = excluded.stat_backend,
                         stat_pm = excluded.stat_pm,
                         stat_infra = excluded.stat_infra,
-                        traits_json = excluded.traits_json;
+                        traits_json = excluded.traits_json,
+                        training_trait = excluded.training_trait;
                     """,
                     bindings: [
                         .text(species.id),
@@ -93,6 +95,7 @@ public enum SpeciesSeeder {
                         .integer(Int64(species.stats.pm)),
                         .integer(Int64(species.stats.infra)),
                         .text(traitsJSON(species.stats.traits)),
+                        .text(species.trainingTrait.rawValue),
                     ]
                 )
             }

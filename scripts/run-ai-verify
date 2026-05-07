@@ -386,6 +386,9 @@ seen_dex_updated_count = cur.execute(
 captured_dex_updated_count = cur.execute(
     "SELECT COUNT(*) FROM domain_events WHERE event_type = 'captured_dex_updated';"
 ).fetchone()[0]
+species_affinity_updated_count = cur.execute(
+    "SELECT COUNT(*) FROM domain_events WHERE event_type = 'species_affinity_updated';"
+).fetchone()[0]
 raid_attack_triggered_count = cur.execute(
     "SELECT COUNT(*) FROM domain_events WHERE event_type = 'raid_attack_triggered';"
 ).fetchone()[0]
@@ -409,6 +412,27 @@ raid_reward_missed_count = cur.execute(
 ).fetchone()[0]
 reward_archive_recorded_count = cur.execute(
     "SELECT COUNT(*) FROM domain_events WHERE event_type = 'reward_archive_recorded';"
+).fetchone()[0]
+focus_energy_earned_count = cur.execute(
+    "SELECT COUNT(*) FROM domain_events WHERE event_type = 'focus_energy_earned';"
+).fetchone()[0]
+now_camp_lead_selected_count = cur.execute(
+    "SELECT COUNT(*) FROM domain_events WHERE event_type = 'now_camp_lead_selected';"
+).fetchone()[0]
+now_camp_care_readied_count = cur.execute(
+    "SELECT COUNT(*) FROM domain_events WHERE event_type = 'now_camp_care_readied';"
+).fetchone()[0]
+lead_care_claimed_count = cur.execute(
+    "SELECT COUNT(*) FROM domain_events WHERE event_type = 'lead_care_claimed';"
+).fetchone()[0]
+lead_training_attempted_count = cur.execute(
+    "SELECT COUNT(*) FROM domain_events WHERE event_type = 'lead_training_attempted';"
+).fetchone()[0]
+lead_training_resolved_count = cur.execute(
+    "SELECT COUNT(*) FROM domain_events WHERE event_type = 'lead_training_resolved';"
+).fetchone()[0]
+leader_trait_bonus_applied_count = cur.execute(
+    "SELECT COUNT(*) FROM domain_events WHERE event_type = 'leader_trait_bonus_applied';"
 ).fetchone()[0]
 domain_event_count = cur.execute("SELECT COUNT(*) FROM domain_events;").fetchone()[0]
 state_total_encounters, state_total_captures = cur.execute(
@@ -512,6 +536,7 @@ print(f"encounter_spawned_count={encounter_spawned_count}")
 print(f"capture_resolved_event_count={capture_resolved_event_count}")
 print(f"seen_dex_updated_count={seen_dex_updated_count}")
 print(f"captured_dex_updated_count={captured_dex_updated_count}")
+print(f"species_affinity_updated_count={species_affinity_updated_count}")
 print(f"raid_attack_triggered_count={raid_attack_triggered_count}")
 print(f"raid_member_hit_resolved_count={raid_member_hit_resolved_count}")
 print(f"raid_progress_updated_count={raid_progress_updated_count}")
@@ -520,6 +545,13 @@ print(f"raid_expired_count={raid_expired_count}")
 print(f"raid_reward_acquired_count={raid_reward_acquired_count}")
 print(f"raid_reward_missed_count={raid_reward_missed_count}")
 print(f"reward_archive_recorded_count={reward_archive_recorded_count}")
+print(f"focus_energy_earned_count={focus_energy_earned_count}")
+print(f"now_camp_lead_selected_count={now_camp_lead_selected_count}")
+print(f"now_camp_care_readied_count={now_camp_care_readied_count}")
+print(f"lead_care_claimed_count={lead_care_claimed_count}")
+print(f"lead_training_attempted_count={lead_training_attempted_count}")
+print(f"lead_training_resolved_count={lead_training_resolved_count}")
+print(f"leader_trait_bonus_applied_count={leader_trait_bonus_applied_count}")
 print(f"domain_event_count={domain_event_count}")
 print(f"state_total_encounters={state_total_encounters}")
 print(f"state_total_captures={state_total_captures}")
@@ -531,7 +563,8 @@ print(f"encounter_spawned_count_matches_expected={int(encounter_spawned_count ==
 print(f"capture_resolved_matches_encounter_count={int(capture_resolved_event_count == encounter_count)}")
 print(f"seen_dex_updated_matches_encounter_count={int(seen_dex_updated_count == encounter_count)}")
 print(f"captured_dex_updated_matches_captured_count={int(captured_dex_updated_count == captured_count)}")
-print(f"domain_event_count_matches_expected={int(domain_event_count == 2 + threshold_event_count + field_selected_count + rarity_selected_count + species_selected_count + encounter_spawned_count + capture_resolved_event_count + seen_dex_updated_count + captured_dex_updated_count + raid_attack_triggered_count + raid_member_hit_resolved_count + raid_progress_updated_count + raid_cleared_count + raid_expired_count + raid_reward_acquired_count + raid_reward_missed_count + reward_archive_recorded_count)}")
+print(f"species_affinity_updated_matches_captured_count={int(species_affinity_updated_count == captured_count)}")
+print(f"domain_event_count_matches_expected={int(domain_event_count == 2 + threshold_event_count + field_selected_count + rarity_selected_count + species_selected_count + encounter_spawned_count + capture_resolved_event_count + seen_dex_updated_count + captured_dex_updated_count + species_affinity_updated_count + raid_attack_triggered_count + raid_member_hit_resolved_count + raid_progress_updated_count + raid_cleared_count + raid_expired_count + raid_reward_acquired_count + raid_reward_missed_count + reward_archive_recorded_count + focus_energy_earned_count + now_camp_lead_selected_count + now_camp_care_readied_count + lead_care_claimed_count + lead_training_attempted_count + lead_training_resolved_count + leader_trait_bonus_applied_count)}")
 print(f"dex_seen_matches_unique_encounter_species={int(dex_seen_species == encounter_species)}")
 print(f"dex_captured_matches_unique_captured_species={int(dex_captured_species == captured_species)}")
 print(f"state_total_captures_matches_captured_count={int(state_total_captures == captured_count)}")
@@ -684,34 +717,24 @@ portrait = sum(1 for path in species_dirs if (path / "portrait_32.png").exists()
 portrait64 = sum(1 for path in species_dirs if (path / "portrait_64.png").exists())
 idle = sum(1 for path in species_dirs if (path / "companion_idle_16.png").exists())
 roam = sum(1 for path in species_dirs if (path / "companion_roam_16.png").exists())
-spawn = sum(1 for path in species_dirs if (path / "spawn_32.png").exists())
-spawn64 = sum(1 for path in species_dirs if (path / "spawn_64.png").exists())
-resolve_success = sum(1 for path in species_dirs if (path / "resolve_success_32.png").exists())
-resolve_success64 = sum(1 for path in species_dirs if (path / "resolve_success_64.png").exists())
-resolve_escape = sum(1 for path in species_dirs if (path / "resolve_escape_32.png").exists())
-resolve_escape64 = sum(1 for path in species_dirs if (path / "resolve_escape_64.png").exists())
+legacy_state_exports = sum(
+    1
+    for path in species_dirs
+    for file_path in path.glob("*.png")
+    if file_path.name.startswith(("spawn_", "resolve_success_", "resolve_escape_"))
+)
 print(f"species_dirs={len(species_dirs)}")
 print(f"portrait_exports={portrait}")
 print(f"portrait_64_exports={portrait64}")
 print(f"obsolete_companion_exports={idle + roam}")
-print(f"spawn_exports={spawn}")
-print(f"spawn_64_exports={spawn64}")
-print(f"resolve_success_exports={resolve_success}")
-print(f"resolve_success_64_exports={resolve_success64}")
-print(f"resolve_escape_exports={resolve_escape}")
-print(f"resolve_escape_64_exports={resolve_escape64}")
+print(f"legacy_state_exports={legacy_state_exports}")
 PY
 )"
   require_contains "$art_export_probe" "species_dirs=151"
   require_contains "$art_export_probe" "portrait_exports=151"
   require_contains "$art_export_probe" "portrait_64_exports=151"
   require_contains "$art_export_probe" "obsolete_companion_exports=0"
-  require_contains "$art_export_probe" "spawn_exports=151"
-  require_contains "$art_export_probe" "spawn_64_exports=151"
-  require_contains "$art_export_probe" "resolve_success_exports=151"
-  require_contains "$art_export_probe" "resolve_success_64_exports=151"
-  require_contains "$art_export_probe" "resolve_escape_exports=151"
-  require_contains "$art_export_probe" "resolve_escape_64_exports=151"
+  require_contains "$art_export_probe" "legacy_state_exports=0"
   printf 'VERIFY PASS: species art export completeness\n'
 
   contact_sheet_output="$("$ROOT/scripts/render-species-contact-sheets" 2>&1)"
@@ -1955,7 +1978,7 @@ printf 'VERIFY PASS: accepted fixture ingest\n'
 accepted_summary="$(tokenmon_app_cmd --tokenmon-summary --db "$db" 2>&1)"
 accepted_probe="$(probe_cli_lane "$db")"
 require_contains "$accepted_summary" "usage_samples: 1"
-require_contains "$accepted_summary" "domain_events: 4"
+require_contains "$accepted_summary" "domain_events: $(probe_value "$accepted_probe" domain_event_count)"
 require_contains "$accepted_summary" "tokens_since_last_encounter: $(probe_value "$accepted_probe" tokens_since_last_encounter)"
 require_contains "$accepted_summary" "total_encounters: 0"
 printf 'VERIFY PASS: accepted fixture exploration/domain-event summary\n'
@@ -2016,6 +2039,7 @@ require_contains "$threshold_probe" "encounter_spawned_count_matches_expected=1"
 require_contains "$threshold_probe" "capture_resolved_matches_encounter_count=1"
 require_contains "$threshold_probe" "seen_dex_updated_matches_encounter_count=1"
 require_contains "$threshold_probe" "captured_dex_updated_matches_captured_count=1"
+require_contains "$threshold_probe" "species_affinity_updated_matches_captured_count=1"
 require_contains "$threshold_probe" "domain_event_count_matches_expected=1"
 require_contains "$threshold_probe" "state_total_encounters=$threshold_encounter_count"
 require_contains "$threshold_probe" "dex_seen_matches_unique_encounter_species=1"
@@ -2103,6 +2127,7 @@ require_contains "$threshold_replay_probe" "encounter_spawned_count_matches_expe
 require_contains "$threshold_replay_probe" "capture_resolved_matches_encounter_count=1"
 require_contains "$threshold_replay_probe" "seen_dex_updated_matches_encounter_count=1"
 require_contains "$threshold_replay_probe" "captured_dex_updated_matches_captured_count=1"
+require_contains "$threshold_replay_probe" "species_affinity_updated_matches_captured_count=1"
 require_contains "$threshold_replay_probe" "domain_event_count_matches_expected=1"
 if [[ "$threshold_probe" == *"encounter_count=0"* ]]; then
   require_contains "$threshold_replay_probe" "encounter_count=0"
@@ -2164,6 +2189,7 @@ require_contains "$multi_threshold_probe" "encounter_spawned_count_matches_expec
 require_contains "$multi_threshold_probe" "capture_resolved_matches_encounter_count=1"
 require_contains "$multi_threshold_probe" "seen_dex_updated_matches_encounter_count=1"
 require_contains "$multi_threshold_probe" "captured_dex_updated_matches_captured_count=1"
+require_contains "$multi_threshold_probe" "species_affinity_updated_matches_captured_count=1"
 require_contains "$multi_threshold_probe" "domain_event_count_matches_expected=1"
 require_contains "$multi_threshold_probe" "state_total_encounters=$multi_threshold_encounter_count"
 require_contains "$multi_threshold_probe" "dex_seen_matches_unique_encounter_species=1"

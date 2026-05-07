@@ -89,6 +89,7 @@ public enum RaidCatalog {
             code: "april",
             title: "April Spark Vault",
             targetName: "Clovercore Sentinel",
+            targetArtKey: "raid_target_2026_04_clovercore_sentinel",
             rewardTitle: "April Spark Relic",
             field: .grassland,
             maxHP: 12_000,
@@ -100,6 +101,7 @@ public enum RaidCatalog {
             code: "may",
             title: "May Bloom Vault",
             targetName: "Petalwarden Sentinel",
+            targetArtKey: "raid_target_2026_05_petalwarden_sentinel",
             rewardTitle: "May Bloom Relic",
             field: .grassland,
             maxHP: 78_000,
@@ -113,6 +115,7 @@ public enum RaidCatalog {
             legacyRewardID: "reward_tokenmon_logo_relic",
             title: "June Logo Vault",
             targetName: "Glyphvault Sentinel",
+            targetArtKey: "raid_target_2026_06_glyphvault_sentinel",
             rewardTitle: "June Token Relic",
             field: .coast,
             maxHP: 84_000,
@@ -124,6 +127,7 @@ public enum RaidCatalog {
             code: "july",
             title: "July Signal Vault",
             targetName: "Starcall Sentinel",
+            targetArtKey: "raid_target_2026_07_starcall_sentinel",
             rewardTitle: "July Signal Relic",
             field: .sky,
             maxHP: 90_000,
@@ -135,6 +139,7 @@ public enum RaidCatalog {
             code: "august",
             title: "August Ember Vault",
             targetName: "Emberforge Sentinel",
+            targetArtKey: "raid_target_2026_08_emberforge_sentinel",
             rewardTitle: "August Ember Relic",
             field: .coast,
             maxHP: 96_000,
@@ -146,6 +151,7 @@ public enum RaidCatalog {
             code: "september",
             title: "September Archive Vault",
             targetName: "Archivist Sentinel",
+            targetArtKey: "raid_target_2026_09_archivist_sentinel",
             rewardTitle: "September Archive Relic",
             field: .ice,
             maxHP: 102_000,
@@ -157,6 +163,7 @@ public enum RaidCatalog {
             code: "october",
             title: "October Shadow Vault",
             targetName: "Moonmask Sentinel",
+            targetArtKey: "raid_target_2026_10_moonmask_sentinel",
             rewardTitle: "October Shadow Relic",
             field: .sky,
             maxHP: 108_000,
@@ -168,6 +175,7 @@ public enum RaidCatalog {
             code: "november",
             title: "November Kernel Vault",
             targetName: "Kernelgear Sentinel",
+            targetArtKey: "raid_target_2026_11_kernelgear_sentinel",
             rewardTitle: "November Kernel Relic",
             field: .ice,
             maxHP: 114_000,
@@ -179,6 +187,7 @@ public enum RaidCatalog {
             code: "december",
             title: "December Aurora Vault",
             targetName: "Auroracrown Sentinel",
+            targetArtKey: "raid_target_2026_12_auroracrown_sentinel",
             rewardTitle: "December Aurora Relic",
             field: .ice,
             maxHP: 120_000,
@@ -195,6 +204,7 @@ private struct MonthlyRewardRaid {
     var legacyRewardID: String? = nil
     let title: String
     let targetName: String
+    let targetArtKey: String
     let rewardTitle: String
     let field: FieldType
     let maxHP: Int64
@@ -233,7 +243,7 @@ private extension MonthlyRewardRaid {
             raidID: raidID,
             title: title,
             targetName: targetName,
-            targetArtKey: "raid_target_token_vault_sentinel",
+            targetArtKey: targetArtKey,
             raidField: field,
             availabilityKind: .scheduled,
             activeStartAt: activeStartAt,

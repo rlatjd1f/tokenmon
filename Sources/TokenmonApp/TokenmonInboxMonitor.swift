@@ -432,30 +432,10 @@ final class TokenmonInboxMonitor: @unchecked Sendable {
     }
 
     private func activeCodexTranscriptSessions() -> [String: String] {
-        do {
-            let database = try TokenmonDatabaseManager(path: databasePath).open()
-            let rows: [(String, String)] = try database.fetchAll(
-                """
-                SELECT transcript_path, provider_session_id
-                FROM provider_sessions
-                WHERE provider_code = ?
-                  AND session_state = 'active'
-                  AND transcript_path IS NOT NULL
-                  AND transcript_path != '';
-                """,
-                bindings: [.text(ProviderCode.codex.rawValue)],
-                map: { statement in
-                    (
-                        SQLiteDatabase.columnText(statement, index: 0),
-                        SQLiteDatabase.columnText(statement, index: 1)
-                    )
-                }
-            )
-
-            return Dictionary(uniqueKeysWithValues: rows)
-        } catch {
-            return [:]
-        }
+        // Codex session-store observation owns live transcript tailing. Hook-discovered
+        // Codex transcripts are recovered through queued Stop backfill instead of
+        // continuously replaying long active transcripts from byte zero.
+        return [:]
     }
 
     private func transcriptContainsTokenCount(_ transcriptPath: String) -> Bool {

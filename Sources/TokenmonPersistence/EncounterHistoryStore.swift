@@ -1,6 +1,7 @@
 import Foundation
 import SQLite3
 import TokenmonDomain
+import TokenmonGameEngine
 
 public struct EncounterResolutionWriteRequest: Equatable, Sendable {
     public let encounterID: String?
@@ -161,6 +162,38 @@ public struct CapturedDexUpdatedEventPayload: Codable, Equatable, Sendable {
     }
 }
 
+public struct SpeciesAffinityUpdatedEventPayload: Codable, Equatable, Sendable {
+    public let speciesID: String
+    public let encounterID: String
+    public let capturedCountAfter: Int64
+    public let rarity: String
+    public let previousLevel: Int
+    public let newLevel: Int
+    public let targetLevel: Int?
+    public let probability: Double?
+    public let rngRoll: Double?
+    public let pityCountBefore: Int
+    public let pityCountAfter: Int
+    public let ceilingFailures: Int?
+    public let outcome: String
+
+    enum CodingKeys: String, CodingKey {
+        case speciesID = "species_id"
+        case encounterID = "encounter_id"
+        case capturedCountAfter = "captured_count_after"
+        case rarity
+        case previousLevel = "previous_level"
+        case newLevel = "new_level"
+        case targetLevel = "target_level"
+        case probability
+        case rngRoll = "rng_roll"
+        case pityCountBefore = "pity_count_before"
+        case pityCountAfter = "pity_count_after"
+        case ceilingFailures = "ceiling_failures"
+        case outcome
+    }
+}
+
 private struct DexSeenMutation {
     let firstSeenCreated: Bool
     let seenCountBefore: Int64
@@ -173,6 +206,13 @@ private struct DexCapturedMutation {
     let capturedCountBefore: Int64
     let capturedCountAfter: Int64
     let lastCapturedAtAfter: String
+    let affinityResolution: SpeciesAffinityResolution
+}
+
+private struct ExistingDexCapturedAggregate {
+    let capturedCount: Int64
+    let affinityLevel: Int
+    let affinityPityCount: Int
 }
 
 public enum EncounterHistoryStoreError: Error, LocalizedError {
@@ -343,12 +383,22 @@ public enum EncounterHistoryStore {
                 speciesID: request.speciesID,
                 occurredAt: request.occurredAt,
                 encounterID: encounterID,
+                encounterSeedContextID: request.encounterSeedContextID,
                 updatedAt: createdAt
             )
 
             try DomainEventStore.persist(
                 database: database,
                 envelope: capturedDexUpdatedEnvelope(
+                    encounterID: encounterID,
+                    request: request,
+                    mutation: capturedMutation
+                )
+            )
+
+            try DomainEventStore.persist(
+                database: database,
+                envelope: speciesAffinityUpdatedEnvelope(
                     encounterID: encounterID,
                     request: request,
                     mutation: capturedMutation
@@ -544,19 +594,36 @@ public enum EncounterHistoryStore {
         speciesID: String,
         occurredAt: String,
         encounterID: String,
+        encounterSeedContextID: String,
         updatedAt: String
     ) throws -> DexCapturedMutation {
-        let existingCapturedCount = try database.fetchOne(
+        let existing = try database.fetchOne(
             """
-            SELECT captured_count
+            SELECT captured_count,
+                   COALESCE(affinity_level, 1),
+                   COALESCE(affinity_pity_count, 0)
             FROM dex_captured
             WHERE species_id = ?
             LIMIT 1;
             """,
             bindings: [.text(speciesID)]
         ) { statement in
-            SQLiteDatabase.columnInt64(statement, index: 0)
+            ExistingDexCapturedAggregate(
+                capturedCount: SQLiteDatabase.columnInt64(statement, index: 0),
+                affinityLevel: Int(SQLiteDatabase.columnInt64(statement, index: 1)),
+                affinityPityCount: Int(SQLiteDatabase.columnInt64(statement, index: 2))
+            )
         }
+        let capturedCountBefore = existing?.capturedCount ?? 0
+        let capturedCountAfter = capturedCountBefore + 1
+        let affinityResolution = try SpeciesAffinityResolver().resolveCapture(
+            speciesID: speciesID,
+            rarity: try rarityForSpecies(database: database, speciesID: speciesID),
+            encounterSeedContextID: encounterSeedContextID,
+            capturedCountAfter: capturedCountAfter,
+            currentLevel: existing?.affinityLevel ?? 0,
+            pityCount: existing?.affinityPityCount ?? 0
+        )
 
         try database.execute(
             """
@@ -565,12 +632,24 @@ public enum EncounterHistoryStore {
                 first_captured_at,
                 last_captured_at,
                 captured_count,
+                affinity_level,
+                affinity_pity_count,
+                affinity_last_roll,
+                affinity_last_probability,
+                affinity_last_outcome,
+                affinity_updated_at,
                 last_encounter_id,
                 updated_at
-            ) VALUES (?, ?, ?, 1, ?, ?)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(species_id) DO UPDATE SET
                 last_captured_at = excluded.last_captured_at,
                 captured_count = dex_captured.captured_count + 1,
+                affinity_level = excluded.affinity_level,
+                affinity_pity_count = excluded.affinity_pity_count,
+                affinity_last_roll = excluded.affinity_last_roll,
+                affinity_last_probability = excluded.affinity_last_probability,
+                affinity_last_outcome = excluded.affinity_last_outcome,
+                affinity_updated_at = excluded.affinity_updated_at,
                 last_encounter_id = excluded.last_encounter_id,
                 updated_at = excluded.updated_at;
             """,
@@ -578,18 +657,60 @@ public enum EncounterHistoryStore {
                 .text(speciesID),
                 .text(occurredAt),
                 .text(occurredAt),
+                .integer(capturedCountAfter),
+                .integer(Int64(affinityResolution.newLevel)),
+                .integer(Int64(affinityResolution.pityCountAfter)),
+                affinityResolution.roll.map(SQLiteValue.double) ?? .null,
+                affinityResolution.probability.map(SQLiteValue.double) ?? .null,
+                .text(affinityResolution.outcome.rawValue),
+                .text(updatedAt),
                 .text(encounterID),
                 .text(updatedAt),
             ]
         )
-
-        let capturedCountBefore = existingCapturedCount ?? 0
-        return DexCapturedMutation(
-            firstCaptureCreated: existingCapturedCount == nil,
-            capturedCountBefore: capturedCountBefore,
-            capturedCountAfter: capturedCountBefore + 1,
-            lastCapturedAtAfter: occurredAt
+        try database.execute(
+            """
+            INSERT INTO species_training (
+                species_id,
+                training_rank,
+                training_resonance,
+                training_attempt_count,
+                updated_at
+            ) VALUES (?, 1, 0, 0, ?)
+            ON CONFLICT(species_id) DO NOTHING;
+            """,
+            bindings: [
+                .text(speciesID),
+                .text(updatedAt),
+            ]
         )
+
+        return DexCapturedMutation(
+            firstCaptureCreated: existing == nil,
+            capturedCountBefore: capturedCountBefore,
+            capturedCountAfter: capturedCountAfter,
+            lastCapturedAtAfter: occurredAt,
+            affinityResolution: affinityResolution
+        )
+    }
+
+    private static func rarityForSpecies(database: SQLiteDatabase, speciesID: String) throws -> RarityTier {
+        let rarityValue = try database.fetchOne(
+            """
+            SELECT rarity_tier
+            FROM species
+            WHERE species_id = ?
+            LIMIT 1;
+            """,
+            bindings: [.text(speciesID)]
+        ) { statement in
+            SQLiteDatabase.columnText(statement, index: 0)
+        }
+
+        guard let rarityValue, let rarity = RarityTier(rawValue: rarityValue) else {
+            throw EncounterHistoryStoreError.invalidStoredRarity(rarityValue ?? "")
+        }
+        return rarity
     }
 
     private static func mapEncounterRecord(_ statement: OpaquePointer) throws -> PersistedEncounterRecord {
@@ -753,6 +874,39 @@ public enum EncounterHistoryStore {
                 capturedCountBefore: mutation.capturedCountBefore,
                 capturedCountAfter: mutation.capturedCountAfter,
                 lastCapturedAtAfter: mutation.lastCapturedAtAfter
+            )
+        )
+    }
+
+    private static func speciesAffinityUpdatedEnvelope(
+        encounterID: String,
+        request: EncounterResolutionWriteRequest,
+        mutation: DexCapturedMutation
+    ) -> DomainEventEnvelope<SpeciesAffinityUpdatedEventPayload> {
+        let resolution = mutation.affinityResolution
+        return DomainEventEnvelope(
+            eventID: "\(TokenmonDomainEventType.speciesAffinityUpdated.rawValue):\(request.encounterSeedContextID)",
+            eventType: TokenmonDomainEventType.speciesAffinityUpdated.rawValue,
+            occurredAt: request.occurredAt,
+            producer: "TokenmonPersistence.EncounterHistoryStore",
+            correlationID: request.correlationID,
+            causationID: "\(TokenmonDomainEventType.capturedDexUpdated.rawValue):\(request.encounterSeedContextID)",
+            aggregateType: "dex_captured",
+            aggregateID: request.speciesID,
+            payload: SpeciesAffinityUpdatedEventPayload(
+                speciesID: request.speciesID,
+                encounterID: encounterID,
+                capturedCountAfter: mutation.capturedCountAfter,
+                rarity: request.rarity.rawValue,
+                previousLevel: resolution.previousLevel,
+                newLevel: resolution.newLevel,
+                targetLevel: resolution.targetLevel,
+                probability: resolution.probability,
+                rngRoll: resolution.roll,
+                pityCountBefore: resolution.pityCountBefore,
+                pityCountAfter: resolution.pityCountAfter,
+                ceilingFailures: resolution.ceilingFailures,
+                outcome: resolution.outcome.rawValue
             )
         )
     }

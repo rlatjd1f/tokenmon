@@ -167,9 +167,8 @@ struct TokenmonSceneDebugPanel: View {
                                     debugController.selectField(field)
                                 },
                                 content: AnyView(
-                                    TokenmonNowFieldHeroCard(
+                                    TokenmonNowCampSceneDebugPreview(
                                         sceneContext: debugContext(for: field),
-                                        companionAssetKeys: debugCompanionAssetKeys(for: field),
                                         animates: false
                                     )
                                     .frame(width: 272)
@@ -177,6 +176,40 @@ struct TokenmonSceneDebugPanel: View {
                             )
                             .frame(width: 344)
                         }
+                    }
+                }
+            }
+
+            VStack(alignment: .leading, spacing: 12) {
+                Text(TokenmonL10n.string("developer.visual.scene_debugger.now_camp_runtime_assets"))
+                    .font(.headline)
+                Text(TokenmonL10n.string("developer.visual.scene_debugger.now_camp_runtime_assets_note"))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(alignment: .top, spacing: 14) {
+                        ForEach(fields, id: \.rawValue) { field in
+                            TokenmonSceneDebugCard(
+                                title: field.debugTitle,
+                                subtitle: TokenmonL10n.string("developer.visual.now_camp.field_assets_subtitle"),
+                                isSelected: field == debugController.previewFieldKind,
+                                action: {
+                                    debugController.selectField(field)
+                                },
+                                content: AnyView(
+                                    TokenmonNowCampFieldAssetPreview(field: field.debugFieldType)
+                                )
+                            )
+                            .frame(width: 202)
+                        }
+
+                        TokenmonSceneDebugCard(
+                            title: TokenmonL10n.string("developer.visual.now_camp.common_assets_title"),
+                            subtitle: TokenmonL10n.string("developer.visual.now_camp.common_assets_subtitle"),
+                            content: AnyView(TokenmonNowCampCommonAssetPreview())
+                        )
+                        .frame(width: 202)
                     }
                 }
             }
@@ -349,6 +382,197 @@ private struct TokenmonSceneDebugCard: View {
             .contentShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
         }
         .buttonStyle(.plain)
+    }
+}
+
+private struct TokenmonNowCampSceneDebugPreview: View {
+    let sceneContext: TokenmonSceneContext
+    let animates: Bool
+
+    private var field: FieldType {
+        sceneContext.fieldKind.debugFieldType
+    }
+
+    private var sampleSpecies: [SpeciesDefinition] {
+        Array(
+            SpeciesCatalog.all
+                .filter { $0.isActive && $0.field == field }
+                .prefix(3)
+        )
+    }
+
+    var body: some View {
+        let presentation = NowCampHeroPresentation.preview(
+            sceneContext: sceneContext,
+            lead: sampleSpecies.first,
+            supports: Array(sampleSpecies.dropFirst()),
+            focusEnergy: 50
+        )
+
+        TokenmonNowCampHeroPresentationCard(
+            presentation: presentation,
+            animates: animates,
+            feedback: nil,
+            onTrain: {},
+            headerAccessory: {
+                TokenmonNowCampHeaderLeadLabel(presentation: presentation)
+            }
+        )
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(TokenmonL10n.string("developer.visual.now_camp.preview_accessibility"))
+    }
+
+    private func debugCampScene(
+        lead: SpeciesDefinition,
+        supports: [SpeciesDefinition]
+    ) -> some View {
+        GeometryReader { geometry in
+            let width = geometry.size.width
+
+            ZStack {
+                Ellipse()
+                    .fill(Color.black.opacity(0.18))
+                    .frame(width: 142, height: 18)
+                    .position(x: width * 0.52, y: 104)
+
+                if let firstSupport = supports.first {
+                    debugSpeciesSprite(firstSupport, cardSize: 36, spriteSize: 26)
+                        .position(x: width * 0.38, y: 86)
+                }
+
+                if supports.count > 1 {
+                    debugSpeciesSprite(supports[1], cardSize: 36, spriteSize: 26)
+                        .position(x: width * 0.66, y: 87)
+                }
+
+                NowCampEffectSpriteImage(scope: .field(field), variant: .campProp32)
+                    .frame(width: 38, height: 38)
+                    .position(x: width * 0.72, y: 84)
+
+                debugSpeciesSprite(lead, cardSize: 62, spriteSize: 46)
+                    .position(x: width * 0.52, y: 73)
+            }
+        }
+        .allowsHitTesting(false)
+    }
+
+    private func debugSpeciesSprite(
+        _ species: SpeciesDefinition,
+        cardSize: CGFloat,
+        spriteSize: CGFloat
+    ) -> some View {
+        TokenmonDexSpritePreview(
+            status: .captured,
+            revealStage: .revealed,
+            field: species.field,
+            rarity: species.rarity,
+            assetKey: species.assetKey,
+            cardSize: cardSize,
+            spriteSize: spriteSize,
+            showsBackground: false,
+            showsBorder: false
+        )
+    }
+}
+
+private struct TokenmonNowCampFieldAssetPreview: View {
+    let field: FieldType
+    private let columns = Array(repeating: GridItem(.fixed(48), spacing: 8), count: 3)
+
+    var body: some View {
+        LazyVGrid(columns: columns, spacing: 8) {
+            TokenmonNowCampAssetTile(
+                title: TokenmonL10n.string("developer.visual.now_camp.asset.camp_mat"),
+                scope: .field(field),
+                variant: .campMat64,
+                imageSize: 34
+            )
+            TokenmonNowCampAssetTile(
+                title: TokenmonL10n.string("developer.visual.now_camp.asset.camp_primary"),
+                scope: .field(field),
+                variant: .campPropPrimary32,
+                imageSize: 28
+            )
+            TokenmonNowCampAssetTile(
+                title: TokenmonL10n.string("developer.visual.now_camp.asset.camp_secondary"),
+                scope: .field(field),
+                variant: .campPropSecondary32,
+                imageSize: 28
+            )
+            TokenmonNowCampAssetTile(
+                title: TokenmonL10n.string("developer.visual.now_camp.asset.camp_fallback"),
+                scope: .field(field),
+                variant: .campProp32,
+                imageSize: 30
+            )
+            TokenmonNowCampAssetTile(
+                title: TokenmonL10n.string("developer.visual.now_camp.asset.care_fx"),
+                scope: .field(field),
+                variant: .careFX16,
+                imageSize: 22
+            )
+            TokenmonNowCampAssetTile(
+                title: TokenmonL10n.string("developer.visual.now_camp.asset.train_fx"),
+                scope: .field(field),
+                variant: .trainFX16,
+                imageSize: 22
+            )
+        }
+    }
+}
+
+private struct TokenmonNowCampCommonAssetPreview: View {
+    var body: some View {
+        HStack(spacing: 10) {
+            TokenmonNowCampAssetTile(
+                title: TokenmonL10n.string("developer.visual.now_camp.asset.resonance"),
+                scope: .common,
+                variant: .resonanceOrb16,
+                imageSize: 22
+            )
+            TokenmonNowCampAssetTile(
+                title: TokenmonL10n.string("developer.visual.now_camp.asset.success"),
+                scope: .common,
+                variant: .trainingSuccess16,
+                imageSize: 22
+            )
+            TokenmonNowCampAssetTile(
+                title: TokenmonL10n.string("developer.visual.now_camp.asset.fail"),
+                scope: .common,
+                variant: .trainingFail16,
+                imageSize: 22
+            )
+        }
+    }
+}
+
+private struct TokenmonNowCampAssetTile: View {
+    let title: String
+    let scope: NowCampEffectSpriteScope
+    let variant: NowCampEffectSpriteVariant
+    let imageSize: CGFloat
+
+    var body: some View {
+        VStack(spacing: 6) {
+            ZStack {
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .fill(Color(nsColor: .controlBackgroundColor).opacity(0.72))
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .stroke(Color.secondary.opacity(0.20), lineWidth: 0.8)
+                NowCampEffectSpriteImage(scope: scope, variant: variant)
+                    .frame(width: imageSize, height: imageSize)
+            }
+            .frame(width: 44, height: 44)
+
+            Text(title)
+                .font(.caption2.weight(.semibold))
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
+                .minimumScaleFactor(0.72)
+                .frame(width: 48)
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(Text(title))
     }
 }
 
@@ -1841,6 +2065,7 @@ enum TokenmonDexSortMode: String, CaseIterable, Hashable {
     case field
     case name
     case status
+    case affinity
     case lastSeen
     case capturedCount
 
@@ -1851,6 +2076,7 @@ enum TokenmonDexSortMode: String, CaseIterable, Hashable {
         case .field: return TokenmonL10n.string("dex.sort.field")
         case .name: return TokenmonL10n.string("dex.sort.name")
         case .status: return TokenmonL10n.string("dex.sort.status")
+        case .affinity: return TokenmonL10n.string("dex.sort.affinity")
         case .lastSeen: return TokenmonL10n.string("dex.sort.last_seen")
         case .capturedCount: return TokenmonL10n.string("dex.sort.captured_count")
         }
@@ -1913,6 +2139,19 @@ enum TokenmonDexBrowser {
                     let left = statusRank(lhs.status)
                     let right = statusRank(rhs.status)
                     return left == right ? lhs.sortOrder < rhs.sortOrder : left < right
+                case .affinity:
+                    let leftLevel = TokenmonDexPresentation.affinityLevelNumber(for: lhs)
+                    let rightLevel = TokenmonDexPresentation.affinityLevelNumber(for: rhs)
+                    if leftLevel != rightLevel {
+                        return leftLevel > rightLevel
+                    }
+                    if lhs.affinityPityCount != rhs.affinityPityCount {
+                        return lhs.affinityPityCount > rhs.affinityPityCount
+                    }
+                    if lhs.capturedCount != rhs.capturedCount {
+                        return lhs.capturedCount > rhs.capturedCount
+                    }
+                    return lhs.sortOrder < rhs.sortOrder
                 case .lastSeen:
                     let left = lhs.lastSeenAt ?? ""
                     let right = rhs.lastSeenAt ?? ""
@@ -2455,7 +2694,8 @@ private struct TokenmonDexBrowserPane: View {
                                         } label: {
                                             TokenmonDexCard(
                                                 entry: entry,
-                                                isSelected: selectedSpeciesID == entry.speciesID
+                                                isSelected: selectedSpeciesID == entry.speciesID,
+                                                isCurrentLead: model.nowCampLeadSpeciesID == entry.speciesID
                                             )
                                         }
                                         .contentShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
@@ -2478,6 +2718,12 @@ private struct TokenmonDexBrowserPane: View {
 
                                             if isMember {
                                                 Button {
+                                                    model.setNowCampLead(entry.speciesID)
+                                                } label: {
+                                                    Label(TokenmonL10n.string("dex.context_menu.set_lead"), systemImage: "crown.fill")
+                                                }
+
+                                                Button {
                                                     _ = model.removeSpeciesFromParty(entry.speciesID)
                                                 } label: {
                                                     Label(TokenmonL10n.string("dex.context_menu.remove_from_party"), systemImage: "bag.badge.minus")
@@ -2498,7 +2744,12 @@ private struct TokenmonDexBrowserPane: View {
                                     }
                                 }
                             } else {
-                                TokenmonDexListPane(entries: entries, selectedSpeciesID: $selectedSpeciesID)
+                                TokenmonDexListPane(
+                                    model: model,
+                                    entries: entries,
+                                    selectedSpeciesID: $selectedSpeciesID,
+                                    partyToast: $partyToast
+                                )
                             }
                         }
                         .padding(.top, 2)
@@ -2533,8 +2784,10 @@ private struct TokenmonDexBrowserPane: View {
 }
 
 private struct TokenmonDexListPane: View {
+    @ObservedObject var model: TokenmonMenuModel
     let entries: [DexEntrySummary]
     @Binding var selectedSpeciesID: String?
+    @Binding var partyToast: PartyToast?
 
     var body: some View {
         LazyVStack(spacing: 8) {
@@ -2542,11 +2795,44 @@ private struct TokenmonDexListPane: View {
                 Button {
                     selectedSpeciesID = entry.speciesID
                 } label: {
-                    TokenmonDexListRow(entry: entry, isSelected: selectedSpeciesID == entry.speciesID)
+                    TokenmonDexListRow(
+                        entry: entry,
+                        isSelected: selectedSpeciesID == entry.speciesID,
+                        isCurrentLead: model.nowCampLeadSpeciesID == entry.speciesID
+                    )
                 }
                 .contentShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
                 .buttonStyle(.plain)
                 .id(entry.speciesID)
+                .contextMenu {
+                    let isMember = model.partySpeciesIDs.contains(entry.speciesID)
+                    let isCaptured = entry.status == .captured
+
+                    if isMember {
+                        Button {
+                            model.setNowCampLead(entry.speciesID)
+                        } label: {
+                            Label(TokenmonL10n.string("dex.context_menu.set_lead"), systemImage: "crown.fill")
+                        }
+
+                        Button {
+                            _ = model.removeSpeciesFromParty(entry.speciesID)
+                        } label: {
+                            Label(TokenmonL10n.string("dex.context_menu.remove_from_party"), systemImage: "bag.badge.minus")
+                        }
+                    } else {
+                        Button {
+                            let outcome = model.addSpeciesToParty(entry.speciesID)
+                            if outcome == .partyFull {
+                                partyToast = PartyToast(message: TokenmonL10n.string("party.full.toast"))
+                            }
+                        } label: {
+                            Label(TokenmonL10n.string("dex.context_menu.add_to_party"), systemImage: "bag.badge.plus")
+                        }
+                        .disabled(isCaptured == false)
+                        .help(isCaptured ? "" : TokenmonL10n.string("dex.context_menu.add_to_party.disabled_help"))
+                    }
+                }
             }
         }
     }
@@ -2555,6 +2841,7 @@ private struct TokenmonDexListPane: View {
 struct TokenmonDexListRow: View {
     let entry: DexEntrySummary
     let isSelected: Bool
+    var isCurrentLead: Bool = false
     var compact: Bool = false
     var showsCountMetrics: Bool = true
 
@@ -2594,7 +2881,18 @@ struct TokenmonDexListRow: View {
                         .foregroundStyle(entry.status == .unknown ? .secondary : .primary)
                         .lineLimit(1)
 
+                    if isCurrentLead {
+                        Image(systemName: "crown.fill")
+                            .font(.system(size: compact ? 9 : 10, weight: .black))
+                            .foregroundStyle(.yellow)
+                            .accessibilityHidden(true)
+                    }
+
                     Spacer(minLength: 0)
+
+                    if entry.status == .captured, entry.affinityLevel >= 2 {
+                        TokenmonAffinityBadge(level: entry.affinityLevel, compact: compact, emphasized: true)
+                    }
 
                     TokenmonDexStatusBadge(status: entry.status, compact: compact)
                 }
@@ -2725,6 +3023,7 @@ private struct RarityText: View {
 struct TokenmonDexCard: View {
     let entry: DexEntrySummary
     let isSelected: Bool
+    var isCurrentLead: Bool = false
 
     private var displayName: String {
         TokenmonDexPresentation.visibleSpeciesName(for: entry)
@@ -2743,17 +3042,26 @@ struct TokenmonDexCard: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack(alignment: .top) {
-                Text(String(format: "#%03d", entry.sortOrder))
-                    .font(.headline.monospacedDigit())
-                    .foregroundStyle(.secondary)
-                Spacer()
-                HStack(spacing: 6) {
-                    TokenmonDexAlbumRarityPill(rarity: entry.rarity, albumStyle: albumStyle)
-                    TokenmonDexAlbumStatusPill(status: entry.status)
+        VStack(alignment: .leading, spacing: 9) {
+            VStack(alignment: .leading, spacing: 7) {
+                HStack(alignment: .center, spacing: 8) {
+                    Text(String(format: "#%03d", entry.sortOrder))
+                        .font(.headline.monospacedDigit())
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                        .fixedSize(horizontal: true, vertical: false)
+                        .layoutPriority(1)
+
+                    Spacer(minLength: 0)
+
+                    if isCurrentLead {
+                        TokenmonDexLeadPill()
+                    }
                 }
+
+                TokenmonDexAlbumBadgeStrip(entry: entry, albumStyle: albumStyle)
             }
+            .frame(minHeight: entry.status == .captured ? 67 : 36, alignment: .top)
 
             HStack {
                 Spacer()
@@ -2764,7 +3072,7 @@ struct TokenmonDexCard: View {
                     rarity: entry.rarity,
                     assetKey: entry.assetKey
                 )
-                .frame(width: 120, height: 120)
+                .frame(width: 112, height: 112)
                 Spacer()
             }
 
@@ -2788,7 +3096,7 @@ struct TokenmonDexCard: View {
             }
         }
         .padding(12)
-        .frame(maxWidth: .infinity, minHeight: 184, alignment: .topLeading)
+        .frame(maxWidth: .infinity, minHeight: entry.status == .captured ? 206 : 184, alignment: .topLeading)
         .background(
             RoundedRectangle(cornerRadius: 16)
                 .fill(cardBackground)
@@ -2821,21 +3129,75 @@ struct TokenmonDexCard: View {
     }
 }
 
+private struct TokenmonDexLeadPill: View {
+    var body: some View {
+        Image(systemName: "crown.fill")
+            .font(.system(size: 10, weight: .black))
+            .foregroundStyle(.yellow)
+            .frame(width: 28, height: 24)
+            .background(
+                Capsule()
+                    .fill(Color(nsColor: .controlBackgroundColor).opacity(0.88))
+            )
+            .help(TokenmonL10n.string("dex.context_menu.set_lead"))
+            .accessibilityHidden(true)
+    }
+}
+
+private struct TokenmonDexAlbumBadgeStrip: View {
+    let entry: DexEntrySummary
+    let albumStyle: TokenmonDexAlbumStyle
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 5) {
+            if entry.status == .captured {
+                HStack(spacing: 5) {
+                    TokenmonAffinityBadge(
+                        level: TokenmonDexPresentation.affinityLevelNumber(for: entry),
+                        compact: true,
+                        emphasized: entry.affinityLevel >= 2
+                    )
+                    TokenmonTrainingBadge(
+                        rank: entry.trainingRank,
+                        compact: true,
+                        tint: entry.field.tint,
+                        emphasized: entry.trainingRank.rawValue >= TrainingRank.rankII.rawValue
+                    )
+                    Spacer(minLength: 0)
+                }
+            }
+
+            HStack(spacing: 5) {
+                TokenmonDexAlbumStatusPill(status: entry.status)
+                TokenmonDexAlbumRarityPill(rarity: entry.rarity, albumStyle: albumStyle)
+                Spacer(minLength: 0)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+}
+
 private struct TokenmonDexAlbumRarityPill: View {
     let rarity: RarityTier
     let albumStyle: TokenmonDexAlbumStyle
 
     var body: some View {
-        HStack(spacing: 0) {
+        HStack(spacing: 5) {
             Image(systemName: albumStyle.primarySymbol)
                 .font(.caption2.weight(.bold))
+            Text(rarity.displayName)
+                .font(.caption2.weight(.bold))
+                .lineLimit(1)
         }
         .foregroundStyle(rarity.tint)
-        .frame(width: 30, height: 28)
+        .padding(.horizontal, 7)
+        .frame(height: 28)
         .background(
             RoundedRectangle(cornerRadius: 12)
                 .fill(rarity.tint.opacity(0.12 + (Double(albumStyle.emphasisLevel) * 0.03)))
         )
+        .fixedSize(horizontal: true, vertical: false)
+        .help(rarity.displayName)
     }
 }
 
@@ -2843,14 +3205,23 @@ private struct TokenmonDexAlbumStatusPill: View {
     let status: DexEntryStatus
 
     var body: some View {
-        Image(systemName: status.systemImage)
-            .font(.caption2.weight(.bold))
-            .foregroundStyle(status.tint)
-            .frame(width: 30, height: 28)
-            .background(
-                RoundedRectangle(cornerRadius: 12)
-                    .fill(status.tint.opacity(0.12))
-            )
+        Label {
+            Text(status.detailTitle)
+                .font(.caption2.weight(.bold))
+                .lineLimit(1)
+        } icon: {
+            Image(systemName: status.systemImage)
+                .font(.caption2.weight(.bold))
+        }
+        .foregroundStyle(status.tint)
+        .padding(.horizontal, 7)
+        .frame(height: 28)
+        .background(
+            RoundedRectangle(cornerRadius: 12)
+                .fill(status.tint.opacity(0.12))
+        )
+        .fixedSize(horizontal: true, vertical: false)
+        .help(status.detailTitle)
     }
 }
 
@@ -2865,6 +3236,11 @@ struct TokenmonDexDetailPane: View {
                         TokenmonDexDetailCard(entry: entry)
 
                         VStack(spacing: 10) {
+                            if entry.status == .captured {
+                                TokenmonDexTrainingPanel(entry: entry)
+                                TokenmonDexAffinityPanel(entry: entry)
+                            }
+
                             TokenmonDexProgressPanel(entry: entry)
 
                             TokenmonDexFieldNotesPanel(entry: entry)
@@ -3128,6 +3504,162 @@ struct TokenmonRarityBadge: View {
         .background(Capsule().fill(rarity.tint.opacity(0.14)))
         .fixedSize(horizontal: true, vertical: false)
         .help(rarity.displayName)
+    }
+}
+
+struct TokenmonAffinityBadge: View {
+    let level: Int64
+    var compact: Bool = false
+    var emphasized: Bool = false
+
+    var body: some View {
+        let normalizedLevel = max(1, min(5, level))
+        let tint = affinityTint(for: normalizedLevel)
+
+        HStack(spacing: compact ? 3 : 5) {
+            Image(systemName: "heart.fill")
+                .font(compact ? .system(size: 8, weight: .black) : .caption2.weight(.black))
+                .foregroundStyle(tint)
+
+            Text(compact
+                ? TokenmonDexPresentation.affinityRomanLabel(level: normalizedLevel)
+                : TokenmonDexPresentation.affinityLevelLabel(level: normalizedLevel, compact: false)
+            )
+            .font(compact ? .caption2.weight(.black) : .caption.weight(.bold))
+            .lineLimit(1)
+            .minimumScaleFactor(0.78)
+        }
+        .foregroundStyle(emphasized ? tint : Color.secondary)
+        .padding(.horizontal, compact ? 6 : 9)
+        .padding(.vertical, compact ? 4 : 6)
+        .background(
+            Capsule()
+                .fill(tint.opacity(emphasized ? 0.20 : 0.11))
+        )
+        .overlay(
+            Capsule()
+                .stroke(tint.opacity(emphasized ? 0.45 : 0.20), lineWidth: emphasized ? 1.2 : 1)
+        )
+        .fixedSize(horizontal: true, vertical: false)
+        .help(TokenmonDexPresentation.affinityLevelLabel(level: normalizedLevel, compact: false))
+    }
+
+    private func affinityTint(for level: Int64) -> Color {
+        switch level {
+        case 5:
+            return Color(red: 1.0, green: 0.77, blue: 0.28)
+        case 4:
+            return Color(red: 0.72, green: 0.55, blue: 1.0)
+        case 3:
+            return Color(red: 0.28, green: 0.66, blue: 1.0)
+        case 2:
+            return Color(red: 0.32, green: 0.82, blue: 0.58)
+        default:
+            return Color.secondary
+        }
+    }
+}
+
+struct TokenmonTrainingBadge: View {
+    let rank: TrainingRank
+    var compact: Bool = false
+    var tint: Color = .accentColor
+    var emphasized: Bool = false
+
+    var body: some View {
+        HStack(spacing: compact ? 3 : 6) {
+            Image(systemName: "figure.strengthtraining.traditional")
+                .font(compact ? .system(size: 8, weight: .black) : .caption2.weight(.black))
+
+            Text(compact ? "Lv.\(rank.rawValue)" : TokenmonDexPresentation.trainingLevelLabel(rank: rank))
+                .font(compact ? .caption2.weight(.black) : .caption.weight(.bold))
+                .monospacedDigit()
+                .lineLimit(1)
+                .minimumScaleFactor(0.78)
+        }
+        .foregroundStyle(emphasized ? tint : Color.secondary)
+        .padding(.horizontal, compact ? 6 : 9)
+        .padding(.vertical, compact ? 4 : 6)
+        .background(
+            Capsule()
+                .fill(tint.opacity(emphasized ? 0.20 : 0.11))
+        )
+        .overlay(
+            Capsule()
+                .stroke(tint.opacity(emphasized ? 0.45 : 0.20), lineWidth: emphasized ? 1.2 : 1)
+        )
+        .fixedSize(horizontal: true, vertical: false)
+        .help(TokenmonDexPresentation.trainingLevelLabel(rank: rank))
+        .accessibilityLabel(TokenmonDexPresentation.trainingLevelLabel(rank: rank))
+    }
+}
+
+struct TokenmonAffinityStamp: View {
+    let level: Int64
+    var compact: Bool = false
+    var angle: Angle = .degrees(-8)
+
+    private var normalizedLevel: Int64 {
+        max(1, min(5, level))
+    }
+
+    private var stampTint: Color {
+        switch normalizedLevel {
+        case 5:
+            return Color(red: 1.0, green: 0.74, blue: 0.25)
+        case 4:
+            return Color(red: 1.0, green: 0.58, blue: 0.28)
+        case 3:
+            return Color(red: 0.98, green: 0.48, blue: 0.23)
+        default:
+            return Color(red: 0.94, green: 0.52, blue: 0.22)
+        }
+    }
+
+    var body: some View {
+        VStack(spacing: compact ? 0 : 2) {
+            HStack(spacing: compact ? 2 : 3) {
+                ForEach(0..<3, id: \.self) { _ in
+                    Image(systemName: "star.fill")
+                        .font(.system(size: compact ? 6 : 8, weight: .black))
+                }
+            }
+
+            Text(TokenmonDexPresentation.affinityLevelLabel(level: normalizedLevel, compact: false))
+                .font(.system(size: compact ? 11 : 15, weight: .black, design: .rounded))
+                .lineLimit(1)
+                .minimumScaleFactor(0.72)
+                .tracking(compact ? 0.1 : 0.4)
+
+            if compact == false {
+                Text(TokenmonDexPresentation.affinityRaidBonusShortLabel(level: normalizedLevel).uppercased())
+                    .font(.system(size: 7, weight: .black, design: .rounded))
+                    .monospacedDigit()
+                    .lineLimit(1)
+                    .tracking(0.8)
+            }
+        }
+        .foregroundStyle(stampTint)
+        .padding(.horizontal, compact ? 8 : 11)
+        .padding(.vertical, compact ? 5 : 7)
+        .frame(width: compact ? 76 : 98, height: compact ? 42 : 62)
+        .background(
+            RoundedRectangle(cornerRadius: compact ? 12 : 16, style: .continuous)
+                .fill(Color.black.opacity(0.08))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: compact ? 12 : 16, style: .continuous)
+                .stroke(stampTint.opacity(0.90), style: StrokeStyle(lineWidth: compact ? 1.6 : 2.2, dash: [5, 2.5]))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: compact ? 8 : 11, style: .continuous)
+                .stroke(stampTint.opacity(0.62), lineWidth: compact ? 1 : 1.4)
+                .padding(compact ? 5 : 7)
+        )
+        .rotationEffect(angle)
+        .shadow(color: stampTint.opacity(0.18), radius: compact ? 5 : 8, y: 2)
+        .help(TokenmonDexPresentation.affinityLevelLabel(level: normalizedLevel, compact: false))
+        .accessibilityLabel(TokenmonDexPresentation.affinityLevelLabel(level: normalizedLevel, compact: false))
     }
 }
 

@@ -72,13 +72,14 @@ struct TokenmonPopoverHeroSceneCard: View {
     }
 }
 
-private struct TokenmonPopoverHeroFieldStage: View {
+struct TokenmonPopoverHeroFieldStage: View {
     @Environment(\.accessibilityReduceMotion) private var accessibilityReduceMotion
 
     let context: TokenmonSceneContext
     let companionAssetKeys: [String]
     let backgroundDate: Date?
     let animates: Bool
+    var showsAmbientLayer: Bool = true
 
     var body: some View {
         GeometryReader { geometry in
@@ -162,14 +163,16 @@ private struct TokenmonPopoverHeroFieldStage: View {
                 )
             }
 
-            TokenmonPopoverAmbientFieldLayer(
-                context: context,
-                layout: layout,
-                phase: phase,
-                reduceMotion: reduceMotion,
-                showsFieldSprites: popoverBackground == nil
-            )
-            .allowsHitTesting(false)
+            if showsAmbientLayer {
+                TokenmonPopoverAmbientFieldLayer(
+                    context: context,
+                    layout: layout,
+                    phase: phase,
+                    reduceMotion: reduceMotion,
+                    showsFieldSprites: popoverBackground == nil
+                )
+                .allowsHitTesting(false)
+            }
 
             if let selectedCompanionAssetKey {
                 TokenmonAmbientCompanionPortrait(

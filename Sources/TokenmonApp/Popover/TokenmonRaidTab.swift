@@ -1,9 +1,11 @@
 import SwiftUI
 import TokenmonDomain
+import TokenmonGameEngine
 import TokenmonPersistence
 
 struct TokenmonRaidTab: View {
     @ObservedObject var model: TokenmonMenuModel
+    let contentWidth: CGFloat
     let onOpenRewardArchive: () -> Void
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var highlightedAttackID: Int64?
@@ -24,7 +26,7 @@ struct TokenmonRaidTab: View {
                         reduceMotion: reduceMotion
                     )
                     raidHeader(raid)
-                    partySection(dashboard.partyMembers, partyPower: raid.partyPower)
+                    partySection(dashboard.partyMembers, raid: raid)
                     recentAttackSection(raid.recentAttacks)
                     rewardArchiveSection(
                         dashboard.archiveEntries,
@@ -37,7 +39,7 @@ struct TokenmonRaidTab: View {
             .padding(.horizontal, 14)
             .padding(.top, 12)
             .padding(.bottom, 14)
-            .frame(width: TokenmonPopoverContainer.contentWidth, alignment: .topLeading)
+            .frame(width: contentWidth, alignment: .topLeading)
         }
         .onAppear {
             guard let attack = dashboard?.currentRaid?.recentAttacks.first else { return }
@@ -96,6 +98,12 @@ struct TokenmonRaidTab: View {
                         .font(.caption)
                         .foregroundStyle(.secondary)
                         .lineLimit(2)
+                    Label(
+                        TokenmonL10n.format("raid.field.type_format", raid.raidField.displayName),
+                        systemImage: raid.raidField.systemImage
+                    )
+                    .font(.caption2.weight(.semibold))
+                    .foregroundStyle(raid.raidField.tint)
                     Label(statusText(for: raid), systemImage: statusIcon(for: raid.status))
                         .font(.caption.weight(.semibold))
                         .foregroundStyle(statusTint(for: raid.status))
@@ -169,13 +177,13 @@ struct TokenmonRaidTab: View {
         )
     }
 
-    private func partySection(_ members: [PartyMemberSummary], partyPower: Int) -> some View {
+    private func partySection(_ members: [PartyMemberSummary], raid: RaidProgressSummary) -> some View {
         VStack(alignment: .leading, spacing: 9) {
             HStack {
                 Text(TokenmonL10n.string("raid.party.title"))
                     .font(.subheadline.weight(.semibold))
                 Spacer()
-                Text(TokenmonL10n.format("raid.party.power_format", partyPower))
+                Text(TokenmonL10n.format("raid.party.power_format", raid.partyPower))
                     .font(.caption.monospacedDigit())
                     .foregroundStyle(.secondary)
             }
@@ -194,13 +202,45 @@ struct TokenmonRaidTab: View {
                             member: member,
                             cardSize: 42,
                             spriteSize: 30,
-                            showsRarityBadge: true
+                            showsRarityBadge: true,
+                            fieldMatch: member.field == raid.raidField
                         )
-                        .help(member.displayName)
+                        .help(raidPartyMemberHelp(member, raid: raid))
                     }
                 }
+
+                Label(
+                    TokenmonL10n.format(
+                        "raid.party.field_match_format",
+                        raid.fieldMatchCount,
+                        raid.raidField.displayName,
+                        fieldSynergyPercent(raid.fieldSynergyMultiplier)
+                    ),
+                    systemImage: raid.raidField.systemImage
+                )
+                .font(.caption2.weight(.semibold))
+                .foregroundStyle(raid.raidField.tint)
+                .padding(.horizontal, 8)
+                .padding(.vertical, 5)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(
+                    RoundedRectangle(cornerRadius: 8, style: .continuous)
+                        .fill(raid.raidField.tint.opacity(0.10))
+                )
             }
         }
+    }
+
+    private func raidPartyMemberHelp(_ member: PartyMemberSummary, raid: RaidProgressSummary) -> String {
+        let bonus = RaidDamageCalculator.captureBondBonus(affinityLevel: member.affinityLevel)
+        let fieldText = member.field == raid.raidField
+            ? TokenmonL10n.format("raid.party.field_match_member_help", raid.raidField.displayName)
+            : TokenmonL10n.format("raid.party.field_off_member_help", member.field.displayName)
+        return "\(member.displayName) · \(fieldText) · \(TokenmonDexPresentation.raidAffinityBonusLabel(affinityLevel: member.affinityLevel, bonus: bonus))"
+    }
+
+    private func fieldSynergyPercent(_ multiplier: Double) -> Int {
+        max(0, Int(((multiplier - 1.0) * 100).rounded()))
     }
 
     private func recentAttackSection(_ attacks: [RaidAttackSummary]) -> some View {
@@ -332,7 +372,7 @@ struct TokenmonRaidTab: View {
             systemImage: "shield.slash",
             description: Text(TokenmonL10n.string("raid.empty.description"))
         )
-        .frame(width: TokenmonPopoverContainer.contentWidth)
+        .frame(width: contentWidth)
         .frame(minHeight: 360)
     }
 
@@ -428,6 +468,7 @@ private struct TokenmonRaidPartyMemberToken: View {
     let cardSize: CGFloat
     let spriteSize: CGFloat
     let showsRarityBadge: Bool
+    let fieldMatch: Bool
 
     var body: some View {
         ZStack(alignment: .bottomTrailing) {
@@ -435,6 +476,10 @@ private struct TokenmonRaidPartyMemberToken: View {
                 .fill(backgroundFill)
             RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
                 .stroke(member.rarity.tint.opacity(0.82), lineWidth: borderWidth)
+            if fieldMatch {
+                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                    .stroke(member.field.tint.opacity(0.92), lineWidth: 2.4)
+            }
 
             TokenmonDexSpritePreview(
                 status: .captured,
@@ -457,10 +502,29 @@ private struct TokenmonRaidPartyMemberToken: View {
                     .overlay(Circle().stroke(Color.white.opacity(0.34), lineWidth: 0.8))
                     .offset(x: 2, y: 2)
             }
+
         }
         .frame(width: cardSize, height: cardSize)
+        .overlay(alignment: .topLeading) {
+            if fieldMatch {
+                Image(systemName: member.field.systemImage)
+                    .font(.system(size: 8, weight: .black))
+                    .foregroundStyle(.white)
+                    .frame(width: 15, height: 15)
+                    .background(Circle().fill(member.field.tint))
+                    .overlay(Circle().stroke(Color.white.opacity(0.36), lineWidth: 0.8))
+                    .offset(x: -2, y: -2)
+            }
+        }
         .shadow(color: member.rarity.tint.opacity(0.24), radius: 4, y: 2)
-        .accessibilityLabel("\(member.displayName), \(member.rarity.displayName)")
+        .accessibilityLabel("\(member.displayName), \(member.rarity.displayName), \(affinityAccessibilityLabel)")
+    }
+
+    private var affinityAccessibilityLabel: String {
+        TokenmonDexPresentation.raidAffinityBonusLabel(
+            affinityLevel: member.affinityLevel,
+            bonus: RaidDamageCalculator.captureBondBonus(affinityLevel: member.affinityLevel)
+        )
     }
 
     private var cornerRadius: CGFloat {
@@ -695,6 +759,19 @@ private struct TokenmonRaidBattleBackdropImage: View {
     }
 
     private var backdropArtKey: String {
+        if raid.availabilityKind == .scheduled {
+            switch raid.raidField {
+            case .grassland:
+                return "raid_backdrop_grassland_vault"
+            case .sky:
+                return "raid_backdrop_sky_beacon"
+            case .coast:
+                return "raid_backdrop_coast_tideglass"
+            case .ice:
+                return "raid_backdrop_ice_aurora_archive"
+            }
+        }
+
         switch raid.targetArtKey {
         case "raid_target_token_vault_sentinel":
             return "raid_backdrop_token_vault_chamber"

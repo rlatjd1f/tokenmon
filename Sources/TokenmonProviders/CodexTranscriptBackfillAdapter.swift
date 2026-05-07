@@ -72,15 +72,13 @@ public enum CodexTranscriptBackfillAdapter {
         from transcriptPath: String,
         config: CodexTranscriptBackfillAdapterConfig = CodexTranscriptBackfillAdapterConfig()
     ) throws -> CodexTranscriptSessionMetadata {
-        let readResult = try ProviderInboxReader.read(from: transcriptPath, startingAt: 0)
-
         var sessionID = config.sessionIDFallback
         var workspaceDir: String?
         var modelSlug: String?
         var lastOffset: Int64 = 0
         var lastLineNumber = 0
 
-        for line in readResult.lines {
+        try ProviderInboxReader.readLines(from: transcriptPath, startingAt: 0) { line in
             let lineNumber = lastLineNumber + 1
             let trimmed = line.rawLine.trimmingCharacters(in: .whitespacesAndNewlines)
 
@@ -89,11 +87,11 @@ public enum CodexTranscriptBackfillAdapter {
                     lastOffset = line.nextOffset
                     lastLineNumber = lineNumber
                 }
-                continue
+                return
             }
 
             if line.newlineTerminated == false {
-                continue
+                return
             }
 
             guard let jsonObject = try jsonObject(from: trimmed) else {
@@ -152,8 +150,6 @@ public enum CodexTranscriptBackfillAdapter {
         startingLineNumber: Int,
         config: CodexTranscriptBackfillAdapterConfig = CodexTranscriptBackfillAdapterConfig()
     ) throws -> CodexTranscriptBackfillDeltaResult {
-        let readResult = try ProviderInboxReader.read(from: transcriptPath, startingAt: offset)
-
         var sessionID = config.sessionIDFallback
         var workspaceDir: String?
         var modelSlug: String?
@@ -163,7 +159,7 @@ public enum CodexTranscriptBackfillAdapter {
         var lastEventFingerprint: String?
         var encounteredTokenCount = false
 
-        for line in readResult.lines {
+        try ProviderInboxReader.readLines(from: transcriptPath, startingAt: offset) { line in
             let lineNumber = lastLineNumber + 1
             let trimmed = line.rawLine.trimmingCharacters(in: .whitespacesAndNewlines)
 
@@ -172,11 +168,11 @@ public enum CodexTranscriptBackfillAdapter {
                     lastOffset = line.nextOffset
                     lastLineNumber = lineNumber
                 }
-                continue
+                return
             }
 
             if line.newlineTerminated == false {
-                continue
+                return
             }
 
             guard let jsonObject = try jsonObject(from: trimmed) else {
@@ -192,14 +188,14 @@ public enum CodexTranscriptBackfillAdapter {
                     modelSlug = stringValue(payload["model"]) ?? modelSlug
                     lastOffset = line.nextOffset
                     lastLineNumber = lineNumber
-                    continue
+                    return
                 }
 
                 guard jsonObject["type"] as? String == "event_msg",
                       payload["type"] as? String == "token_count" else {
                     lastOffset = line.nextOffset
                     lastLineNumber = lineNumber
-                    continue
+                    return
                 }
 
                 encounteredTokenCount = true
@@ -208,7 +204,7 @@ public enum CodexTranscriptBackfillAdapter {
                       let totalUsage = dictionaryValue(info["total_token_usage"]) else {
                     lastOffset = line.nextOffset
                     lastLineNumber = lineNumber
-                    continue
+                    return
                 }
 
                 guard let inputTokens = int64Value(totalUsage["input_tokens"]),

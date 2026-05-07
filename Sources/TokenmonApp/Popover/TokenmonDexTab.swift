@@ -5,6 +5,7 @@ import TokenmonPersistence
 /// handoff into the full Dex browser for deeper browsing and species details.
 struct TokenmonDexTab: View {
     @ObservedObject var model: TokenmonMenuModel
+    let contentWidth: CGFloat
     let onOpenFullDex: () -> Void
     let onSelectSpecies: (DexEntrySummary) -> Void
 
@@ -36,6 +37,6 @@ struct TokenmonDexTab: View {
         .padding(.horizontal, 14)
         .padding(.top, 12)
         .padding(.bottom, 10)
-        .frame(width: 300, alignment: .topLeading)
+        .frame(width: contentWidth, alignment: .topLeading)
     }
 }

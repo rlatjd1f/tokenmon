@@ -18,6 +18,7 @@ public struct RaidMemberHitSummary: Equatable, Sendable {
     public let assetKey: String
     public let slotOrder: Int
     public let baseHitPower: Int
+    public let trainingRaidBonus: Int
     public let rollOutcome: RaidHitRollOutcome
     public let hitPower: Int
 }
@@ -53,6 +54,8 @@ public struct RaidProgressSummary: Equatable, Sendable {
     public let totalAttacks: Int64
     public let totalDamage: Int64
     public let partyPower: Int
+    public let fieldMatchCount: Int
+    public let fieldSynergyMultiplier: Double
     public let activeBlessing: RaidBlessingSummary?
     public let rewards: [RaidRewardSummary]
     public let recentAttacks: [RaidAttackSummary]
@@ -91,6 +94,8 @@ struct RaidAttackTriggeredEventPayload: Codable, Equatable, Sendable {
     let usageSampleID: Int64
     let partySize: Int
     let unmodifiedTotalDamage: Int
+    let fieldMatchCount: Int
+    let fieldSynergyMultiplier: Double
     let totalDamage: Int
     let damageBlessingID: String?
     let damageBlessingMultiplier: Double?
@@ -102,6 +107,8 @@ struct RaidAttackTriggeredEventPayload: Codable, Equatable, Sendable {
         case usageSampleID = "usage_sample_id"
         case partySize = "party_size"
         case unmodifiedTotalDamage = "unmodified_total_damage"
+        case fieldMatchCount = "field_match_count"
+        case fieldSynergyMultiplier = "field_synergy_multiplier"
         case totalDamage = "total_damage"
         case damageBlessingID = "damage_blessing_id"
         case damageBlessingMultiplier = "damage_blessing_multiplier"
@@ -119,6 +126,7 @@ struct RaidMemberHitResolvedEventPayload: Codable, Equatable, Sendable {
     let fieldFitBonus: Int
     let traitFitBonus: Int
     let captureBondBonus: Int
+    let trainingRaidBonus: Int
     let hitPower: Int
 
     enum CodingKeys: String, CodingKey {
@@ -131,6 +139,7 @@ struct RaidMemberHitResolvedEventPayload: Codable, Equatable, Sendable {
         case fieldFitBonus = "field_fit_bonus"
         case traitFitBonus = "trait_fit_bonus"
         case captureBondBonus = "capture_bond_bonus"
+        case trainingRaidBonus = "training_raid_bonus"
         case hitPower = "hit_power"
     }
 }
@@ -309,9 +318,10 @@ public extension TokenmonDatabaseManager {
                     field_fit_bonus,
                     trait_fit_bonus,
                     capture_bond_bonus,
+                    training_raid_bonus,
                     hit_power,
                     stats_json
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
                 """,
                 bindings: [
                     .integer(attackID),
@@ -324,6 +334,7 @@ public extension TokenmonDatabaseManager {
                     .integer(Int64(hit.fieldFitBonus)),
                     .integer(Int64(hit.traitFitBonus)),
                     .integer(Int64(hit.captureBondBonus)),
+                    .integer(Int64(hit.trainingRaidBonus)),
                     .integer(Int64(hit.hitPower)),
                     .text(statsJSON),
                 ]
@@ -395,6 +406,7 @@ public extension TokenmonDatabaseManager {
                     assetKey: hit.member.assetKey,
                     slotOrder: hit.member.slotOrder,
                     baseHitPower: hit.baseHitPower,
+                    trainingRaidBonus: hit.trainingRaidBonus,
                     rollOutcome: hit.rollOutcome,
                     hitPower: hit.hitPower
                 )
@@ -578,65 +590,16 @@ private extension TokenmonDatabaseManager {
                 rarity: member.rarity,
                 slotOrder: member.slotOrder,
                 capturedCount: member.capturedCount,
+                affinityLevel: member.affinityLevel,
+                trainingTrait: member.trainingTrait,
+                trainingRank: member.trainingRank,
                 stats: member.stats
             )
         }
     }
 
     func partyMembers(database: SQLiteDatabase) throws -> [PartyMemberSummary] {
-        let sql = """
-        SELECT party_members.species_id,
-               species.asset_key,
-               species.field_code,
-               species.rarity_tier,
-               species.name,
-               party_members.added_at,
-               party_members.slot_order,
-               dex_captured.captured_count,
-               species.stat_planning,
-               species.stat_design,
-               species.stat_frontend,
-               species.stat_backend,
-               species.stat_pm,
-               species.stat_infra,
-               species.traits_json
-        FROM party_members
-        INNER JOIN species ON species.species_id = party_members.species_id
-        INNER JOIN dex_captured ON dex_captured.species_id = party_members.species_id
-        ORDER BY party_members.slot_order ASC;
-        """
-        return try database.fetchAll(sql) { statement in
-            let fieldRaw = SQLiteDatabase.columnText(statement, index: 2)
-            let rarityRaw = SQLiteDatabase.columnText(statement, index: 3)
-            guard let field = FieldType(rawValue: fieldRaw),
-                  let rarity = RarityTier(rawValue: rarityRaw)
-            else {
-                throw SQLiteError.statementFailed(message: "invalid party member row", sql: sql)
-            }
-            let traits = (try? JSONDecoder().decode(
-                [String].self,
-                from: Data(SQLiteDatabase.columnText(statement, index: 14).utf8)
-            )) ?? []
-            return PartyMemberSummary(
-                speciesID: SQLiteDatabase.columnText(statement, index: 0),
-                assetKey: SQLiteDatabase.columnText(statement, index: 1),
-                field: field,
-                rarity: rarity,
-                displayName: SQLiteDatabase.columnText(statement, index: 4),
-                addedAt: SQLiteDatabase.columnText(statement, index: 5),
-                slotOrder: Int(SQLiteDatabase.columnInt64(statement, index: 6)),
-                capturedCount: SQLiteDatabase.columnInt64(statement, index: 7),
-                stats: SpeciesStatBlock(
-                    planning: Int(SQLiteDatabase.columnInt64(statement, index: 8)),
-                    design: Int(SQLiteDatabase.columnInt64(statement, index: 9)),
-                    frontend: Int(SQLiteDatabase.columnInt64(statement, index: 10)),
-                    backend: Int(SQLiteDatabase.columnInt64(statement, index: 11)),
-                    pm: Int(SQLiteDatabase.columnInt64(statement, index: 12)),
-                    infra: Int(SQLiteDatabase.columnInt64(statement, index: 13)),
-                    traits: traits
-                )
-            )
-        }
+        try partyMemberSummaries(database: database)
     }
 
     func ensureRaidInstance(
@@ -756,6 +719,9 @@ private extension TokenmonDatabaseManager {
                 rarity: $0.rarity,
                 slotOrder: $0.slotOrder,
                 capturedCount: $0.capturedCount,
+                affinityLevel: $0.affinityLevel,
+                trainingTrait: $0.trainingTrait,
+                trainingRank: $0.trainingRank,
                 stats: $0.stats
             )
         }
@@ -769,7 +735,7 @@ private extension TokenmonDatabaseManager {
             raid: raid,
             partyMembers: raidParty,
             damageBlessing: damageBlessing
-        ).totalDamage
+        )
         return RaidProgressSummary(
             raidID: raid.raidID,
             title: raid.title,
@@ -784,7 +750,9 @@ private extension TokenmonDatabaseManager {
             maxHP: raid.maxHP,
             totalAttacks: instance.totalAttacks,
             totalDamage: instance.totalDamage,
-            partyPower: partyPower,
+            partyPower: partyPower.totalDamage,
+            fieldMatchCount: partyPower.fieldMatchCount,
+            fieldSynergyMultiplier: partyPower.fieldSynergyMultiplier,
             activeBlessing: damageBlessing.map {
                 RaidBlessingSummary(
                     id: $0.id,
@@ -1022,6 +990,7 @@ private extension TokenmonDatabaseManager {
                hits.field_fit_bonus,
                hits.trait_fit_bonus,
                hits.capture_bond_bonus,
+               hits.training_raid_bonus,
                hits.hit_power
         FROM raid_member_hits hits
         INNER JOIN species ON species.species_id = hits.species_id
@@ -1036,14 +1005,16 @@ private extension TokenmonDatabaseManager {
                     + Int(SQLiteDatabase.columnInt64(statement, index: 6))
                     + Int(SQLiteDatabase.columnInt64(statement, index: 7))
                     + Int(SQLiteDatabase.columnInt64(statement, index: 8))
+                    + Int(SQLiteDatabase.columnInt64(statement, index: 9))
             )
-            let hitPower = Int(SQLiteDatabase.columnInt64(statement, index: 9))
+            let hitPower = Int(SQLiteDatabase.columnInt64(statement, index: 10))
             return RaidMemberHitSummary(
                 speciesID: SQLiteDatabase.columnText(statement, index: 0),
                 displayName: SQLiteDatabase.columnText(statement, index: 1),
                 assetKey: SQLiteDatabase.columnText(statement, index: 2),
                 slotOrder: Int(SQLiteDatabase.columnInt64(statement, index: 3)),
                 baseHitPower: baseHitPower,
+                trainingRaidBonus: Int(SQLiteDatabase.columnInt64(statement, index: 9)),
                 rollOutcome: Self.inferredHitRollOutcome(baseHitPower: baseHitPower, hitPower: hitPower),
                 hitPower: hitPower
             )
@@ -1250,7 +1221,7 @@ private extension TokenmonDatabaseManager {
         usageSampleID: Int64,
         observedAt: String,
         correlationID: String?,
-        attackID _: Int64,
+        attackID: Int64,
         resolution: RaidAttackResolution,
         currentHPBefore: Int64,
         currentHPAfter: Int64
@@ -1273,6 +1244,8 @@ private extension TokenmonDatabaseManager {
                     usageSampleID: usageSampleID,
                     partySize: resolution.memberHits.count,
                     unmodifiedTotalDamage: resolution.unmodifiedTotalDamage,
+                    fieldMatchCount: resolution.fieldMatchCount,
+                    fieldSynergyMultiplier: resolution.fieldSynergyMultiplier,
                     totalDamage: resolution.totalDamage,
                     damageBlessingID: resolution.damageBlessing?.id,
                     damageBlessingMultiplier: resolution.damageBlessing?.damageMultiplier,
@@ -1303,11 +1276,35 @@ private extension TokenmonDatabaseManager {
                         fieldFitBonus: hit.fieldFitBonus,
                         traitFitBonus: hit.traitFitBonus,
                         captureBondBonus: hit.captureBondBonus,
+                        trainingRaidBonus: hit.trainingRaidBonus,
                         hitPower: hit.hitPower
                     )
                 )
             )
         }
+
+        let raiderApplications = resolution.memberHits.compactMap { hit -> LeaderTraitBonusApplication? in
+            guard hit.trainingRaidBonus > 0 else { return nil }
+            return LeaderTraitBonusApplication(
+                kind: .raider,
+                speciesID: hit.member.speciesID,
+                trait: hit.member.trainingTrait,
+                field: raid.raidField,
+                trainingRank: hit.member.trainingRank,
+                bonusAmount: Double(hit.trainingRaidBonus),
+                capApplied: 8
+            )
+        }
+        try persistLeaderTraitBonusApplications(
+            database: database,
+            applications: raiderApplications,
+            usageSampleID: usageSampleID,
+            encounterID: nil,
+            raidAttackID: attackID,
+            observedAt: observedAt,
+            correlationID: correlationID,
+            causationID: attackEventID
+        )
 
         try DomainEventStore.persist(
             database: database,

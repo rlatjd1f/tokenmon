@@ -1,5 +1,6 @@
 import Foundation
 import TokenmonDomain
+import TokenmonGameEngine
 import TokenmonPersistence
 
 struct TokenmonDexCollectionProgress: Equatable {
@@ -295,7 +296,187 @@ enum TokenmonDexPresentation {
     }
 
     static func metadataLine(for entry: DexEntrySummary) -> String {
-        TokenmonL10n.format("dex.metadata.line", entry.field.displayName, entry.rarity.displayName)
+        var parts = [entry.field.displayName, entry.rarity.displayName]
+        if let trainingLabel = trainingLevelLabel(for: entry) {
+            parts.append(trainingLabel)
+        }
+        if let affinityLabel = affinityLevelLabel(for: entry, compact: false) {
+            parts.append(affinityLabel)
+            let bonus = affinityRaidBonus(for: affinityLevelNumber(for: entry))
+            if bonus > 0 {
+                parts.append(TokenmonL10n.format("affinity.raid_bonus_short", bonus))
+            }
+        }
+        return parts.joined(separator: " · ")
+    }
+
+    static func trainingLevelLabel(for entry: DexEntrySummary, compact: Bool = false) -> String? {
+        guard entry.status == .captured else { return nil }
+        return trainingLevelLabel(rank: entry.trainingRank, compact: compact)
+    }
+
+    static func trainingLevelLabel(rank: TrainingRank, compact: Bool = false) -> String {
+        let key: StaticString = compact ? "dex.training_level.short" : "dex.training_level"
+        return TokenmonL10n.format(
+            key,
+            Int64(rank.rawValue),
+            Int64(TrainingRank.rankV.rawValue)
+        )
+    }
+
+    static func trainingAbilityTitle(for entry: DexEntrySummary) -> String? {
+        guard entry.status == .captured else { return nil }
+        return trainingAbilityTitle(for: entry.trainingTrait)
+    }
+
+    static func trainingEffectLine(for entry: DexEntrySummary) -> String? {
+        guard entry.status == .captured else { return nil }
+        let preview = LeaderTraitBonusResolver().previewBonus(
+            lead: LeaderTraitContext(
+                speciesID: entry.speciesID,
+                homeField: entry.field,
+                rarity: entry.rarity,
+                trait: entry.trainingTrait,
+                trainingRank: entry.trainingRank
+            )
+        )
+        if preview.isActive == false {
+            return TokenmonL10n.string("dex.training.effect.inactive")
+        }
+        return trainingEffectLine(for: preview)
+    }
+
+    static func trainingAttemptLabel(for entry: DexEntrySummary) -> String? {
+        guard entry.status == .captured else { return nil }
+        return TokenmonL10n.format("dex.training.attempts.value", Int64(entry.trainingAttemptCount))
+    }
+
+    static func affinityLevelLabel(for entry: DexEntrySummary, compact: Bool = false) -> String? {
+        guard entry.status == .captured else { return nil }
+        return affinityLevelLabel(level: normalizedAffinityLevel(entry.affinityLevel, capturedCount: entry.capturedCount), compact: compact)
+    }
+
+    static func affinityLevelLabel(for encounter: RecentEncounterSummary, compact: Bool = false) -> String? {
+        guard encounter.outcome == .captured else { return nil }
+        return affinityLevelLabel(level: normalizedAffinityLevel(encounter.affinityLevel, capturedCount: encounter.capturedCount), compact: compact)
+    }
+
+    static func affinityLevelNumber(for encounter: RecentEncounterSummary) -> Int64 {
+        normalizedAffinityLevel(encounter.affinityLevel, capturedCount: encounter.capturedCount)
+    }
+
+    static func affinityLevelLabel(level: Int64, compact _: Bool = false) -> String {
+        TokenmonL10n.format("affinity.level", SpeciesAffinityResolver.romanLevel(Int(level)))
+    }
+
+    static func affinityRomanLabel(level: Int64) -> String {
+        SpeciesAffinityResolver.romanLevel(Int(max(1, min(5, level))))
+    }
+
+    static func affinityLevelNumber(for entry: DexEntrySummary) -> Int64 {
+        normalizedAffinityLevel(entry.affinityLevel, capturedCount: entry.capturedCount)
+    }
+
+    static func affinityRaidBonus(for level: Int64) -> Int {
+        RaidDamageCalculator.captureBondBonus(affinityLevel: max(1, level))
+    }
+
+    static func affinityRaidBonusValueLabel(level: Int64) -> String {
+        let bonus = affinityRaidBonus(for: level)
+        return bonus > 0 ? "+\(bonus)" : "+0"
+    }
+
+    static func affinityRaidBonusShortLabel(level: Int64) -> String {
+        TokenmonL10n.format("affinity.raid_bonus_short", affinityRaidBonus(for: level))
+    }
+
+    static func affinityNextTargetLabel(for entry: DexEntrySummary) -> String {
+        let level = affinityLevelNumber(for: entry)
+        guard level > 0, level < 5 else {
+            return TokenmonL10n.string("affinity.max")
+        }
+        return affinityLevelLabel(level: level + 1)
+    }
+
+    static func affinityCeilingLabel(for entry: DexEntrySummary) -> String? {
+        guard entry.status == .captured else { return nil }
+        let level = affinityLevelNumber(for: entry)
+        guard level > 0, level < 5 else {
+            return TokenmonL10n.string("affinity.max")
+        }
+        let ceiling = affinityCeilingFailures(
+            rarity: entry.rarity,
+            currentLevel: Int(level),
+            probability: entry.affinityLastProbability
+        )
+        return TokenmonL10n.format("affinity.resonance", entry.affinityPityCount, Int64(ceiling))
+    }
+
+    static func affinityResonanceFraction(for entry: DexEntrySummary) -> Double {
+        guard entry.status == .captured else { return 0 }
+        let level = affinityLevelNumber(for: entry)
+        guard level > 0, level < 5 else { return 1 }
+        let ceiling = affinityCeilingFailures(
+            rarity: entry.rarity,
+            currentLevel: Int(level),
+            probability: entry.affinityLastProbability
+        )
+        guard ceiling > 0 else { return 0 }
+        return min(1, max(0, Double(entry.affinityPityCount) / Double(ceiling)))
+    }
+
+    static func affinityResultLine(for encounter: RecentEncounterSummary) -> String? {
+        guard encounter.outcome == .captured else { return nil }
+
+        let level = normalizedAffinityLevel(encounter.affinityLevel, capturedCount: encounter.capturedCount)
+        if level >= 5 {
+            return TokenmonL10n.string("affinity.max")
+        }
+
+        guard let outcomeValue = encounter.affinityLastOutcome,
+              let outcome = SpeciesAffinityOutcome(rawValue: outcomeValue)
+        else {
+            return nil
+        }
+
+        switch outcome {
+        case .initialized, .success, .guaranteedSuccess:
+            return TokenmonL10n.format("affinity.level.reached", SpeciesAffinityResolver.romanLevel(Int(level)))
+        case .failure:
+            let ceiling = affinityCeilingFailures(
+                rarity: encounter.rarity,
+                currentLevel: Int(level),
+                probability: encounter.affinityLastProbability
+            )
+            return TokenmonL10n.format("affinity.resonance", encounter.affinityPityCount, Int64(ceiling))
+        case .maxLevel:
+            return TokenmonL10n.string("affinity.max")
+        }
+    }
+
+    static func affinitySuccessChanceLabel(for entry: DexEntrySummary) -> String? {
+        guard entry.status == .captured else { return nil }
+        let level = normalizedAffinityLevel(entry.affinityLevel, capturedCount: entry.capturedCount)
+        guard level < 5 else {
+            return TokenmonL10n.string("affinity.max")
+        }
+        let nextLevel = Int(level + 1)
+        let probability = (try? SpeciesAffinityResolver().successProbability(rarity: entry.rarity, targetLevel: nextLevel)) ?? 0
+        return percentLabel(probability)
+    }
+
+    static func affinityResonanceLabel(for entry: DexEntrySummary) -> String? {
+        guard entry.status == .captured else { return nil }
+        let level = normalizedAffinityLevel(entry.affinityLevel, capturedCount: entry.capturedCount)
+        guard level < 5 else {
+            return TokenmonL10n.string("affinity.max")
+        }
+        let ceiling = affinityCeilingFailures(
+            rarity: entry.rarity,
+            currentLevel: Int(level),
+            probability: entry.affinityLastProbability
+        )
+        return TokenmonL10n.format("affinity.resonance", entry.affinityPityCount, Int64(ceiling))
     }
 
     static func hiddenHint(for entry: DexEntrySummary) -> String {
@@ -381,6 +562,10 @@ enum TokenmonDexPresentation {
         case .unknown:
             return []
         }
+    }
+
+    static func raidAffinityBonusLabel(affinityLevel: Int64, bonus: Int) -> String {
+        TokenmonL10n.format("raid.party.affinity_bonus", affinityLevelLabel(level: max(1, affinityLevel)), bonus)
     }
 
     private static func visibleSpeciesName(
@@ -474,6 +659,70 @@ enum TokenmonDexPresentation {
     private static func countLabel(_ count: Int64, singularKey: StaticString, pluralKey: StaticString) -> String {
         let key = count == 1 ? singularKey : pluralKey
         return TokenmonL10n.format(key, count)
+    }
+
+    private static func normalizedAffinityLevel(_ level: Int64, capturedCount: Int64) -> Int64 {
+        guard capturedCount > 0 else { return 0 }
+        return min(5, max(1, level))
+    }
+
+    private static func affinityCeilingFailures(
+        rarity: RarityTier,
+        currentLevel: Int,
+        probability: Double?
+    ) -> Int {
+        let resolver = SpeciesAffinityResolver()
+        if let probability,
+           let ceiling = try? resolver.ceilingFailures(probability: probability) {
+            return ceiling
+        }
+        let targetLevel = min(5, max(2, currentLevel + 1))
+        if let computedProbability = try? resolver.successProbability(rarity: rarity, targetLevel: targetLevel),
+           let ceiling = try? resolver.ceilingFailures(probability: computedProbability) {
+            return ceiling
+        }
+        return 10
+    }
+
+    private static func percentLabel(_ probability: Double) -> String {
+        let percent = Int((probability * 100).rounded())
+        return "\(percent)%"
+    }
+
+    private static func trainingAbilityTitle(for trait: TrainingTrait) -> String {
+        switch trait {
+        case .trail:
+            return TokenmonL10n.string("now.camp.v2.reward.trail.title")
+        case .scout:
+            return TokenmonL10n.string("now.camp.v2.reward.scout.title")
+        case .capture:
+            return TokenmonL10n.string("now.camp.v2.reward.capture.title")
+        case .raider:
+            return TokenmonL10n.string("now.camp.v2.reward.raider.title")
+        }
+    }
+
+    private static func trainingEffectLine(for preview: LeaderTraitBonusPreview) -> String {
+        let value = trainingEffectValue(for: preview)
+        switch preview.kind {
+        case .trail:
+            return TokenmonL10n.format("now.camp.v2.reward.trail.effect_line", preview.field.displayName, value)
+        case .scout:
+            return TokenmonL10n.format("now.camp.v2.reward.scout.effect_line", preview.field.displayName, value)
+        case .capture:
+            return TokenmonL10n.format("now.camp.v2.reward.capture.effect_line", preview.field.displayName, value)
+        case .raider:
+            return TokenmonL10n.format("now.camp.v2.reward.raider.effect_line", preview.field.displayName, value)
+        }
+    }
+
+    private static func trainingEffectValue(for preview: LeaderTraitBonusPreview) -> String {
+        switch preview.unit {
+        case .fieldWeight, .rarityWeightShift, .raidPower:
+            return TokenmonL10n.format("now.camp.v2.signed_integer", Int64(preview.bonusAmount.rounded()))
+        case .probabilityPoints:
+            return TokenmonL10n.format("now.camp.v2.points", Int64((preview.bonusAmount * 100).rounded()))
+        }
     }
 
     private static func statusRank(_ status: DexEntryStatus) -> Int {

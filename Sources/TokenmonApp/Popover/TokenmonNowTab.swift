@@ -55,7 +55,10 @@ struct TokenmonNowStatusSummary: Equatable {
 
 struct TokenmonNowTab: View {
     @ObservedObject var model: TokenmonMenuModel
+    let layoutStyle: TokenmonPopoverLayoutStyle
+    let contentWidth: CGFloat
     let onOpenProviderSettings: () -> Void
+    let onOpenScout: () -> Void
 
     private static let explorationConfig = ExplorationAccumulatorConfig()
     private static let progressSegmentCount = 10
@@ -68,45 +71,72 @@ struct TokenmonNowTab: View {
         model.summary?.nextEncounterThresholdTokens ?? Self.explorationConfig.minimumEncounterThresholdTokens
     }
 
-    private var heroCompanionAssetKeys: [String] {
-        switch model.runtimeSnapshot.ambientCompanionRoster {
-        case .partyOverride(let assetKeys):
-            return assetKeys
-        case .byField(let map):
-            let field = model.popoverSceneContext.fieldKind.heroFieldType
-            return map[field] ?? []
+    var body: some View {
+        switch layoutStyle {
+        case .heroV2:
+            heroV2Body
+        case .compact:
+            compactBody
         }
     }
 
-    var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            if model.shouldShowUsageAnalyticsPrompt {
-                usageAnalyticsPromptCard
+    private var heroV2Body: some View {
+        ScrollView(.vertical, showsIndicators: false) {
+            VStack(alignment: .leading, spacing: 10) {
+                if model.shouldShowUsageAnalyticsPrompt {
+                    usageAnalyticsPromptCard
+                }
+
+                TokenmonNowCampHeroV2Card(
+                    model: model,
+                    sceneContext: model.popoverSceneContext,
+                    onScout: onOpenScout
+                )
+
+                TokenProgressBar(
+                    currentTokens: currentTokensInEncounter,
+                    totalTokens: totalTokensPerEncounter,
+                    segmentCount: Self.progressSegmentCount
+                )
+                .help(TokenmonL10n.string("now.camp.v2.encounter_progress.help"))
             }
-
-            TokenmonNowFieldHeroCard(
-                sceneContext: model.popoverSceneContext,
-                companionAssetKeys: heroCompanionAssetKeys
-            )
-
-            TokenProgressBar(
-                currentTokens: currentTokensInEncounter,
-                totalTokens: totalTokensPerEncounter,
-                segmentCount: Self.progressSegmentCount
-            )
-
-            latestEncounterCard
-
-            statsBlock
-
-            providerActionChips
-
-            Spacer(minLength: 0)
+            .padding(.horizontal, 16)
+            .padding(.top, 12)
+            .padding(.bottom, 10)
+            .frame(width: contentWidth, alignment: .topLeading)
         }
-        .padding(.horizontal, 14)
-        .padding(.top, 12)
-        .padding(.bottom, 10)
-        .frame(width: 300, alignment: .topLeading)
+    }
+
+    private var compactBody: some View {
+        ScrollView(.vertical, showsIndicators: false) {
+            VStack(alignment: .leading, spacing: 12) {
+                if model.shouldShowUsageAnalyticsPrompt {
+                    usageAnalyticsPromptCard
+                }
+
+                TokenmonNowCampHeroCard(
+                    model: model,
+                    sceneContext: model.popoverSceneContext,
+                    onScout: onOpenScout
+                )
+
+                TokenProgressBar(
+                    currentTokens: currentTokensInEncounter,
+                    totalTokens: totalTokensPerEncounter,
+                    segmentCount: Self.progressSegmentCount
+                )
+
+                latestEncounterCard
+
+                statsBlock
+
+                providerActionChips
+            }
+            .padding(.horizontal, 14)
+            .padding(.top, 12)
+            .padding(.bottom, 10)
+            .frame(width: contentWidth, alignment: .topLeading)
+        }
     }
 
     private var usageAnalyticsPromptCard: some View {
@@ -141,32 +171,50 @@ struct TokenmonNowTab: View {
     @ViewBuilder
     private var latestEncounterCard: some View {
         if let encounter = model.latestEncounter {
-            HStack(alignment: .center, spacing: 14) {
+            HStack(alignment: .center, spacing: 10) {
                 TokenmonDexSpritePreview(
                     status: encounter.outcome == .captured ? .captured : .seenUncaptured,
                     revealStage: TokenmonDexPresentation.revealStage(for: encounter),
                     field: encounter.field,
                     rarity: encounter.rarity,
                     assetKey: encounter.assetKey,
-                    cardSize: 80,
-                    spriteSize: 56
+                    cardSize: 58,
+                    spriteSize: 42
                 )
-                VStack(alignment: .leading, spacing: 4) {
+
+                VStack(alignment: .leading, spacing: 3) {
                     Text(TokenmonDexPresentation.visibleSpeciesName(for: encounter, style: .sentence))
-                        .font(.headline)
+                        .font(.system(size: 15, weight: .semibold, design: .rounded))
                         .lineLimit(1)
                         .truncationMode(.tail)
-                    metaRow(label: TokenmonL10n.string("now.meta.rarity"), value: encounter.rarity.displayName)
-                    metaRow(label: TokenmonL10n.string("now.meta.field"), value: encounter.field.displayName)
-                    metaRow(label: TokenmonL10n.string("now.meta.result"), value: encounter.outcome.displayName)
+
+                    Text(latestEncounterDetailLine(for: encounter))
+                        .font(.system(size: 10, weight: .semibold, design: .rounded))
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.72)
+
+                    if let affinityLine = TokenmonDexPresentation.affinityResultLine(for: encounter) {
+                        Text(affinityLine)
+                            .font(.system(size: 9, weight: .semibold, design: .rounded))
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.72)
+                    }
                 }
+
                 Spacer()
             }
-            .padding(12)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 8)
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(
-                RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .fill(Color.secondary.opacity(0.08))
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    .fill(Color.secondary.opacity(0.045))
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    .stroke(Color.white.opacity(0.055), lineWidth: 0.8)
             )
         } else {
             HStack {
@@ -176,11 +224,63 @@ struct TokenmonNowTab: View {
                 Spacer()
             }
             .padding(12)
-            .frame(maxWidth: .infinity, minHeight: 104, alignment: .leading)
+            .frame(maxWidth: .infinity, minHeight: 56, alignment: .leading)
             .background(
-                RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .fill(Color.secondary.opacity(0.08))
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    .fill(Color.secondary.opacity(0.045))
             )
+        }
+    }
+
+    private func latestEncounterDetailLine(for encounter: RecentEncounterSummary) -> String {
+        TokenmonL10n.format(
+            "menu.latest.detail",
+            encounter.rarity.displayName,
+            encounter.field.displayName,
+            encounter.outcome.displayName
+        )
+    }
+
+    @ViewBuilder
+    private func latestAffinityRow(for encounter: RecentEncounterSummary) -> some View {
+        let level = TokenmonDexPresentation.affinityLevelNumber(for: encounter)
+        HStack(spacing: 6) {
+            Text(TokenmonL10n.string("now.meta.affinity"))
+                .font(.system(size: 9, weight: .bold, design: .rounded))
+                .tracking(0.6)
+                .foregroundStyle(.secondary)
+                .frame(width: 44, alignment: .leading)
+
+            TokenmonAffinityBadge(
+                level: level,
+                compact: true,
+                emphasized: level >= 2
+            )
+
+            Label {
+                Text(TokenmonDexPresentation.affinityRaidBonusValueLabel(level: level))
+                    .font(.caption2.monospacedDigit().weight(.bold))
+            } icon: {
+                Image(systemName: "bolt.fill")
+                    .font(.system(size: 8, weight: .black))
+            }
+            .foregroundStyle(.secondary)
+            .lineLimit(1)
+            .padding(.horizontal, 6)
+            .padding(.vertical, 3)
+            .background(
+                Capsule()
+                    .fill(Color.secondary.opacity(0.10))
+            )
+            .help(TokenmonDexPresentation.affinityRaidBonusShortLabel(level: level))
+
+            if let affinityLine = TokenmonDexPresentation.affinityResultLine(for: encounter) {
+                Text(affinityLine)
+                    .font(.caption.weight(.medium))
+                    .foregroundStyle(.primary)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.78)
+            }
         }
     }
 

@@ -83,6 +83,7 @@ struct TokenmonRuntimeSnapshot: Equatable, Sendable {
     var providerHealthSummaries: [ProviderHealthSummary] = []
     var ambientCompanionRoster: AmbientCompanionRoster = .byField([:])
     var raidDashboard: RaidDashboardSummary?
+    var nowCampSummary: NowCampSummary?
 }
 
 struct TokenmonInsightsSnapshot: Equatable, Sendable {
@@ -224,6 +225,7 @@ enum TokenmonMenuSnapshotLoader {
             let summary = try manager.currentRunSummary(database: database)
             let recentEncounterFeed = try manager.recentEncounterSummaries(limit: 5, database: database)
             let ambientRoster = try manager.ambientCompanionRoster(database: database)
+            let nowCamp = try manager.nowCampSummary(database: database)
             runtime = TokenmonRuntimeSnapshot(
                 isLoaded: true,
                 summary: summary,
@@ -232,7 +234,8 @@ enum TokenmonMenuSnapshotLoader {
                 todayActivity: try manager.todayActivitySummary(database: database),
                 providerHealthSummaries: providerHealth,
                 ambientCompanionRoster: ambientRoster,
-                raidDashboard: try manager.raidDashboardSummary(database: database)
+                raidDashboard: try manager.raidDashboardSummary(database: database),
+                nowCampSummary: nowCamp
             )
             let rosterMetric: String = {
                 switch ambientRoster {
@@ -247,6 +250,7 @@ enum TokenmonMenuSnapshotLoader {
                     "encounter_feed_count": "\(recentEncounterFeed.count)",
                     "provider_health_count": "\(providerHealth.count)",
                     "ambient_companion_roster": rosterMetric,
+                    "now_camp_focus": "\(nowCamp.focusEnergy)",
                 ]
             )
         }

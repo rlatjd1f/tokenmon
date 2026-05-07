@@ -208,6 +208,785 @@ struct TokenmonPresentationTests {
     }
 
     @Test
+    func nowCampHeroPresentationBuildsLeadAndSupportSlots() {
+        let lead = sampleSpecies(field: .grassland, offset: 0)
+        let supportOne = sampleSpecies(field: .grassland, offset: 1)
+        let supportTwo = sampleSpecies(field: .grassland, offset: 2)
+        let presentation = NowCampHeroPresentation.make(
+            nowCamp: makeNowCampSummary(
+                lead: lead,
+                supports: [supportOne, supportTwo],
+                focusEnergy: 50,
+                affinityLevel: 3,
+                trainingRank: .rankII
+            ),
+            partyMembers: [],
+            sceneContext: makeNowCampSceneContext(field: .grassland)
+        )
+
+        #expect(presentation.lead?.speciesID == lead.id)
+        #expect(presentation.supportSlots.count == 2)
+        #expect(presentation.trainAction.isEnabled)
+        #expect(presentation.trainAction.acceptsTapForFeedback)
+        #expect(presentation.careAction.availability == .careCharging(remainingSeconds: NowCampCarePolicy.intervalSeconds))
+        #expect(presentation.careAction.acceptsTapForFeedback)
+        #expect(presentation.careStatusLine == TokenmonL10n.format("now.camp.care.minutes_remaining", Int64(60)))
+        #expect(presentation.trainingLevelText == TokenmonL10n.format("now.camp.training_level", Int64(2), Int64(5)))
+        #expect(presentation.headerLeadDetail == presentation.trainingLevelText)
+        #expect(presentation.trainTargetLine == TokenmonL10n.format("now.camp.train.target", "II", "III"))
+        #expect(presentation.targetLevelText == TokenmonL10n.format("now.camp.practice.target_level", Int64(2), Int64(3)))
+        #expect(presentation.trainRewardLine == TokenmonL10n.format(
+            "now.camp.train.reward",
+            expectedNowCampRewardName(for: lead.trainingTrait)
+        ))
+        #expect(presentation.trainRewardShortLine == expectedNowCampRewardShortName(for: lead.trainingTrait))
+        #expect(presentation.trainRewardSystemImage == expectedNowCampRewardSystemImage(for: lead.trainingTrait))
+        #expect(presentation.trainBenefitLine == TokenmonL10n.format(
+            "now.camp.train.benefit",
+            expectedNowCampRewardShortName(for: lead.trainingTrait)
+        ))
+        #expect(presentation.benefitText == expectedNowCampBenefitText(for: lead))
+        #expect(presentation.practiceControlTitleText == TokenmonL10n.string("now.camp.practice.action"))
+        #expect(presentation.practiceControlDetailText == TokenmonL10n.format("now.camp.practice.target_level", Int64(2), Int64(3)))
+        #expect(presentation.practiceProgressFraction == 1.0)
+        #expect(presentation.practiceReadinessText == TokenmonL10n.format("now.camp.practice.readiness", Int64(50), Int64(50)))
+        #expect(presentation.practiceStatusText == TokenmonL10n.string("now.camp.practice.status.ready"))
+        #expect(presentation.attemptHelpText.contains("success rate"))
+        #expect(presentation.campStatusLine == TokenmonL10n.string("now.camp.status.ready"))
+        #expect(presentation.energySourceLine == TokenmonL10n.string("now.camp.energy.source.ready"))
+        #expect(presentation.trainingLevelPipCount == 2)
+        #expect(presentation.v2.focusValueText == "50/50")
+        #expect(presentation.v2.practiceTitleText == TokenmonL10n.string("now.camp.v2.practice.title"))
+        #expect(presentation.v2.practiceChanceText == expectedNowCampV2PracticeChance(
+            rarity: lead.rarity,
+            trainingRank: .rankII
+        ))
+        #expect(presentation.v2.resonanceValueText == expectedNowCampV2Resonance(
+            rarity: lead.rarity,
+            trainingRank: .rankII
+        ))
+        #expect(presentation.v2.scoutActionTitleText == TokenmonL10n.string("now.camp.v2.scout"))
+        #expect(presentation.v2.scoutActionHelpText == TokenmonL10n.string("now.camp.v2.scout.help"))
+
+        let rewardPreview = LeaderTraitBonusResolver().previewBonus(
+            lead: LeaderTraitContext(
+                speciesID: lead.id,
+                homeField: lead.field,
+                rarity: lead.rarity,
+                trait: lead.trainingTrait,
+                trainingRank: .rankII
+            )
+        )
+        let nextRewardPreview = LeaderTraitBonusResolver().previewBonus(
+            lead: LeaderTraitContext(
+                speciesID: lead.id,
+                homeField: lead.field,
+                rarity: lead.rarity,
+                trait: lead.trainingTrait,
+                trainingRank: .rankIII
+            )
+        )
+        #expect(presentation.v2.rewardPreview.valueText == expectedNowCampV2LeadEffectValue(
+            current: rewardPreview
+        ))
+        #expect(presentation.v2.rewardPreview.detailText == expectedNowCampV2LeadEffectDetail(
+            current: rewardPreview,
+            next: nextRewardPreview,
+            nextRank: .rankIII
+        ))
+        #expect(presentation.v2.rewardPreview.compactValueText == expectedNowCampV2LeadEffectCompactValue(
+            current: rewardPreview,
+            next: nextRewardPreview
+        ))
+        #expect(presentation.v2.rewardPreview.compactDetailText == expectedNowCampV2LeadEffectCompactDetail(
+            current: rewardPreview,
+            next: nextRewardPreview
+        ))
+        #expect(presentation.v2.rewardPreview.currentLine.labelText == TokenmonL10n.string("now.camp.v2.reward.current.label"))
+        #expect(presentation.v2.rewardPreview.currentLine.valueText == (
+            rewardPreview.isActive
+                ? expectedNowCampV2EffectLineText(for: rewardPreview)
+                : TokenmonL10n.string("now.camp.v2.reward.current.none")
+        ))
+        #expect(presentation.v2.rewardPreview.successLine.labelText == TokenmonL10n.string("now.camp.v2.reward.success.label"))
+        #expect(presentation.v2.rewardPreview.successLine.valueText == (
+            nextRewardPreview.isActive
+                ? expectedNowCampV2EffectLineText(for: nextRewardPreview)
+                : TokenmonL10n.string("now.camp.v2.reward.success.none")
+        ))
+        #expect(presentation.v2.rewardPreview.isActive == rewardPreview.isActive)
+
+        guard case .occupied(let firstSupport, index: 0) = presentation.supportSlots[0] else {
+            Issue.record("expected occupied first support slot")
+            return
+        }
+        #expect(firstSupport.speciesID == supportOne.id)
+
+        guard case .occupied(let secondSupport, index: 1) = presentation.supportSlots[1] else {
+            Issue.record("expected occupied second support slot")
+            return
+        }
+        #expect(secondSupport.speciesID == supportTwo.id)
+    }
+
+    @Test
+    func nowCampHeroPresentationKeepsEmptySupportSlotsWhenPartyIsShort() {
+        let lead = sampleSpecies(field: .coast, offset: 0)
+        let presentation = NowCampHeroPresentation.make(
+            nowCamp: makeNowCampSummary(
+                lead: lead,
+                supports: [],
+                focusEnergy: 44,
+                affinityLevel: 2,
+                trainingRank: .rankI
+            ),
+            partyMembers: [makePartyMember(from: lead)],
+            sceneContext: makeNowCampSceneContext(field: .coast)
+        )
+
+        #expect(presentation.supportSlots.count == 2)
+        #expect(presentation.supportSlots.allSatisfy { slot in
+            if case .empty = slot {
+                return true
+            }
+            return false
+        })
+    }
+
+    @Test
+    func nowCampHeroPresentationShowsSharedFocusAndPerLeadTrainingStatus() {
+        let selectedLead = sampleSpecies(field: .grassland, offset: 0)
+        let trainableLead = sampleSpecies(field: .grassland, offset: 1)
+        let maxLead = sampleSpecies(field: .grassland, offset: 2)
+        let presentation = NowCampHeroPresentation.make(
+            nowCamp: makeNowCampSummary(
+                lead: selectedLead,
+                supports: [],
+                focusEnergy: 50,
+                affinityLevel: 2,
+                trainingRank: .rankII,
+                careReady: true,
+                careElapsedSeconds: NowCampCarePolicy.intervalSeconds
+            ),
+            partyMembers: [
+                makePartyMember(from: selectedLead, affinityLevel: 2, trainingRank: .rankII),
+                makePartyMember(from: trainableLead, slotOrder: 2, affinityLevel: 2, trainingRank: .rankI),
+                makePartyMember(from: maxLead, slotOrder: 3, affinityLevel: 5, trainingRank: .rankV),
+            ],
+            sceneContext: makeNowCampSceneContext(field: .grassland)
+        )
+
+        #expect(presentation.trainAction.availability == .rankAtAffinityGate(current: 2, required: 3))
+        #expect(presentation.careAction.availability == .focusFull(capacity: 50))
+        #expect(presentation.practiceControlDetailText == TokenmonL10n.format(
+            "now.camp.practice.bond_gate.alternative",
+            Int64(2),
+            Int64(3)
+        ))
+
+        let selectedStatus = presentation.leadMenuStatus(for: selectedLead.id)
+        #expect(selectedStatus?.statusText == TokenmonL10n.format(
+            "now.camp.lead_picker.status.bond",
+            "II"
+        ))
+        #expect(selectedStatus?.titleText == "\(selectedLead.name) · \(selectedStatus?.statusText ?? "")")
+        #expect(selectedStatus?.systemImage == "lock.fill")
+        #expect(selectedStatus?.isSelected == true)
+        #expect(selectedStatus?.isTrainable == false)
+
+        let trainableStatus = presentation.leadMenuStatus(for: trainableLead.id)
+        #expect(trainableStatus?.statusText == TokenmonL10n.format(
+            "now.camp.lead_picker.status.ready",
+            "I"
+        ))
+        #expect(trainableStatus?.titleText == "\(trainableLead.name) · \(trainableStatus?.statusText ?? "")")
+        #expect(trainableStatus?.systemImage == "lock.open.fill")
+        #expect(trainableStatus?.isTrainable == true)
+
+        let maxStatus = presentation.leadMenuStatus(for: maxLead.id)
+        #expect(maxStatus?.statusText == TokenmonL10n.format("now.camp.lead_picker.status.max", "V"))
+        #expect(maxStatus?.systemImage == "lock.fill")
+        #expect(maxStatus?.isTrainable == false)
+
+        let focusLimited = NowCampHeroPresentation.make(
+            nowCamp: makeNowCampSummary(
+                lead: selectedLead,
+                supports: [],
+                focusEnergy: 12,
+                affinityLevel: 3,
+                trainingRank: .rankI
+            ),
+            partyMembers: [
+                makePartyMember(from: selectedLead, affinityLevel: 3, trainingRank: .rankI),
+            ],
+            sceneContext: makeNowCampSceneContext(field: .grassland)
+        )
+
+        #expect(focusLimited.leadMenuStatus(for: selectedLead.id)?.statusText == TokenmonL10n.format(
+            "now.camp.lead_picker.status.focus_needed",
+            "I"
+        ))
+        #expect(focusLimited.leadMenuStatus(for: selectedLead.id)?.systemImage == "lock.fill")
+    }
+
+    @Test
+    func nowCampHeroPresentationExplainsMissingLeadForExternalPracticeControl() {
+        let presentation = NowCampHeroPresentation.make(
+            nowCamp: nil,
+            partyMembers: [],
+            sceneContext: makeNowCampSceneContext(field: .grassland)
+        )
+
+        #expect(presentation.lead == nil)
+        #expect(presentation.trainAction.availability == .missingLead)
+        #expect(presentation.trainAction.acceptsTapForFeedback)
+        #expect(presentation.careAction.availability == .missingLead)
+        #expect(presentation.careAction.acceptsTapForFeedback == false)
+        #expect(presentation.practiceControlTitleText == TokenmonL10n.string("now.camp.practice.status.no_lead"))
+        #expect(presentation.practiceControlDetailText == TokenmonL10n.string("now.camp.action.no_lead.short"))
+        #expect(presentation.campStatusLine == TokenmonL10n.string("now.camp.status.no_lead"))
+        #expect(presentation.trainingLevelPipCount == 0)
+        #expect(presentation.practiceProgressFraction == 0.0)
+        #expect(presentation.v2.focusValueText == "0/50")
+        #expect(presentation.v2.practiceChanceText == TokenmonL10n.string("now.camp.v2.unavailable"))
+        #expect(presentation.v2.resonanceValueText == TokenmonL10n.string("now.camp.v2.unavailable"))
+        #expect(presentation.v2.rewardPreview.valueText == TokenmonL10n.string("now.camp.v2.unavailable"))
+        #expect(presentation.v2.rewardPreview.isActive == false)
+        #expect(presentation.v2.scoutActionHelpText.contains("Dex"))
+    }
+
+    @Test
+    func nowCampHeroPresentationExplainsFocusAndRankLimitedActions() {
+        let lead = sampleSpecies(field: .ice, offset: 0)
+        let focusLimited = NowCampHeroPresentation.make(
+            nowCamp: makeNowCampSummary(
+                lead: lead,
+                supports: [],
+                focusEnergy: 12,
+                affinityLevel: 3,
+                trainingRank: .rankI
+            ),
+            partyMembers: [],
+            sceneContext: makeNowCampSceneContext(field: .ice)
+        )
+        #expect(focusLimited.trainAction.availability == .insufficientFocus(current: 12, required: 50))
+        #expect(focusLimited.trainAction.acceptsTapForFeedback)
+        #expect(focusLimited.careAction.availability == .careCharging(remainingSeconds: NowCampCarePolicy.intervalSeconds))
+        #expect(focusLimited.careAction.isEnabled == false)
+        #expect(focusLimited.careAction.acceptsTapForFeedback)
+        #expect(focusLimited.trainTargetLine == TokenmonL10n.format("now.camp.train.target", "I", "II"))
+        #expect(focusLimited.trainingLevelText == TokenmonL10n.format("now.camp.training_level", Int64(1), Int64(5)))
+        #expect(focusLimited.headerLeadDetail == focusLimited.trainingLevelText)
+        #expect(focusLimited.targetLevelText == TokenmonL10n.format("now.camp.practice.target_level", Int64(1), Int64(2)))
+        #expect(focusLimited.practiceControlTitleText == TokenmonL10n.string("now.camp.practice.status.preparing"))
+        #expect(focusLimited.practiceControlDetailText == TokenmonL10n.format(
+            "now.camp.practice.shared_focus.detail",
+            Int64(12),
+            Int64(50)
+        ))
+        #expect(abs(focusLimited.practiceProgressFraction - 0.24) < 0.0001)
+        #expect(focusLimited.practiceReadinessText == TokenmonL10n.format("now.camp.practice.need_more", Int64(38)))
+        #expect(focusLimited.practiceStatusText == TokenmonL10n.string("now.camp.practice.status.preparing"))
+        #expect(focusLimited.trainRewardShortLine == expectedNowCampRewardShortName(for: lead.trainingTrait))
+        #expect(focusLimited.trainRewardSystemImage == expectedNowCampRewardSystemImage(for: lead.trainingTrait))
+        #expect(focusLimited.campStatusLine == TokenmonL10n.string("now.camp.status.gathering"))
+        #expect(focusLimited.energySourceLine == TokenmonL10n.string("now.camp.energy.source.live"))
+        #expect(focusLimited.attemptHelpText.contains("Need 38"))
+        #expect(focusLimited.v2.focusValueText == "12/50")
+        #expect(focusLimited.v2.practiceChanceText == expectedNowCampV2PracticeChance(
+            rarity: lead.rarity,
+            trainingRank: .rankI
+        ))
+        #expect(focusLimited.v2.resonanceValueText == expectedNowCampV2Resonance(
+            rarity: lead.rarity,
+            trainingRank: .rankI
+        ))
+        let focusLimitedCurrentReward = LeaderTraitBonusResolver().previewBonus(
+            lead: LeaderTraitContext(
+                speciesID: lead.id,
+                homeField: lead.field,
+                rarity: lead.rarity,
+                trait: lead.trainingTrait,
+                trainingRank: .rankI
+            )
+        )
+        let focusLimitedRewardPreview = LeaderTraitBonusResolver().previewBonus(
+            lead: LeaderTraitContext(
+                speciesID: lead.id,
+                homeField: lead.field,
+                rarity: lead.rarity,
+                trait: lead.trainingTrait,
+                trainingRank: .rankII
+            )
+        )
+        #expect(focusLimited.v2.rewardPreview.valueText == expectedNowCampV2LeadEffectValue(
+            current: focusLimitedCurrentReward
+        ))
+        #expect(focusLimited.v2.rewardPreview.detailText == expectedNowCampV2LeadEffectDetail(
+            current: focusLimitedCurrentReward,
+            next: focusLimitedRewardPreview,
+            nextRank: .rankII
+        ))
+        #expect(focusLimited.v2.rewardPreview.compactValueText == expectedNowCampV2LeadEffectCompactValue(
+            current: focusLimitedCurrentReward,
+            next: focusLimitedRewardPreview
+        ))
+        #expect(focusLimited.v2.rewardPreview.compactDetailText == expectedNowCampV2LeadEffectCompactDetail(
+            current: focusLimitedCurrentReward,
+            next: focusLimitedRewardPreview
+        ))
+        #expect(focusLimited.v2.rewardPreview.currentLine.valueText == TokenmonL10n.string("now.camp.v2.reward.current.none"))
+        #expect(focusLimited.v2.rewardPreview.successLine.valueText == (
+            focusLimitedRewardPreview.isActive
+                ? expectedNowCampV2EffectLineText(for: focusLimitedRewardPreview)
+                : TokenmonL10n.string("now.camp.v2.reward.success.none")
+        ))
+        if focusLimitedRewardPreview.isActive {
+            #expect(focusLimited.attemptHelpText.contains(TokenmonL10n.format(
+                "now.camp.practice.help.reward",
+                expectedNowCampV2EffectLineText(for: focusLimitedRewardPreview)
+            )))
+        }
+        #expect(focusLimited.v2.rewardPreview.isActive == focusLimitedCurrentReward.isActive)
+
+        let rankLimited = NowCampHeroPresentation.make(
+            nowCamp: makeNowCampSummary(
+                lead: lead,
+                supports: [],
+                focusEnergy: 50,
+                affinityLevel: 2,
+                trainingRank: .rankII
+            ),
+            partyMembers: [],
+            sceneContext: makeNowCampSceneContext(field: .ice)
+        )
+        #expect(rankLimited.trainAction.availability == .rankAtAffinityGate(current: 2, required: 3))
+        #expect(rankLimited.trainAction.acceptsTapForFeedback)
+        #expect(rankLimited.practiceStatusText == TokenmonL10n.string("now.camp.practice.status.bond_gate"))
+        #expect(rankLimited.practiceControlTitleText == TokenmonL10n.string("now.camp.practice.status.bond_gate"))
+        #expect(rankLimited.practiceControlDetailText == TokenmonL10n.format("now.camp.action.rank_gate.short", Int64(2), Int64(3)))
+        #expect(rankLimited.campStatusLine == TokenmonL10n.string("now.camp.status.gathering"))
+        #expect(rankLimited.v2.practiceChanceText == TokenmonL10n.string("now.camp.v2.bond_gate"))
+        #expect(rankLimited.v2.resonanceValueText == TokenmonL10n.string("now.camp.v2.bond_gate"))
+        let rankLimitedCurrentReward = LeaderTraitBonusResolver().previewBonus(
+            lead: LeaderTraitContext(
+                speciesID: lead.id,
+                homeField: lead.field,
+                rarity: lead.rarity,
+                trait: lead.trainingTrait,
+                trainingRank: .rankII
+            )
+        )
+        let rankLimitedNextReward = LeaderTraitBonusResolver().previewBonus(
+            lead: LeaderTraitContext(
+                speciesID: lead.id,
+                homeField: lead.field,
+                rarity: lead.rarity,
+                trait: lead.trainingTrait,
+                trainingRank: .rankIII
+            )
+        )
+        #expect(rankLimited.v2.rewardPreview.valueText == expectedNowCampV2LeadEffectValue(
+            current: rankLimitedCurrentReward
+        ))
+        #expect(rankLimited.v2.rewardPreview.detailText == expectedNowCampV2LeadEffectDetail(
+            current: rankLimitedCurrentReward,
+            next: rankLimitedNextReward,
+            nextRank: .rankIII,
+            nextIsBlocked: true,
+            blockedCurrent: 2,
+            blockedRequired: 3
+        ))
+        #expect(rankLimited.v2.rewardPreview.isActive == rankLimitedCurrentReward.isActive)
+
+        let careReady = NowCampHeroPresentation.make(
+            nowCamp: makeNowCampSummary(
+                lead: lead,
+                supports: [],
+                focusEnergy: 44,
+                affinityLevel: 3,
+                trainingRank: .rankI,
+                careReady: true,
+                careElapsedSeconds: NowCampCarePolicy.intervalSeconds
+            ),
+            partyMembers: [],
+            sceneContext: makeNowCampSceneContext(field: .ice)
+        )
+        #expect(careReady.careAction.availability == .enabled)
+        #expect(careReady.careAction.acceptsTapForFeedback)
+        #expect(careReady.careStatusLine == TokenmonL10n.format("now.camp.care.ready.amount", Int64(5)))
+        #expect(careReady.practiceControlTitleText == TokenmonL10n.string("now.camp.practice.status.preparing"))
+        #expect(careReady.campStatusLine == TokenmonL10n.string("now.camp.status.care_ready"))
+        #expect(careReady.attemptHelpText.contains("+5%") == false)
+        #expect(careReady.v2.practiceChanceText == expectedNowCampV2PracticeChance(
+            rarity: lead.rarity,
+            trainingRank: .rankI
+        ))
+
+        let careReadyAtFullFocus = NowCampHeroPresentation.make(
+            nowCamp: makeNowCampSummary(
+                lead: lead,
+                supports: [],
+                focusEnergy: 50,
+                affinityLevel: 3,
+                trainingRank: .rankI,
+                careReady: true,
+                careElapsedSeconds: NowCampCarePolicy.intervalSeconds
+            ),
+            partyMembers: [],
+            sceneContext: makeNowCampSceneContext(field: .ice)
+        )
+        #expect(careReadyAtFullFocus.careAction.availability == .focusFull(capacity: 50))
+        #expect(careReadyAtFullFocus.careAction.isEnabled == false)
+        #expect(careReadyAtFullFocus.careAction.acceptsTapForFeedback)
+        #expect(careReadyAtFullFocus.careStatusLine == TokenmonL10n.string("now.camp.care.focus_full.short"))
+
+        let maxRank = NowCampHeroPresentation.make(
+            nowCamp: makeNowCampSummary(
+                lead: lead,
+                supports: [],
+                focusEnergy: 50,
+                affinityLevel: 5,
+                trainingRank: .rankV
+            ),
+            partyMembers: [],
+            sceneContext: makeNowCampSceneContext(field: .ice)
+        )
+        #expect(maxRank.trainAction.availability == .rankMaximum)
+        #expect(maxRank.practiceStatusText == TokenmonL10n.string("now.camp.practice.status.max_rank"))
+        #expect(maxRank.v2.practiceChanceText == TokenmonL10n.string("now.camp.v2.max"))
+        #expect(maxRank.v2.resonanceValueText == TokenmonL10n.string("now.camp.v2.max"))
+        let maxRankCurrentReward = LeaderTraitBonusResolver().previewBonus(
+            lead: LeaderTraitContext(
+                speciesID: lead.id,
+                homeField: lead.field,
+                rarity: lead.rarity,
+                trait: lead.trainingTrait,
+                trainingRank: .rankV
+            )
+        )
+        #expect(maxRank.v2.rewardPreview.valueText == expectedNowCampV2LeadEffectValue(
+            current: maxRankCurrentReward
+        ))
+        #expect(maxRank.v2.rewardPreview.isActive == maxRankCurrentReward.isActive)
+    }
+
+    @Test
+    func nowCampHeroPresentationSeparatesRandomFieldFromLeadTrainingBonus() throws {
+        let lead = try #require(SpeciesCatalog.all.first {
+            $0.field == .sky && $0.trainingTrait == .trail
+        })
+        let presentation = NowCampHeroPresentation.make(
+            nowCamp: makeNowCampSummary(
+                lead: lead,
+                supports: [],
+                focusEnergy: 12,
+                affinityLevel: 2,
+                trainingRank: .rankI
+            ),
+            partyMembers: [],
+            sceneContext: makeNowCampSceneContext(field: .grassland)
+        )
+
+        #expect(presentation.field == .grassland)
+        #expect(presentation.fieldTitle == FieldType.grassland.displayName)
+        #expect(presentation.fieldSystemImage == FieldType.grassland.systemImage)
+        #expect(presentation.v2.rewardPreview.currentLine.valueText == TokenmonL10n.string("now.camp.v2.reward.current.none"))
+        #expect(presentation.v2.rewardPreview.successLine.valueText.contains(FieldType.sky.displayName))
+        #expect(presentation.v2.rewardPreview.successLine.valueText.contains(FieldType.grassland.displayName) == false)
+        #expect(presentation.attemptHelpText.contains(presentation.v2.rewardPreview.successLine.valueText))
+    }
+
+    @Test
+    func nowCampHeroPresentationShowsSeedkitCapturePassiveAtRankII() throws {
+        let seedkit = try #require(SpeciesCatalog.all.first { $0.id == "GRS_003" })
+        #expect(seedkit.name == "Seedkit")
+        #expect(seedkit.rarity == .common)
+        #expect(seedkit.trainingTrait == .capture)
+
+        let presentation = NowCampHeroPresentation.make(
+            nowCamp: makeNowCampSummary(
+                lead: seedkit,
+                supports: [],
+                focusEnergy: 50,
+                affinityLevel: 2,
+                trainingRank: .rankII
+            ),
+            partyMembers: [],
+            sceneContext: makeNowCampSceneContext(field: .grassland)
+        )
+
+        let expectedEffect = TokenmonL10n.format(
+            "now.camp.v2.reward.capture.effect_line",
+            FieldType.grassland.displayName,
+            TokenmonL10n.format("now.camp.v2.points", Int64(1))
+        )
+        #expect(presentation.v2.rewardPreview.currentLine.valueText == expectedEffect)
+        #expect(presentation.v2.rewardPreview.isActive)
+        #expect(presentation.v2.rewardPreview.compactValueText == TokenmonL10n.format(
+            "now.camp.v2.reward.capture.compact_value",
+            FieldType.grassland.displayName
+        ))
+        #expect(presentation.v2.rewardPreview.compactDetailText == TokenmonL10n.format(
+            "now.camp.v2.reward.capture.compact_detail",
+            TokenmonL10n.format("now.camp.v2.points", Int64(1))
+        ))
+    }
+
+    @Test
+    func nowCampHeroPresentationMapsTrainingRanksToLevels() {
+        let lead = sampleSpecies(field: .grassland, offset: 0)
+
+        for rank in TrainingRank.allCases {
+            let presentation = NowCampHeroPresentation.make(
+                nowCamp: makeNowCampSummary(
+                    lead: lead,
+                    supports: [],
+                    focusEnergy: 50,
+                    affinityLevel: 5,
+                    trainingRank: rank
+                ),
+                partyMembers: [],
+                sceneContext: makeNowCampSceneContext(field: .grassland)
+            )
+
+            #expect(presentation.trainingLevelText == TokenmonL10n.format(
+                "now.camp.training_level",
+                Int64(rank.rawValue),
+                Int64(TrainingRank.rankV.rawValue)
+            ))
+            #expect(presentation.trainingLevelPipCount == rank.rawValue)
+
+            if let next = rank.next {
+                #expect(presentation.targetLevelText == TokenmonL10n.format(
+                    "now.camp.practice.target_level",
+                    Int64(rank.rawValue),
+                    Int64(next.rawValue)
+                ))
+            } else {
+                #expect(presentation.targetLevelText == TokenmonL10n.string("now.camp.train.target.empty"))
+            }
+        }
+    }
+
+    @Test
+    func nowCampHeroPresentationUsesReadableBenefitTextForEachTrait() {
+        for trait in TrainingTrait.allCases {
+            let lead = sampleSpecies(trait: trait)
+            let presentation = NowCampHeroPresentation.make(
+                nowCamp: makeNowCampSummary(
+                    lead: lead,
+                    supports: [],
+                    focusEnergy: 50,
+                    affinityLevel: 3,
+                    trainingRank: .rankI
+                ),
+                partyMembers: [],
+                sceneContext: makeNowCampSceneContext(field: lead.field)
+            )
+
+            #expect(presentation.benefitText == expectedNowCampBenefitText(for: lead))
+        }
+    }
+
+    @Test
+    func nowCampTrainingFailureFeedbackShowsFailureBuffer() {
+        let resolution = LeaderTrainingResolution(
+            speciesID: "GRS_001",
+            rarity: .common,
+            previousRank: .rankI,
+            newRank: .rankI,
+            targetRank: .rankII,
+            affinityGateRank: .rankV,
+            probability: 0.68,
+            roll: 0.99,
+            resonanceBefore: 0,
+            resonanceAfter: 1,
+            ceilingFailures: 2,
+            attemptCountAfter: 1,
+            outcome: .failure
+        )
+        let result = NowCampTrainingAttemptResult(resolution: resolution, focusEnergyAfter: 0)
+        let feedback = NowCampHeroFeedback.trainingAttempt(result)
+
+        #expect(feedback.message == TokenmonL10n.string("now.camp.feedback.train_failure"))
+        #expect(feedback.motion == .tilt)
+    }
+
+    @Test
+    func nowCampEffectLoaderResolvesSplitFieldRuntimeAssets() {
+        for field in FieldType.allCases {
+            #expect(NowCampEffectSpriteLoader.image(scope: .field(field), variant: .campMat64) != nil)
+            #expect(NowCampEffectSpriteLoader.image(scope: .field(field), variant: .campPropPrimary32) != nil)
+            #expect(NowCampEffectSpriteLoader.image(scope: .field(field), variant: .campPropSecondary32) != nil)
+            #expect(NowCampEffectSpriteLoader.image(scope: .field(field), variant: .campProp32) != nil)
+        }
+    }
+
+    @Test
+    func nowCampMenuModelReturnsActionResultsForHeroFeedback() async throws {
+        let directory = try makeTemporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+
+        let databasePath = directory.appendingPathComponent("tokenmon.sqlite").path
+        let manager = TokenmonDatabaseManager(path: databasePath)
+        try manager.bootstrap()
+        try manager.resetProgress(startedAt: "2026-04-01T00:00:00Z")
+        _ = try manager.forgeEncounter(
+            TokenmonDeveloperEncounterForgeRequest(
+                provider: .codex,
+                field: .grassland,
+                rarity: .common,
+                speciesID: "GRS_001",
+                outcome: .captured,
+                occurredAt: "2026-04-24T00:00:00Z"
+            )
+        )
+        try manager.addToParty(speciesID: "GRS_001")
+
+        let database = try manager.open()
+        try database.execute(
+            """
+            UPDATE dex_captured
+            SET affinity_level = 2
+            WHERE species_id = 'GRS_001';
+            """
+        )
+        try database.execute(
+            """
+            UPDATE now_camp_state
+            SET focus_energy = 45,
+                care_ready = 1,
+                care_elapsed_seconds = 3600,
+                updated_at = '2026-04-24T00:01:00Z'
+            WHERE singleton_id = 1;
+            """
+        )
+
+        let model = TokenmonMenuModel(
+            databasePath: databasePath,
+            providerInspector: { _, _, _ in [] },
+            launchAtLoginStateProvider: {
+                .unsupported(reason: "tests")
+            }
+        )
+        await model.waitForRefreshToFinish()
+
+        let careResult = model.applyNowCampCareToLead()
+        guard case .applied(let care) = careResult else {
+            Issue.record("expected care action result")
+            return
+        }
+        #expect(care.focusGranted == 5)
+        #expect(care.focusEnergyAfter == 50)
+        await model.waitForRefreshToFinish()
+        #expect(model.nowCampSummary?.focusEnergy == 50)
+        #expect(model.nowCampSummary?.careReady == false)
+        #expect(model.nowCampSummary?.careElapsedSeconds == 0)
+
+        let trainResult = model.trainNowCampLead()
+        guard case .resolved(let train) = trainResult else {
+            Issue.record("expected train action result")
+            return
+        }
+        #expect(train.focusEnergyAfter == 0)
+
+        let chargingCareResult = model.applyNowCampCareToLead()
+        guard case .failed(let chargingCareMessage) = chargingCareResult else {
+            Issue.record("expected care charging failure")
+            return
+        }
+        #expect(chargingCareMessage == TokenmonL10n.string("now.camp.feedback.care_not_ready"))
+
+        try database.execute(
+            """
+            UPDATE now_camp_state
+            SET focus_energy = 50,
+                care_ready = 1,
+                care_elapsed_seconds = 3600,
+                updated_at = '2026-04-24T00:01:20Z'
+            WHERE singleton_id = 1;
+            """
+        )
+        let fullFocusCareResult = model.applyNowCampCareToLead()
+        guard case .failed(let fullFocusCareMessage) = fullFocusCareResult else {
+            Issue.record("expected care full-focus failure")
+            return
+        }
+        #expect(fullFocusCareMessage == TokenmonL10n.string("now.camp.feedback.care_focus_full"))
+
+        try database.execute(
+            """
+            UPDATE now_camp_state
+            SET focus_energy = 0,
+                updated_at = '2026-04-24T00:01:30Z'
+            WHERE singleton_id = 1;
+            """
+        )
+        try database.execute(
+            """
+            UPDATE dex_captured
+            SET affinity_level = 3
+            WHERE species_id = 'GRS_001';
+            """
+        )
+        try database.execute(
+            """
+            UPDATE species_training
+            SET training_rank = 1,
+                training_resonance = 0
+            WHERE species_id = 'GRS_001';
+            """
+        )
+
+        let focusBlockedTrainResult = model.trainNowCampLead()
+        guard case .failed(let focusBlockedTrainMessage) = focusBlockedTrainResult else {
+            Issue.record("expected train focus failure")
+            return
+        }
+        #expect(focusBlockedTrainMessage == TokenmonL10n.format(
+            "now.camp.feedback.train_not_ready",
+            Int64(0),
+            Int64(50)
+        ))
+
+        try database.execute(
+            """
+            UPDATE now_camp_state
+            SET focus_energy = 50,
+                updated_at = '2026-04-24T00:02:00Z'
+            WHERE singleton_id = 1;
+            """
+        )
+        try database.execute(
+            """
+            UPDATE dex_captured
+            SET affinity_level = 2
+            WHERE species_id = 'GRS_001';
+            """
+        )
+        try database.execute(
+            """
+            UPDATE species_training
+            SET training_rank = 2,
+                training_resonance = 0
+            WHERE species_id = 'GRS_001';
+            """
+        )
+
+        let bondBlockedTrainResult = model.trainNowCampLead()
+        guard case .failed(let bondBlockedTrainMessage) = bondBlockedTrainResult else {
+            Issue.record("expected train bond failure")
+            return
+        }
+        #expect(bondBlockedTrainMessage == TokenmonL10n.format(
+            "now.camp.feedback.train_bond_gate",
+            Int64(2),
+            Int64(3)
+        ))
+    }
+
+    @Test
     func statusItemRendererRendersEveryFieldAndKeyEffectStates() {
         let fields: [TokenmonSceneFieldKind] = [.grassland, .ice, .coast, .sky]
         let states: [TokenmonEffectState] = [.none, .alert, .captureSnap, .escapeDash]
@@ -592,6 +1371,7 @@ struct TokenmonPresentationTests {
         #expect(TokenmonL10n.localizedValue(forKey: "settings.pane.general.title", localeIdentifier: "ko-KR") == "일반")
         #expect(TokenmonL10n.localizedValue(forKey: "window.title.dex", localeIdentifier: "ko") == "Dex")
         #expect(TokenmonL10n.localizedValue(forKey: "outcome.captured", localeIdentifier: "ko") == "포획")
+        #expect(TokenmonL10n.localizedValue(forKey: "now.camp.title", localeIdentifier: "ko") == "Now")
         #expect(TokenmonL10n.format("progress.steps.remaining", 42) == "42 steps left")
     }
 
@@ -1134,6 +1914,27 @@ struct TokenmonPresentationTests {
     }
 
     @Test
+    func dexBrowserSortsByAffinityDescending() {
+        let entries = [
+            makeDexEntry(status: .captured, sortOrder: 1, speciesName: "First", capturedCount: 9, affinityLevel: 2, affinityPityCount: 1),
+            makeDexEntry(status: .captured, sortOrder: 2, speciesName: "Second", capturedCount: 3, affinityLevel: 4, affinityPityCount: 0),
+            makeDexEntry(status: .captured, sortOrder: 3, speciesName: "Third", capturedCount: 2, affinityLevel: 4, affinityPityCount: 2),
+            makeDexEntry(status: .seenUncaptured, sortOrder: 4, speciesName: "Seen"),
+        ]
+
+        let sorted = TokenmonDexBrowser.filteredEntries(
+            entries: entries,
+            statusSelection: .all,
+            fieldFilter: .all,
+            rarityFilter: .all,
+            searchQuery: "",
+            sortMode: .affinity
+        )
+
+        #expect(sorted.map(\.speciesID) == ["SPC_3", "SPC_2", "SPC_1", "SPC_4"])
+    }
+
+    @Test
     func dexPresentationBuildsCollectionProgress() {
         let entries = [
             makeDexEntry(status: .captured, sortOrder: 1),
@@ -1342,7 +2143,7 @@ struct TokenmonPresentationTests {
 
     @Test
     func dexPresentationMetricRowsUseHumanReadableDates() {
-        let entry = makeDexEntry(status: .captured, sortOrder: 7, capturedCount: 3)
+        let entry = makeDexEntry(status: .captured, sortOrder: 7, capturedCount: 3, affinityLevel: 2)
 
         let rows = TokenmonDexPresentation.metricRows(
             for: entry,
@@ -1353,10 +2154,92 @@ struct TokenmonPresentationTests {
         )
 
         #expect(rows.count == 6)
+        #expect(rows.contains(where: { $0.title == "Bond" }) == false)
+        #expect(rows.contains(where: { $0.title == "Raid bonus" }) == false)
         #expect(rows.contains(where: { $0.title == "Captured" && $0.value == "3 times" }))
         #expect(rows.contains(where: { $0.title == "Seen" && $0.value == "2 encounters" }))
         #expect(rows.filter { $0.title.contains("seen") || $0.title.contains("captured") }
             .allSatisfy { $0.value.contains("T") == false && $0.value.contains("Z") == false })
+    }
+
+    @Test
+    func dexPresentationSurfacesAffinityRaidBonus() {
+        let entry = makeDexEntry(status: .captured, sortOrder: 8, capturedCount: 5, affinityLevel: 4)
+
+        #expect(TokenmonDexPresentation.metadataLine(for: entry).contains("Training Lv.1/5"))
+        #expect(TokenmonDexPresentation.metadataLine(for: entry).contains("Raid +3"))
+        #expect(TokenmonDexPresentation.affinityRaidBonusValueLabel(level: 4) == "+3")
+        #expect(TokenmonDexPresentation.affinityRaidBonusShortLabel(level: 2) == "Raid +1")
+        #expect(TokenmonDexPresentation.affinityNextTargetLabel(for: entry) == "Bond V")
+    }
+
+    @Test
+    func dexPresentationSurfacesTrainingLevelAndAbility() {
+        let inactive = makeDexEntry(
+            status: .captured,
+            sortOrder: 28,
+            field: .sky,
+            rarity: .rare,
+            trainingTrait: .scout,
+            trainingRank: .rankI,
+            trainingAttemptCount: 2
+        )
+        let active = makeDexEntry(
+            status: .captured,
+            sortOrder: 29,
+            field: .sky,
+            rarity: .rare,
+            trainingTrait: .scout,
+            trainingRank: .rankIII,
+            trainingAttemptCount: 5
+        )
+
+        #expect(TokenmonDexPresentation.trainingLevelLabel(for: inactive) == "Training Lv.1/5")
+        #expect(TokenmonDexPresentation.trainingLevelLabel(for: inactive, compact: true) == "Lv.1/5")
+        #expect(TokenmonDexPresentation.trainingAbilityTitle(for: inactive) == "Rarity Bonus")
+        #expect(TokenmonDexPresentation.trainingEffectLine(for: inactive) == "Unlocks at Training Lv.2")
+        #expect(TokenmonDexPresentation.trainingAttemptLabel(for: inactive) == "2")
+        #expect(TokenmonDexPresentation.metadataLine(for: active).contains("Training Lv.3/5"))
+        #expect(TokenmonDexPresentation.trainingEffectLine(for: active)?.contains("Sky rarity") == true)
+    }
+
+    @Test
+    func dexPresentationFormatsAffinityResultLines() {
+        let success = makeEncounter(
+            outcome: .captured,
+            capturedCount: 2,
+            affinityLevel: 2,
+            affinityLastOutcome: "success"
+        )
+        let failure = makeEncounter(
+            outcome: .captured,
+            capturedCount: 3,
+            affinityLevel: 2,
+            affinityPityCount: 1,
+            affinityLastProbability: 0.2652,
+            affinityLastOutcome: "failure"
+        )
+        let maxed = makeEncounter(
+            outcome: .captured,
+            capturedCount: 8,
+            affinityLevel: 5,
+            affinityLastOutcome: "max_level"
+        )
+        let escaped = makeEncounter(outcome: .escaped)
+        let entry = makeDexEntry(
+            status: .captured,
+            sortOrder: 30,
+            capturedCount: 3,
+            affinityLevel: 2,
+            affinityPityCount: 1,
+            affinityLastProbability: 0.2652
+        )
+
+        #expect(TokenmonDexPresentation.affinityResultLine(for: success) == "Bond II reached")
+        #expect(TokenmonDexPresentation.affinityResultLine(for: failure) == "Bond buffer 1/4")
+        #expect(TokenmonDexPresentation.affinityResonanceLabel(for: entry) == "Bond buffer 1/4")
+        #expect(TokenmonDexPresentation.affinityResultLine(for: maxed) == "Max bond")
+        #expect(TokenmonDexPresentation.affinityResultLine(for: escaped) == nil)
     }
 
     @Test
@@ -2769,9 +3652,9 @@ struct TokenmonPresentationTests {
     @Test
     func encounterGeneratorPenalizesRecentSpeciesRepeats() throws {
         let catalog = [
-            SpeciesDefinition(id: "GRS_001", name: "First", field: .grassland, rarity: .common, assetKey: "grs_001_first", sortOrder: 1),
-            SpeciesDefinition(id: "GRS_002", name: "Second", field: .grassland, rarity: .common, assetKey: "grs_002_second", sortOrder: 2),
-            SpeciesDefinition(id: "GRS_003", name: "Third", field: .grassland, rarity: .common, assetKey: "grs_003_third", sortOrder: 3),
+            SpeciesDefinition(id: "GRS_001", name: "First", field: .grassland, rarity: .common, assetKey: "grs_001_first", sortOrder: 1, trainingTrait: .trail),
+            SpeciesDefinition(id: "GRS_002", name: "Second", field: .grassland, rarity: .common, assetKey: "grs_002_second", sortOrder: 2, trainingTrait: .scout),
+            SpeciesDefinition(id: "GRS_003", name: "Third", field: .grassland, rarity: .common, assetKey: "grs_003_third", sortOrder: 3, trainingTrait: .capture),
         ]
 
         let generator = EncounterGenerator(
@@ -4427,7 +5310,11 @@ struct TokenmonPresentationTests {
         sequence: Int64 = 1,
         outcome: EncounterOutcome,
         seenCount: Int64 = 1,
-        capturedCount: Int64? = nil
+        capturedCount: Int64? = nil,
+        affinityLevel: Int64 = 0,
+        affinityPityCount: Int64 = 0,
+        affinityLastProbability: Double? = nil,
+        affinityLastOutcome: String? = nil
     ) -> RecentEncounterSummary {
         let resolvedCapturedCount = capturedCount ?? (outcome == .captured ? 1 : 0)
         return RecentEncounterSummary(
@@ -4442,6 +5329,10 @@ struct TokenmonPresentationTests {
             assetKey: "sky_012_nimbusray",
             seenCount: seenCount,
             capturedCount: resolvedCapturedCount,
+            affinityLevel: affinityLevel,
+            affinityPityCount: affinityPityCount,
+            affinityLastProbability: affinityLastProbability,
+            affinityLastOutcome: affinityLastOutcome,
             burstIntensityBand: 2,
             captureProbability: 0.6,
             captureRoll: 0.2,
@@ -4527,6 +5418,13 @@ struct TokenmonPresentationTests {
         rarity: RarityTier = .rare,
         seenCount: Int64? = nil,
         capturedCount: Int64? = nil,
+        affinityLevel: Int64 = 0,
+        affinityPityCount: Int64 = 0,
+        affinityLastProbability: Double? = nil,
+        affinityLastOutcome: String? = nil,
+        trainingTrait: TrainingTrait = .trail,
+        trainingRank: TrainingRank = .rankI,
+        trainingAttemptCount: Int = 0,
         traits: [String] = []
     ) -> DexEntrySummary {
         let resolvedSeenCount = seenCount ?? (status == .unknown ? 0 : 2)
@@ -4546,6 +5444,13 @@ struct TokenmonPresentationTests {
             lastSeenAt: resolvedSeenCount > 0 ? "2026-04-05T01:00:00Z" : nil,
             firstCapturedAt: resolvedCapturedCount > 0 ? "2026-04-05T00:30:00Z" : nil,
             lastCapturedAt: resolvedCapturedCount > 0 ? "2026-04-05T01:30:00Z" : nil,
+            affinityLevel: affinityLevel,
+            affinityPityCount: affinityPityCount,
+            affinityLastProbability: affinityLastProbability,
+            affinityLastOutcome: affinityLastOutcome,
+            trainingTrait: trainingTrait,
+            trainingRank: trainingRank,
+            trainingAttemptCount: trainingAttemptCount,
             stats: SpeciesStatBlock(
                 planning: 1,
                 design: 1,
@@ -5054,9 +5959,16 @@ struct TokenmonPresentationTests {
     func raidArtLoaderLoadsSeededRaidAssets() {
         #expect(TokenmonRaidArtLoader.image(artKey: "raid_backdrop_treasure_vault") != nil)
         #expect(TokenmonRaidArtLoader.image(artKey: "raid_backdrop_token_vault_chamber") != nil)
+        #expect(TokenmonRaidArtLoader.image(artKey: "raid_backdrop_grassland_vault") != nil)
+        #expect(TokenmonRaidArtLoader.image(artKey: "raid_backdrop_sky_beacon") != nil)
+        #expect(TokenmonRaidArtLoader.image(artKey: "raid_backdrop_coast_tideglass") != nil)
+        #expect(TokenmonRaidArtLoader.image(artKey: "raid_backdrop_ice_aurora_archive") != nil)
         #expect(TokenmonRaidArtLoader.image(artKey: "raid_target_training_trophy_cache") != nil)
         #expect(TokenmonRaidArtLoader.image(artKey: "raid_target_logo_vault") != nil)
         #expect(TokenmonRaidArtLoader.image(artKey: "raid_target_token_vault_sentinel") != nil)
+        for raid in RaidCatalog.allRaids {
+            #expect(TokenmonRaidArtLoader.image(artKey: raid.targetArtKey) != nil)
+        }
         #expect(TokenmonRaidArtLoader.image(artKey: "reward_first_spark_trophy") != nil)
         #expect(TokenmonRaidArtLoader.image(artKey: "reward_2026_04_april_relic") != nil)
         #expect(TokenmonRaidArtLoader.image(artKey: "reward_2026_05_may_relic") != nil)
@@ -5067,6 +5979,368 @@ struct TokenmonPresentationTests {
         #expect(TokenmonRaidArtLoader.image(artKey: "reward_2026_10_october_relic") != nil)
         #expect(TokenmonRaidArtLoader.image(artKey: "reward_2026_11_november_relic") != nil)
         #expect(TokenmonRaidArtLoader.image(artKey: "reward_2026_12_december_relic") != nil)
+    }
+
+    private func sampleSpecies(field: FieldType, offset: Int) -> SpeciesDefinition {
+        let species = SpeciesCatalog.all.filter { $0.isActive && $0.field == field }
+        guard offset < species.count else {
+            preconditionFailure("missing sample species for \(field)")
+        }
+        return species[offset]
+    }
+
+    private func sampleSpecies(trait: TrainingTrait) -> SpeciesDefinition {
+        guard let species = SpeciesCatalog.all.first(where: { $0.isActive && $0.trainingTrait == trait }) else {
+            preconditionFailure("missing sample species for \(trait)")
+        }
+        return species
+    }
+
+    private func expectedNowCampRewardName(for trait: TrainingTrait) -> String {
+        switch trait {
+        case .trail:
+            return TokenmonL10n.string("now.camp.train.reward.trail")
+        case .scout:
+            return TokenmonL10n.string("now.camp.train.reward.scout")
+        case .capture:
+            return TokenmonL10n.string("now.camp.train.reward.capture")
+        case .raider:
+            return TokenmonL10n.string("now.camp.train.reward.raider")
+        }
+    }
+
+    private func expectedNowCampRewardShortName(for trait: TrainingTrait) -> String {
+        switch trait {
+        case .trail:
+            return TokenmonL10n.string("now.camp.train.reward.trail.short")
+        case .scout:
+            return TokenmonL10n.string("now.camp.train.reward.scout.short")
+        case .capture:
+            return TokenmonL10n.string("now.camp.train.reward.capture.short")
+        case .raider:
+            return TokenmonL10n.string("now.camp.train.reward.raider.short")
+        }
+    }
+
+    private func expectedNowCampRewardSystemImage(for trait: TrainingTrait) -> String {
+        switch trait {
+        case .trail:
+            return "map.fill"
+        case .scout:
+            return "star.fill"
+        case .capture:
+            return "scope"
+        case .raider:
+            return "shield.fill"
+        }
+    }
+
+    private func expectedNowCampV2PracticeChance(
+        rarity: RarityTier,
+        trainingRank: TrainingRank
+    ) -> String {
+        guard let targetRank = trainingRank.next else {
+            return TokenmonL10n.string("now.camp.v2.max")
+        }
+        let probability = try! LeaderTrainingResolver().successProbability(
+            rarity: rarity,
+            targetRank: targetRank
+        )
+        return TokenmonL10n.format(
+            "now.camp.v2.percent",
+            Int64((probability * 100).rounded())
+        )
+    }
+
+    private func expectedNowCampV2Resonance(
+        rarity: RarityTier,
+        trainingRank: TrainingRank,
+        resonance: Int = 2
+    ) -> String {
+        guard let targetRank = trainingRank.next else {
+            return TokenmonL10n.string("now.camp.v2.max")
+        }
+        let resolver = LeaderTrainingResolver()
+        let probability = try! resolver.successProbability(
+            rarity: rarity,
+            targetRank: targetRank
+        )
+        let ceiling = try! resolver.ceilingFailures(probability: probability)
+        return TokenmonL10n.format(
+            "now.camp.v2.resonance.value",
+            Int64(min(max(resonance, 0), ceiling)),
+            Int64(ceiling)
+        )
+    }
+
+    private func expectedNowCampV2RewardValue(for preview: LeaderTraitBonusPreview) -> String {
+        guard preview.isActive, preview.bonusAmount > 0 else {
+            return TokenmonL10n.string("now.camp.v2.unavailable")
+        }
+        switch preview.unit {
+        case .fieldWeight, .rarityWeightShift, .raidPower:
+            return TokenmonL10n.format("now.camp.v2.signed_integer", Int64(preview.bonusAmount.rounded()))
+        case .probabilityPoints:
+            return TokenmonL10n.format("now.camp.v2.points", Int64((preview.bonusAmount * 100).rounded()))
+        }
+    }
+
+    private func expectedNowCampV2CompactRewardValue(for preview: LeaderTraitBonusPreview) -> String {
+        let value = expectedNowCampV2RewardValue(for: preview)
+        guard preview.isActive else {
+            return value
+        }
+        switch preview.kind {
+        case .trail:
+            return TokenmonL10n.format("now.camp.v2.reward.trail.compact_value", preview.field.displayName)
+        case .scout:
+            return TokenmonL10n.format("now.camp.v2.reward.scout.compact_value", preview.field.displayName)
+        case .capture:
+            return TokenmonL10n.format("now.camp.v2.reward.capture.compact_value", preview.field.displayName)
+        case .raider:
+            return TokenmonL10n.format("now.camp.v2.reward.raider.compact_value", preview.field.displayName)
+        }
+    }
+
+    private func expectedNowCampV2CompactRewardDetail(for preview: LeaderTraitBonusPreview) -> String {
+        guard preview.isActive else {
+            return TokenmonL10n.string("now.camp.v2.reward.inactive")
+        }
+        let value = expectedNowCampV2RewardValue(for: preview)
+        switch preview.kind {
+        case .trail:
+            return TokenmonL10n.format("now.camp.v2.reward.trail.compact_detail", value)
+        case .scout:
+            return TokenmonL10n.format("now.camp.v2.reward.scout.compact_detail", value)
+        case .capture:
+            return TokenmonL10n.format("now.camp.v2.reward.capture.compact_detail", value)
+        case .raider:
+            return TokenmonL10n.format("now.camp.v2.reward.raider.compact_detail", value)
+        }
+    }
+
+    private func expectedNowCampV2LeadEffectValue(current: LeaderTraitBonusPreview) -> String {
+        if current.isActive {
+            return expectedNowCampV2RewardValue(for: current)
+        }
+        return TokenmonL10n.string("now.camp.v2.unavailable")
+    }
+
+    private func expectedNowCampV2LeadEffectDetail(
+        current: LeaderTraitBonusPreview,
+        next: LeaderTraitBonusPreview?,
+        nextRank: TrainingRank?,
+        nextIsBlocked: Bool = false,
+        blockedCurrent: Int64? = nil,
+        blockedRequired: Int64? = nil
+    ) -> String {
+        let currentLine = current.isActive
+            ? expectedNowCampV2EffectLineText(for: current)
+            : TokenmonL10n.string("now.camp.v2.reward.current.none")
+        let successLine: String
+        if nextIsBlocked {
+            if let blockedCurrent, let blockedRequired {
+                successLine = TokenmonL10n.format(
+                    "now.camp.action.rank_gate.short",
+                    blockedCurrent,
+                    blockedRequired
+                )
+            } else {
+                successLine = TokenmonL10n.string("now.camp.v2.bond_gate")
+            }
+        } else if nextRank == nil {
+            successLine = TokenmonL10n.string("now.camp.v2.max")
+        } else if let next, next.isActive {
+            successLine = expectedNowCampV2EffectLineText(for: next)
+        } else {
+            successLine = TokenmonL10n.string("now.camp.v2.reward.success.none")
+        }
+        return TokenmonL10n.format(
+            "now.camp.v2.reward.current_success.detail",
+            currentLine,
+            successLine
+        )
+    }
+
+    private func expectedNowCampV2LeadEffectCompactValue(
+        current: LeaderTraitBonusPreview,
+        next: LeaderTraitBonusPreview?,
+        nextIsBlocked: Bool = false
+    ) -> String {
+        if current.isActive {
+            return expectedNowCampV2CompactRewardValue(for: current)
+        }
+        guard let next,
+              next.isActive,
+              !nextIsBlocked else {
+            if nextIsBlocked {
+                return TokenmonL10n.string("now.camp.v2.bond_gate")
+            }
+            return TokenmonL10n.string("now.camp.v2.reward.inactive")
+        }
+        return expectedNowCampV2CompactRewardValue(for: next)
+    }
+
+    private func expectedNowCampV2LeadEffectCompactDetail(
+        current: LeaderTraitBonusPreview,
+        next: LeaderTraitBonusPreview?,
+        nextIsBlocked: Bool = false
+    ) -> String {
+        if current.isActive {
+            let currentDetail = expectedNowCampV2CompactRewardDetail(for: current)
+            guard let next,
+                  next.isActive,
+                  !nextIsBlocked else {
+                return currentDetail
+            }
+            let currentValue = expectedNowCampV2RewardValue(for: current)
+            let nextValue = expectedNowCampV2RewardValue(for: next)
+            guard currentValue != nextValue else {
+                return currentDetail
+            }
+            return TokenmonL10n.format(
+                "now.camp.v2.reward.current_to_next",
+                currentDetail,
+                nextValue
+            )
+        }
+        guard let next,
+              next.isActive,
+              !nextIsBlocked else {
+            if nextIsBlocked {
+                return TokenmonL10n.string("now.camp.v2.bond_gate")
+            }
+            return TokenmonL10n.string("now.camp.v2.reward.inactive")
+        }
+        return TokenmonL10n.string("now.camp.v2.reward.unlock_first_success")
+    }
+
+    private func expectedNowCampV2EffectLineText(for preview: LeaderTraitBonusPreview) -> String {
+        let value = expectedNowCampV2RewardValue(for: preview)
+        switch preview.kind {
+        case .trail:
+            return TokenmonL10n.format("now.camp.v2.reward.trail.effect_line", preview.field.displayName, value)
+        case .scout:
+            return TokenmonL10n.format("now.camp.v2.reward.scout.effect_line", preview.field.displayName, value)
+        case .capture:
+            return TokenmonL10n.format("now.camp.v2.reward.capture.effect_line", preview.field.displayName, value)
+        case .raider:
+            return TokenmonL10n.format("now.camp.v2.reward.raider.effect_line", preview.field.displayName, value)
+        }
+    }
+
+    private func expectedNowCampBenefitText(for species: SpeciesDefinition) -> String {
+        switch species.trainingTrait {
+        case .trail:
+            return TokenmonL10n.format("now.camp.practice.benefit.trail", species.field.displayName)
+        case .scout:
+            return TokenmonL10n.string("now.camp.practice.benefit.scout")
+        case .capture:
+            return TokenmonL10n.format("now.camp.practice.benefit.capture", species.field.displayName)
+        case .raider:
+            return TokenmonL10n.string("now.camp.practice.benefit.raider")
+        }
+    }
+
+    private func makeNowCampSceneContext(field: FieldType) -> TokenmonSceneContext {
+        TokenmonSceneContext(
+            sceneState: .exploring,
+            fieldKind: sceneFieldKind(for: field),
+            fieldState: .exploring,
+            effectState: .none,
+            wildState: .hidden
+        )
+    }
+
+    private func sceneFieldKind(for field: FieldType) -> TokenmonSceneFieldKind {
+        switch field {
+        case .grassland:
+            return .grassland
+        case .ice:
+            return .ice
+        case .coast:
+            return .coast
+        case .sky:
+            return .sky
+        }
+    }
+
+    private func makeNowCampSummary(
+        lead: SpeciesDefinition?,
+        supports: [SpeciesDefinition],
+        focusEnergy: Int,
+        affinityLevel: Int64,
+        trainingRank: TrainingRank,
+        careReady: Bool = false,
+        careElapsedSeconds: Int = 0,
+        careFocusEarnedLocalDate: String = "2026-04-24",
+        careFocusEarnedToday: Int = 0
+    ) -> NowCampSummary {
+        NowCampSummary(
+            leadSpeciesID: lead?.id,
+            focusEnergy: focusEnergy,
+            focusRemainderTokens: 12_000,
+            focusEarnedLocalDate: "2026-04-24",
+            focusEarnedToday: 24,
+            careReady: careReady,
+            careElapsedSeconds: careElapsedSeconds,
+            careFocusEarnedLocalDate: careFocusEarnedLocalDate,
+            careFocusEarnedToday: careFocusEarnedToday,
+            lead: lead.map {
+                makeLeadSummary(
+                    from: $0,
+                    affinityLevel: affinityLevel,
+                    trainingRank: trainingRank
+                )
+            },
+            supports: supports.enumerated().map { index, species in
+                makePartyMember(from: species, slotOrder: index + 2)
+            }
+        )
+    }
+
+    private func makeLeadSummary(
+        from species: SpeciesDefinition,
+        affinityLevel: Int64,
+        trainingRank: TrainingRank
+    ) -> NowCampLeadSummary {
+        NowCampLeadSummary(
+            speciesID: species.id,
+            displayName: species.name,
+            assetKey: species.assetKey,
+            field: species.field,
+            rarity: species.rarity,
+            trainingTrait: species.trainingTrait,
+            affinityLevel: affinityLevel,
+            slotOrder: 1,
+            training: NowCampTrainingSummary(
+                trainingRank: trainingRank,
+                trainingResonance: 2,
+                trainingAttemptCount: 4
+            )
+        )
+    }
+
+    private func makePartyMember(
+        from species: SpeciesDefinition,
+        slotOrder: Int = 1,
+        affinityLevel: Int64 = 1,
+        trainingRank: TrainingRank = .rankI
+    ) -> PartyMemberSummary {
+        PartyMemberSummary(
+            speciesID: species.id,
+            assetKey: species.assetKey,
+            field: species.field,
+            rarity: species.rarity,
+            displayName: species.name,
+            addedAt: "2026-04-24T00:00:00Z",
+            slotOrder: slotOrder,
+            capturedCount: 1,
+            affinityLevel: affinityLevel,
+            trainingTrait: species.trainingTrait,
+            trainingRank: trainingRank,
+            stats: species.stats
+        )
     }
 
     private func gameplayDeltaSum(_ manager: TokenmonDatabaseManager) throws -> Int64 {

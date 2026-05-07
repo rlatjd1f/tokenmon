@@ -231,21 +231,20 @@ public final class CodexSessionStoreObserver: @unchecked Sendable {
             return
         }
 
-        do {
-            let metadata = try CodexTranscriptBackfillAdapter.scanTranscriptMetadata(from: path)
-            guard let sessionID = metadata.sessionID, sessionID.isEmpty == false else {
-                return
-            }
+        let fileURL = URL(fileURLWithPath: path)
+        let fileSize = Int64((try? fileURL.resourceValues(forKeys: [.fileSizeKey]).fileSize) ?? 0)
+        let sessionID = sessionIDFromHeader(path: path) ?? sessionIDFromFileName(path: path)
 
-            trackedFiles[path] = CodexTrackedSessionFile(
-                sessionID: sessionID,
-                offset: metadata.lastOffset,
-                lineNumber: metadata.lastLineNumber,
-                startedDuringLiveRuntime: false
-            )
-        } catch {
+        guard let sessionID, sessionID.isEmpty == false else {
             return
         }
+
+        trackedFiles[path] = CodexTrackedSessionFile(
+            sessionID: sessionID,
+            offset: fileSize,
+            lineNumber: 0,
+            startedDuringLiveRuntime: false
+        )
     }
 
     private func initializeNewLiveFile(path: String) throws {
@@ -348,6 +347,65 @@ public final class CodexSessionStoreObserver: @unchecked Sendable {
         } else {
             try rendered.write(to: outputURL, atomically: true, encoding: .utf8)
         }
+    }
+
+    private func sessionIDFromHeader(path: String) -> String? {
+        let fileURL = URL(fileURLWithPath: path)
+        guard let handle = try? FileHandle(forReadingFrom: fileURL) else {
+            return nil
+        }
+        defer { try? handle.close() }
+
+        var buffer = Data()
+        let maximumHeaderBytes = 1_048_576
+        while buffer.count < maximumHeaderBytes {
+            let chunk: Data?
+            do {
+                chunk = try handle.read(upToCount: 64 * 1024)
+            } catch {
+                return nil
+            }
+            guard let chunk, chunk.isEmpty == false else {
+                break
+            }
+            buffer.append(chunk)
+            if buffer.firstIndex(of: 0x0A) != nil {
+                break
+            }
+        }
+
+        guard let newlineIndex = buffer.firstIndex(of: 0x0A) else {
+            return nil
+        }
+
+        let lineData = buffer[..<newlineIndex]
+        guard
+            let object = try? JSONSerialization.jsonObject(with: Data(lineData)) as? [String: Any],
+            object["type"] as? String == "session_meta",
+            let payload = object["payload"] as? [String: Any],
+            let sessionID = payload["id"] as? String,
+            sessionID.isEmpty == false
+        else {
+            return nil
+        }
+
+        return sessionID
+    }
+
+    private func sessionIDFromFileName(path: String) -> String? {
+        let name = URL(fileURLWithPath: path).deletingPathExtension().lastPathComponent
+        let prefixLength = "rollout-".count
+        let timestampLength = "2026-04-10T10-27-42".count
+        let separatorLength = 1
+        let sessionStartIndex = prefixLength + timestampLength + separatorLength
+
+        guard name.hasPrefix("rollout-"), name.count > sessionStartIndex else {
+            return nil
+        }
+
+        let index = name.index(name.startIndex, offsetBy: sessionStartIndex)
+        let sessionID = String(name[index...])
+        return sessionID.isEmpty ? nil : sessionID
     }
 
     private func trackedDirectories() -> Set<String> {

@@ -9,6 +9,7 @@ public struct RaidMemberHitResult: Equatable, Sendable {
     public let fieldFitBonus: Int
     public let traitFitBonus: Int
     public let captureBondBonus: Int
+    public let trainingRaidBonus: Int
     public let baseHitPower: Int
     public let rollOutcome: RaidHitRollOutcome
     public let rollMultiplier: Double
@@ -28,6 +29,8 @@ public struct RaidAttackResolution: Equatable, Sendable {
     public let memberHits: [RaidMemberHitResult]
     public let rawPartyDamage: Int
     public let formationMultiplier: Double
+    public let fieldMatchCount: Int
+    public let fieldSynergyMultiplier: Double
     public let unmodifiedTotalDamage: Int
     public let damageBlessing: RaidDamageBlessing?
     public let totalDamage: Int
@@ -57,14 +60,35 @@ public enum RaidDamageCalculator {
                 ? lhs.speciesID < rhs.speciesID
                 : lhs.slotOrder < rhs.slotOrder
         }
+        let trainingBonuses = LeaderTraitBonusResolver().raidBonuses(
+            raidField: raid.raidField,
+            partyMembers: orderedMembers.map { member in
+                LeaderTraitContext(
+                    speciesID: member.speciesID,
+                    homeField: member.field,
+                    rarity: member.rarity,
+                    trait: member.trainingTrait,
+                    trainingRank: member.trainingRank,
+                    slotOrder: member.slotOrder
+                )
+            }
+        )
         let hits = orderedMembers.map { member in
-            let base = memberHit(raid: raid, member: member)
+            let base = memberHit(
+                raid: raid,
+                member: member,
+                trainingRaidBonus: trainingBonuses.memberBonuses[member.speciesID] ?? 0
+            )
             guard let usageSampleID else { return base }
             return applyHitRoll(base, raidID: raid.raidID, usageSampleID: usageSampleID)
         }
         let rawDamage = hits.reduce(0) { $0 + $1.hitPower }
         let multiplier = formationMultiplier(partySize: hits.count)
-        let unmodifiedTotalDamage = hits.isEmpty ? 0 : Int(floor(Double(rawDamage) * multiplier))
+        let fieldMatchCount = hits.filter { $0.member.field == raid.raidField }.count
+        let fieldSynergyMultiplier = Self.fieldSynergyMultiplier(fieldMatchCount: fieldMatchCount)
+        let unmodifiedTotalDamage = hits.isEmpty
+            ? 0
+            : Int(floor(Double(rawDamage) * multiplier * fieldSynergyMultiplier))
         let totalDamage: Int
         if let damageBlessing, unmodifiedTotalDamage > 0 {
             totalDamage = max(
@@ -80,6 +104,8 @@ public enum RaidDamageCalculator {
             memberHits: hits,
             rawPartyDamage: rawDamage,
             formationMultiplier: multiplier,
+            fieldMatchCount: fieldMatchCount,
+            fieldSynergyMultiplier: fieldSynergyMultiplier,
             unmodifiedTotalDamage: unmodifiedTotalDamage,
             damageBlessing: damageBlessing,
             totalDamage: totalDamage
@@ -88,7 +114,8 @@ public enum RaidDamageCalculator {
 
     public static func memberHit(
         raid: RaidDefinition,
-        member: RaidPartyMember
+        member: RaidPartyMember,
+        trainingRaidBonus: Int = 0
     ) -> RaidMemberHitResult {
         let axisScore = SpeciesStatAxis.allCases.reduce(0.0) { partial, axis in
             partial + Double(member.stats.value(for: axis)) * Double(raid.axisWeights.value(for: axis)) / 100.0
@@ -100,7 +127,7 @@ public enum RaidDamageCalculator {
             2,
             member.stats.traits.filter { raid.preferredTraitTags.contains($0) }.count
         )
-        let captureBondBonus = captureBondBonus(capturedCount: member.capturedCount)
+        let captureBondBonus = captureBondBonus(affinityLevel: member.affinityLevel)
         let hitPower = max(
             1,
             roundedAxisScore
@@ -108,6 +135,7 @@ public enum RaidDamageCalculator {
                 + fieldFitBonus
                 + traitFitBonus
                 + captureBondBonus
+                + max(0, trainingRaidBonus)
         )
 
         return RaidMemberHitResult(
@@ -118,6 +146,7 @@ public enum RaidDamageCalculator {
             fieldFitBonus: fieldFitBonus,
             traitFitBonus: traitFitBonus,
             captureBondBonus: captureBondBonus,
+            trainingRaidBonus: max(0, trainingRaidBonus),
             baseHitPower: hitPower,
             rollOutcome: .normal,
             rollMultiplier: 1.0,
@@ -138,13 +167,28 @@ public enum RaidDamageCalculator {
         }
     }
 
-    public static func captureBondBonus(capturedCount: Int64) -> Int {
-        switch capturedCount {
-        case 25...:
+    public static func fieldSynergyMultiplier(fieldMatchCount: Int) -> Double {
+        switch fieldMatchCount {
+        case 10...:
+            return 1.30
+        case 6...9:
+            return 1.20
+        case 3...5:
+            return 1.12
+        case 1...2:
+            return 1.05
+        default:
+            return 1.0
+        }
+    }
+
+    public static func captureBondBonus(affinityLevel: Int64) -> Int {
+        switch affinityLevel {
+        case 4...:
             return 3
-        case 10...24:
+        case 3:
             return 2
-        case 3...9:
+        case 2:
             return 1
         default:
             return 0
@@ -196,6 +240,7 @@ public enum RaidDamageCalculator {
             fieldFitBonus: base.fieldFitBonus,
             traitFitBonus: base.traitFitBonus,
             captureBondBonus: base.captureBondBonus,
+            trainingRaidBonus: base.trainingRaidBonus,
             baseHitPower: base.baseHitPower,
             rollOutcome: outcome,
             rollMultiplier: multiplier,

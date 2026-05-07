@@ -17,6 +17,16 @@ struct TokenmonDexNavigationRequest: Equatable {
     }
 }
 
+enum TokenmonNowCampCareActionResult: Equatable {
+    case applied(NowCampCareResult)
+    case failed(String)
+}
+
+enum TokenmonNowCampTrainActionResult: Equatable {
+    case resolved(NowCampTrainingAttemptResult)
+    case failed(String)
+}
+
 @MainActor
 final class TokenmonMenuModel: ObservableObject {
     private static let inboxRefreshDebounceNanoseconds: UInt64 = 150_000_000
@@ -47,6 +57,7 @@ final class TokenmonMenuModel: ObservableObject {
     private let analyticsTracker: TokenmonAnalyticsTracking
     private var refreshTask: Task<Void, Never>?
     private var delayedInboxRefreshTask: Task<Void, Never>?
+    private var careUptimeTask: Task<Void, Never>?
     private var refreshInFlight = false
     private var pendingRefreshScopes: TokenmonRefreshScopes = []
     private var pendingRefreshReasonLabels = Set<String>()
@@ -99,6 +110,11 @@ final class TokenmonMenuModel: ObservableObject {
         TokenmonLaunchAtLoginController.cleanupLegacyFallbackIfNeeded()
         refreshNotificationAuthorizationState()
         refresh(reason: .initial)
+        startNowCampCareUptimeTicker()
+    }
+
+    deinit {
+        careUptimeTask?.cancel()
     }
 
     func activateLiveMonitoring() {
@@ -111,6 +127,35 @@ final class TokenmonMenuModel: ObservableObject {
         }
         inboxMonitor.startAsync { [weak self] in
             self?.refresh(reason: .inboxEvent)
+        }
+    }
+
+    private func startNowCampCareUptimeTicker() {
+        careUptimeTask?.cancel()
+        careUptimeTask = Task { [weak self] in
+            while Task.isCancelled == false {
+                try? await Task.sleep(nanoseconds: 60_000_000_000)
+                guard Task.isCancelled == false else {
+                    return
+                }
+                self?.advanceNowCampCareUptimeTick()
+            }
+        }
+    }
+
+    private func advanceNowCampCareUptimeTick() {
+        do {
+            let result = try databaseManager.advanceNowCampCareUptime(seconds: 60)
+            guard result.didChange else {
+                return
+            }
+            refresh(reason: .partyChanged)
+        } catch {
+            logError(
+                category: "now_camp",
+                event: "care_uptime_tick_failed",
+                metadata: ["error": error.localizedDescription]
+            )
         }
     }
 
@@ -689,6 +734,111 @@ final class TokenmonMenuModel: ObservableObject {
         }
     }
 
+    func setNowCampLead(_ speciesID: String?) {
+        do {
+            try databaseManager.setNowCampLead(speciesID: speciesID)
+            loadError = nil
+            refresh(reason: .partyChanged)
+        } catch {
+            loadError = error.localizedDescription
+            refresh(reason: .partyChanged)
+        }
+    }
+
+    @discardableResult
+    func applyNowCampCareToLead() -> TokenmonNowCampCareActionResult {
+        do {
+            let result = try databaseManager.applyLeadCare()
+            loadError = nil
+            refresh(reason: .partyChanged)
+            return .applied(result)
+        } catch {
+            let message = localizedNowCampCareFailureMessage(for: error)
+            loadError = message
+            refresh(reason: .partyChanged)
+            return .failed(message)
+        }
+    }
+
+    private func localizedNowCampCareFailureMessage(for error: Error) -> String {
+        guard let storeError = error as? NowCampStoreError else {
+            return error.localizedDescription
+        }
+
+        switch storeError {
+        case .missingLead:
+            return TokenmonL10n.string("now.camp.action.missing_lead")
+        case .careNotReady:
+            return TokenmonL10n.string("now.camp.feedback.care_not_ready")
+        case .focusFull:
+            return TokenmonL10n.string("now.camp.feedback.care_focus_full")
+        case .insufficientFocus(let required, let available):
+            return TokenmonL10n.format(
+                "now.camp.action.insufficient_care_focus",
+                Int64(available),
+                Int64(required)
+            )
+        case .rankAtAffinityGate(_, let rank, let affinityLevel):
+            guard rank.next != nil else {
+                return TokenmonL10n.string("now.camp.action.rank_max")
+            }
+            return TokenmonL10n.format(
+                "now.camp.action.rank_gate",
+                affinityLevel,
+                Int64(min(5, rank.rawValue + 1))
+            )
+        case .leadNotInParty, .missingTraining:
+            return storeError.localizedDescription
+        }
+    }
+
+    @discardableResult
+    func trainNowCampLead() -> TokenmonNowCampTrainActionResult {
+        do {
+            let result = try databaseManager.trainNowCampLead()
+            loadError = nil
+            refresh(reason: .partyChanged)
+            return .resolved(result)
+        } catch {
+            let message = localizedNowCampTrainFailureMessage(for: error)
+            loadError = message
+            refresh(reason: .partyChanged)
+            return .failed(message)
+        }
+    }
+
+    private func localizedNowCampTrainFailureMessage(for error: Error) -> String {
+        guard let storeError = error as? NowCampStoreError else {
+            return error.localizedDescription
+        }
+
+        switch storeError {
+        case .missingLead:
+            return TokenmonL10n.string("now.camp.action.missing_lead")
+        case .insufficientFocus(let required, let available):
+            return TokenmonL10n.format(
+                "now.camp.feedback.train_not_ready",
+                Int64(available),
+                Int64(required)
+            )
+        case .rankAtAffinityGate(_, let rank, let affinityLevel):
+            guard rank.next != nil else {
+                return TokenmonL10n.string("now.camp.action.rank_max")
+            }
+            return TokenmonL10n.format(
+                "now.camp.feedback.train_bond_gate",
+                affinityLevel,
+                Int64(min(TrainingRank.rankV.rawValue, rank.rawValue + 1))
+            )
+        case .careNotReady:
+            return TokenmonL10n.string("now.camp.feedback.care_not_ready")
+        case .focusFull:
+            return TokenmonL10n.string("now.camp.feedback.care_focus_full")
+        case .leadNotInParty, .missingTraining:
+            return storeError.localizedDescription
+        }
+    }
+
     enum PartyMutationOutcome {
         case added, removed, partyFull, notCaptured, failed
     }
@@ -1049,10 +1199,13 @@ final class TokenmonMenuModel: ObservableObject {
 
     var raidDashboard: RaidDashboardSummary? { runtimeSnapshot.raidDashboard }
 
+    var nowCampSummary: NowCampSummary? { runtimeSnapshot.nowCampSummary }
+
     var dexEntries: [DexEntrySummary] { insightsSnapshot.dexEntries }
 
     var partyMembers: [PartyMemberSummary] { insightsSnapshot.partyMembers }
     var partySpeciesIDs: Set<String> { insightsSnapshot.partySpeciesIDs }
+    var nowCampLeadSpeciesID: String? { nowCampSummary?.leadSpeciesID }
     var isPartyFull: Bool { partyMembers.count >= 10 }
 
     var todayActivity: TodayActivitySummary? { runtimeSnapshot.todayActivity }
@@ -1314,7 +1467,8 @@ final class TokenmonMenuModel: ObservableObject {
                 todayActivity: try databaseManager.todayActivitySummary(),
                 providerHealthSummaries: [],
                 ambientCompanionRoster: try databaseManager.ambientCompanionRoster(),
-                raidDashboard: try databaseManager.raidDashboardSummary()
+                raidDashboard: try databaseManager.raidDashboardSummary(),
+                nowCampSummary: try databaseManager.nowCampSummary()
             )
             loadError = nil
         } catch {

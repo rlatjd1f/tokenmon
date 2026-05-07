@@ -1,4 +1,5 @@
 import Foundation
+import AppKit
 import Testing
 @testable import TokenmonGameEngine
 @testable import TokenmonOtelProviders
@@ -116,6 +117,350 @@ struct TokenmonDataContractTests {
     }
 
     @Test
+    func nowCampSpeciesTrainingTraitsAreBalancedAcrossCatalogGroups() {
+        #expect(SpeciesCatalog.validationIssues().isEmpty)
+
+        for field in FieldType.allCases {
+            let traits = Set(SpeciesCatalog.all.filter { $0.field == field }.map(\.trainingTrait))
+            #expect(traits == Set(TrainingTrait.allCases))
+
+            for rarity in RarityTier.allCases {
+                let entries = SpeciesCatalog.all.filter { $0.field == field && $0.rarity == rarity }
+                guard entries.isEmpty == false else { continue }
+                let counts = TrainingTrait.allCases.map { trait in
+                    entries.filter { $0.trainingTrait == trait }.count
+                }
+                #expect((counts.max() ?? 0) - (counts.min() ?? 0) <= 1)
+            }
+        }
+    }
+
+    @Test
+    func nowCampFocusAccumulatorCapsAtOneTrainingCharge() throws {
+        let accumulator = NowCampFocusAccumulator()
+        let state = NowCampFocusState(
+            focusEnergy: 120,
+            focusRemainderTokens: 24_000,
+            focusEarnedLocalDate: "2026-04-30",
+            focusEarnedToday: 300
+        )
+
+        let result = try accumulator.accumulate(
+            state: state,
+            gameplayDeltaTokens: 51_000,
+            localDate: "2026-04-30"
+        )
+
+        #expect(result.rawFocusGain == 1)
+        #expect(result.tokenFocusGain == 0)
+        #expect(result.activityFocusGain == 1)
+        #expect(result.focusEarned == 0)
+        #expect(result.discardedByDailyCap == 0)
+        #expect(result.discardedByStorageCap == 1)
+        #expect(result.updatedState.focusEnergy == 50)
+        #expect(result.updatedState.focusRemainderTokens == 0)
+        #expect(result.updatedState.focusEarnedToday == 300)
+    }
+
+    @Test
+    func nowCampFocusAccumulatorResetsDateAuditWithoutDailyCap() throws {
+        let accumulator = NowCampFocusAccumulator()
+        let state = NowCampFocusState(
+            focusEnergy: 49,
+            focusRemainderTokens: 2_000,
+            focusEarnedLocalDate: "2026-05-04",
+            focusEarnedToday: 119
+        )
+
+        let result = try accumulator.accumulate(
+            state: state,
+            gameplayDeltaTokens: 1_500,
+            localDate: "2026-05-05"
+        )
+
+        #expect(result.rawFocusGain == 1)
+        #expect(result.focusEarned == 1)
+        #expect(result.discardedByDailyCap == 0)
+        #expect(result.discardedByStorageCap == 0)
+        #expect(result.updatedState.focusEnergy == 50)
+        #expect(result.updatedState.focusRemainderTokens == 0)
+        #expect(result.updatedState.focusEarnedToday == 1)
+    }
+
+    @Test
+    func nowCampFocusAccumulatorGivesPositiveLiveUsageSampleAtLeastOneFocus() throws {
+        let accumulator = NowCampFocusAccumulator()
+        let state = NowCampFocusState(
+            focusEnergy: 42,
+            focusRemainderTokens: 2_000,
+            focusEarnedLocalDate: "2026-05-05",
+            focusEarnedToday: 8
+        )
+
+        let smallUsage = try accumulator.accumulate(
+            state: state,
+            gameplayDeltaTokens: 1_500,
+            localDate: "2026-05-05"
+        )
+
+        #expect(smallUsage.tokenFocusGain == 0)
+        #expect(smallUsage.activityFocusGain == 1)
+        #expect(smallUsage.rawFocusGain == 1)
+        #expect(smallUsage.focusEarned == 1)
+        #expect(smallUsage.updatedState.focusEnergy == 43)
+        #expect(smallUsage.updatedState.focusRemainderTokens == 0)
+        #expect(smallUsage.updatedState.focusEarnedToday == 9)
+
+        let noUsage = try accumulator.accumulate(
+            state: state,
+            gameplayDeltaTokens: 0,
+            localDate: "2026-05-05"
+        )
+
+        #expect(noUsage.tokenFocusGain == 0)
+        #expect(noUsage.activityFocusGain == 0)
+        #expect(noUsage.rawFocusGain == 0)
+        #expect(noUsage.focusEarned == 0)
+        #expect(noUsage.updatedState.focusEnergy == 42)
+        #expect(noUsage.updatedState.focusRemainderTokens == 0)
+    }
+
+    @Test
+    func nowCampFocusEarnedEventAuditsUsageCountGain() throws {
+        let manager = try makeManager(prefix: "now-camp-focus-usage-count")
+        let database = try manager.open()
+
+        let accumulation = try manager.addNowCampFocus(
+            database: database,
+            usageSampleID: 1,
+            gameplayDeltaTokens: 1_500,
+            observedAt: "2026-05-05T00:00:00Z",
+            correlationID: nil,
+            localDate: "2026-05-05"
+        )
+
+        #expect(accumulation.focusEarned == 1)
+        #expect(accumulation.tokenFocusGain == 0)
+        #expect(accumulation.activityFocusGain == 1)
+
+        let payload = try database.fetchOne(
+            """
+            SELECT json_extract(payload_json, '$.focus_earned'),
+                   json_extract(payload_json, '$.raw_focus_gain'),
+                   json_extract(payload_json, '$.token_focus_gain'),
+                   json_extract(payload_json, '$.activity_focus_gain'),
+                   json_extract(payload_json, '$.focus_remainder_tokens_after')
+            FROM domain_events
+            WHERE event_type = 'focus_energy_earned'
+            ORDER BY occurred_at DESC
+            LIMIT 1;
+            """
+        ) { statement in
+            (
+                SQLiteDatabase.columnInt64(statement, index: 0),
+                SQLiteDatabase.columnInt64(statement, index: 1),
+                SQLiteDatabase.columnInt64(statement, index: 2),
+                SQLiteDatabase.columnInt64(statement, index: 3),
+                SQLiteDatabase.columnInt64(statement, index: 4)
+            )
+        }
+
+        #expect(payload?.0 == 1)
+        #expect(payload?.1 == 1)
+        #expect(payload?.2 == 0)
+        #expect(payload?.3 == 1)
+        #expect(payload?.4 == 0)
+    }
+
+    @Test
+    func nowCampLeaderTraitBonusesRespectMatchPositionsAndRaidCap() throws {
+        let resolver = LeaderTraitBonusResolver()
+        let trailLead = LeaderTraitContext(
+            speciesID: "trail",
+            homeField: .grassland,
+            rarity: .rare,
+            trait: .trail,
+            trainingRank: .rankIII,
+            slotOrder: 1
+        )
+        let fieldResult = resolver.applyTrail(
+            weights: [
+                EncounterFieldWeight(field: .grassland, weight: 10),
+                EncounterFieldWeight(field: .ice, weight: 10),
+                EncounterFieldWeight(field: .coast, weight: 10),
+                EncounterFieldWeight(field: .sky, weight: 10),
+            ],
+            lead: trailLead
+        )
+        #expect(fieldResult.application?.kind == .trail)
+        #expect(fieldResult.weights.first { $0.field == .grassland }?.weight == 15)
+
+        let scoutLead = LeaderTraitContext(
+            speciesID: "scout",
+            homeField: .ice,
+            rarity: .epic,
+            trait: .scout,
+            trainingRank: .rankIV
+        )
+        let scoutMiss = resolver.applyScout(
+            weights: [EncounterRarityWeight(rarity: .common, weight: 54)],
+            selectedField: .grassland,
+            lead: scoutLead
+        )
+        #expect(scoutMiss.application == nil)
+
+        let scoutHit = resolver.applyScout(
+            weights: RarityTier.allCases.map { EncounterRarityWeight(rarity: $0, weight: $0 == .common ? 54 : 10) },
+            selectedField: .ice,
+            lead: scoutLead
+        )
+        #expect(scoutHit.application?.kind == .scout)
+        #expect((scoutHit.weights.first { $0.rarity == .common }?.weight ?? 0) < 54)
+
+        let captureLead = LeaderTraitContext(
+            speciesID: "capture",
+            homeField: .coast,
+            rarity: .legendary,
+            trait: .capture,
+            trainingRank: .rankV
+        )
+        let captureMiss = resolver.applyCapture(
+            baseProbability: 0.36,
+            encounterField: .sky,
+            encounterRarity: .rare,
+            lead: captureLead
+        )
+        #expect(captureMiss.application == nil)
+        #expect(captureMiss.probability == 0.36)
+
+        let captureHit = resolver.applyCapture(
+            baseProbability: 0.36,
+            encounterField: .coast,
+            encounterRarity: .rare,
+            lead: captureLead
+        )
+        #expect(captureHit.application?.kind == .capture)
+        #expect(abs(captureHit.probability - 0.41) < 0.000_001)
+
+        let commonCaptureLead = LeaderTraitContext(
+            speciesID: "GRS_003",
+            homeField: .grassland,
+            rarity: .common,
+            trait: .capture,
+            trainingRank: .rankII
+        )
+        let commonCaptureHit = resolver.applyCapture(
+            baseProbability: 0.88,
+            encounterField: .grassland,
+            encounterRarity: .common,
+            lead: commonCaptureLead
+        )
+        #expect(commonCaptureHit.application?.kind == .capture)
+        #expect(abs(commonCaptureHit.probability - 0.89) < 0.000_001)
+
+        let raiderResult = resolver.raidBonuses(
+            raidField: .sky,
+            partyMembers: [
+                LeaderTraitContext(speciesID: "a", homeField: .sky, rarity: .legendary, trait: .raider, trainingRank: .rankV, slotOrder: 1),
+                LeaderTraitContext(speciesID: "b", homeField: .sky, rarity: .epic, trait: .raider, trainingRank: .rankV, slotOrder: 2),
+                LeaderTraitContext(speciesID: "c", homeField: .sky, rarity: .rare, trait: .raider, trainingRank: .rankV, slotOrder: 3),
+            ]
+        )
+        #expect(raiderResult.totalBonus == 8)
+        #expect(raiderResult.memberBonuses["a"] == 6)
+        #expect(raiderResult.memberBonuses["b"] == 2)
+        #expect(raiderResult.memberBonuses["c"] == nil)
+    }
+
+    @Test
+    func speciesAffinityResolverUsesDocumentedProbabilitiesAndCeilings() throws {
+        let resolver = SpeciesAffinityResolver()
+
+        #expect(try resolver.successProbability(rarity: .common, targetLevel: 2) == 0.50)
+        #expect(abs((try resolver.successProbability(rarity: .rare, targetLevel: 3)) - 0.2652) < 0.000_001)
+        #expect(abs((try resolver.successProbability(rarity: .legendary, targetLevel: 5)) - 0.0756) < 0.000_001)
+        #expect(try resolver.ceilingFailures(probability: 0.50) == 2)
+        #expect(try resolver.ceilingFailures(probability: 0.0756) == 10)
+    }
+
+    @Test
+    func speciesAffinityResolverRollsDeterministicallyAndAppliesPity() throws {
+        let resolver = SpeciesAffinityResolver()
+
+        let first = try resolver.resolveCapture(
+            speciesID: "GRS_001",
+            rarity: .rare,
+            encounterSeedContextID: "seed-repeatable",
+            capturedCountAfter: 2,
+            currentLevel: 1,
+            pityCount: 0
+        )
+        let replay = try resolver.resolveCapture(
+            speciesID: "GRS_001",
+            rarity: .rare,
+            encounterSeedContextID: "seed-repeatable",
+            capturedCountAfter: 2,
+            currentLevel: 1,
+            pityCount: 0
+        )
+
+        #expect(first == replay)
+        #expect(first.roll != nil)
+        #expect(first.targetLevel == 2)
+
+        let failure = try #require((0 ..< 100).compactMap { index -> SpeciesAffinityResolution? in
+            let resolution = try resolver.resolveCapture(
+                speciesID: "GRS_001",
+                rarity: .legendary,
+                encounterSeedContextID: "seed-failure-\(index)",
+                capturedCountAfter: 7,
+                currentLevel: 4,
+                pityCount: 3
+            )
+            return resolution.outcome == .failure ? resolution : nil
+        }.first)
+
+        #expect(failure.previousLevel == 4)
+        #expect(failure.newLevel == 4)
+        #expect(failure.pityCountBefore == 3)
+        #expect(failure.pityCountAfter == 4)
+    }
+
+    @Test
+    func speciesAffinityResolverGuaranteesAfterCeilingAndCapsAtMaxLevel() throws {
+        let resolver = SpeciesAffinityResolver()
+
+        let guaranteed = try resolver.resolveCapture(
+            speciesID: "GRS_001",
+            rarity: .common,
+            encounterSeedContextID: "seed-guaranteed",
+            capturedCountAfter: 4,
+            currentLevel: 1,
+            pityCount: 2
+        )
+
+        #expect(guaranteed.outcome == .guaranteedSuccess)
+        #expect(guaranteed.previousLevel == 1)
+        #expect(guaranteed.newLevel == 2)
+        #expect(guaranteed.roll == nil)
+        #expect(guaranteed.pityCountAfter == 0)
+
+        let maxed = try resolver.resolveCapture(
+            speciesID: "GRS_001",
+            rarity: .common,
+            encounterSeedContextID: "seed-max",
+            capturedCountAfter: 12,
+            currentLevel: 5,
+            pityCount: 6
+        )
+
+        #expect(maxed.outcome == .maxLevel)
+        #expect(maxed.newLevel == 5)
+        #expect(maxed.pityCountAfter == 0)
+        #expect(maxed.probability == nil)
+    }
+
+    @Test
     func explorationAccumulatorUsesCollectionScaledThresholdRanges() {
         let config = ExplorationAccumulatorConfig()
         let earlyRange = config.scaledThresholdRange(capturedSpeciesCount: 0)
@@ -209,7 +554,7 @@ struct TokenmonDataContractTests {
             """
             SELECT COUNT(*)
             FROM domain_events
-            WHERE event_type IN ('seen_dex_updated', 'captured_dex_updated');
+            WHERE event_type IN ('seen_dex_updated', 'captured_dex_updated', 'species_affinity_updated');
             """
         ) { statement in
             SQLiteDatabase.columnInt64(statement, index: 0)
@@ -260,7 +605,8 @@ struct TokenmonDataContractTests {
                 'encounter_spawned',
                 'capture_resolved',
                 'seen_dex_updated',
-                'captured_dex_updated'
+                'captured_dex_updated',
+                'species_affinity_updated'
             );
             """
         ) { statement in
@@ -1374,6 +1720,32 @@ struct TokenmonDataContractTests {
         } ?? 0
     }
 
+    private func maxUsageSampleID(database: SQLiteDatabase) throws -> Int64 {
+        try database.fetchOne("SELECT COALESCE(MAX(usage_sample_id), 0) FROM usage_samples;") { statement in
+            SQLiteDatabase.columnInt64(statement, index: 0)
+        } ?? 0
+    }
+
+    private func latestSpeciesAffinityPayload(
+        database: SQLiteDatabase,
+        speciesID: String
+    ) throws -> SpeciesAffinityUpdatedEventPayload {
+        let payloadJSON = try #require(database.fetchOne(
+            """
+            SELECT payload_json
+            FROM domain_events
+            WHERE event_type = 'species_affinity_updated'
+              AND aggregate_id = ?
+            ORDER BY domain_event_row_id DESC
+            LIMIT 1;
+            """,
+            bindings: [.text(speciesID)]
+        ) { statement in
+            SQLiteDatabase.columnText(statement, index: 0)
+        })
+        return try JSONDecoder().decode(SpeciesAffinityUpdatedEventPayload.self, from: Data(payloadJSON.utf8))
+    }
+
     private func jsonObject(_ json: String) throws -> [String: Any] {
         let data = Data(json.utf8)
         return try #require(JSONSerialization.jsonObject(with: data) as? [String: Any])
@@ -2177,6 +2549,313 @@ struct TokenmonDataContractTests {
     }
 
     @Test
+    func dexCapturedAffinityColumnsExistAfterBootstrap() throws {
+        let manager = try makeManager(prefix: "tokenmon-affinity-columns")
+        let database = try manager.open()
+
+        let columns = try database.fetchAll("PRAGMA table_info(dex_captured);") { statement in
+            SQLiteDatabase.columnText(statement, index: 1)
+        }
+
+        #expect(columns.contains("affinity_level"))
+        #expect(columns.contains("affinity_pity_count"))
+        #expect(columns.contains("affinity_last_roll"))
+        #expect(columns.contains("affinity_last_probability"))
+        #expect(columns.contains("affinity_last_outcome"))
+        #expect(columns.contains("affinity_updated_at"))
+    }
+
+    @Test
+    func migrationVersionFifteenSeedsAffinityFromCapturedCounts() throws {
+        let manager = try makeManager(prefix: "tokenmon-mig-v15-affinity")
+        let database = try manager.open()
+        let speciesIDs = ["GRS_001", "GRS_002", "GRS_003", "GRS_004"]
+        let counts: [Int64] = [2, 3, 10, 25]
+
+        for (index, speciesID) in speciesIDs.enumerated() {
+            _ = try manager.forgeEncounter(
+                TokenmonDeveloperEncounterForgeRequest(
+                    provider: .codex,
+                    field: .grassland,
+                    rarity: .common,
+                    speciesID: speciesID,
+                    outcome: .captured,
+                    occurredAt: "2026-04-20T00:0\(index):00Z"
+                )
+            )
+        }
+
+        for (speciesID, count) in zip(speciesIDs, counts) {
+            try database.execute(
+                """
+                UPDATE dex_captured
+                SET captured_count = ?,
+                    affinity_level = 1,
+                    affinity_pity_count = 9,
+                    affinity_last_outcome = NULL
+                WHERE species_id = ?;
+                """,
+                bindings: [.integer(count), .text(speciesID)]
+            )
+        }
+        try database.execute("PRAGMA user_version = 14;")
+
+        let migratedDatabase = try manager.open()
+        let rows = try migratedDatabase.fetchAll(
+            """
+            SELECT species_id,
+                   captured_count,
+                   affinity_level,
+                   affinity_pity_count,
+                   affinity_last_outcome
+            FROM dex_captured
+            WHERE species_id IN ('GRS_001', 'GRS_002', 'GRS_003', 'GRS_004')
+            ORDER BY species_id;
+            """
+        ) { statement in
+            (
+                speciesID: SQLiteDatabase.columnText(statement, index: 0),
+                capturedCount: SQLiteDatabase.columnInt64(statement, index: 1),
+                affinityLevel: SQLiteDatabase.columnInt64(statement, index: 2),
+                pityCount: SQLiteDatabase.columnInt64(statement, index: 3),
+                outcome: SQLiteDatabase.columnText(statement, index: 4)
+            )
+        }
+
+        #expect(rows.map { $0.speciesID } == speciesIDs)
+        #expect(rows.map { $0.capturedCount } == counts)
+        #expect(rows.map { $0.affinityLevel } == [1, 2, 3, 4])
+        #expect(rows.allSatisfy { $0.pityCount == 0 })
+        #expect(rows.allSatisfy { $0.outcome == "migration_seeded" })
+    }
+
+    @Test
+    func firstCaptureInitializesAffinityAndPersistsDomainEvent() throws {
+        let manager = try makeManager(prefix: "tokenmon-affinity-first")
+        let encounter = try manager.forgeEncounter(
+            TokenmonDeveloperEncounterForgeRequest(
+                provider: .codex,
+                field: .grassland,
+                rarity: .common,
+                speciesID: "GRS_001",
+                outcome: .captured,
+                occurredAt: "2026-04-20T01:00:00Z"
+            )
+        )
+        let database = try manager.open()
+
+        let aggregate = try #require(database.fetchOne(
+            """
+            SELECT captured_count,
+                   affinity_level,
+                   affinity_pity_count,
+                   affinity_last_roll,
+                   affinity_last_probability,
+                   affinity_last_outcome
+            FROM dex_captured
+            WHERE species_id = 'GRS_001';
+            """
+        ) { statement in
+            (
+                capturedCount: SQLiteDatabase.columnInt64(statement, index: 0),
+                affinityLevel: SQLiteDatabase.columnInt64(statement, index: 1),
+                pityCount: SQLiteDatabase.columnInt64(statement, index: 2),
+                lastRoll: SQLiteDatabase.columnOptionalDouble(statement, index: 3),
+                lastProbability: SQLiteDatabase.columnOptionalDouble(statement, index: 4),
+                lastOutcome: SQLiteDatabase.columnText(statement, index: 5)
+            )
+        })
+        let payload = try latestSpeciesAffinityPayload(database: database, speciesID: "GRS_001")
+
+        #expect(aggregate.capturedCount == 1)
+        #expect(aggregate.affinityLevel == 1)
+        #expect(aggregate.pityCount == 0)
+        #expect(aggregate.lastRoll == nil)
+        #expect(aggregate.lastProbability == nil)
+        #expect(aggregate.lastOutcome == "initialized")
+        #expect(payload.encounterID == encounter.encounterID)
+        #expect(payload.capturedCountAfter == 1)
+        #expect(payload.previousLevel == 0)
+        #expect(payload.newLevel == 1)
+        #expect(payload.outcome == "initialized")
+    }
+
+    @Test
+    func duplicateCaptureGuaranteedAffinitySuccessResetsPity() throws {
+        let manager = try makeManager(prefix: "tokenmon-affinity-guaranteed")
+        _ = try manager.forgeEncounter(
+            TokenmonDeveloperEncounterForgeRequest(
+                provider: .codex,
+                field: .grassland,
+                rarity: .common,
+                speciesID: "GRS_001",
+                outcome: .captured,
+                occurredAt: "2026-04-20T02:00:00Z"
+            )
+        )
+        let database = try manager.open()
+        try database.execute(
+            """
+            UPDATE dex_captured
+            SET affinity_level = 1,
+                affinity_pity_count = 2
+            WHERE species_id = 'GRS_001';
+            """
+        )
+
+        _ = try manager.forgeEncounter(
+            TokenmonDeveloperEncounterForgeRequest(
+                provider: .codex,
+                field: .grassland,
+                rarity: .common,
+                speciesID: "GRS_001",
+                outcome: .captured,
+                occurredAt: "2026-04-20T02:01:00Z"
+            )
+        )
+
+        let aggregate = try #require(database.fetchOne(
+            """
+            SELECT captured_count,
+                   affinity_level,
+                   affinity_pity_count,
+                   affinity_last_roll,
+                   affinity_last_probability,
+                   affinity_last_outcome
+            FROM dex_captured
+            WHERE species_id = 'GRS_001';
+            """
+        ) { statement in
+            (
+                capturedCount: SQLiteDatabase.columnInt64(statement, index: 0),
+                affinityLevel: SQLiteDatabase.columnInt64(statement, index: 1),
+                pityCount: SQLiteDatabase.columnInt64(statement, index: 2),
+                lastRoll: SQLiteDatabase.columnOptionalDouble(statement, index: 3),
+                lastProbability: SQLiteDatabase.columnOptionalDouble(statement, index: 4),
+                lastOutcome: SQLiteDatabase.columnText(statement, index: 5)
+            )
+        })
+        let payload = try latestSpeciesAffinityPayload(database: database, speciesID: "GRS_001")
+
+        #expect(aggregate.capturedCount == 2)
+        #expect(aggregate.affinityLevel == 2)
+        #expect(aggregate.pityCount == 0)
+        #expect(aggregate.lastRoll == nil)
+        #expect(aggregate.lastProbability == 0.50)
+        #expect(aggregate.lastOutcome == "guaranteed_success")
+        #expect(payload.previousLevel == 1)
+        #expect(payload.newLevel == 2)
+        #expect(payload.targetLevel == 2)
+        #expect(payload.pityCountBefore == 2)
+        #expect(payload.pityCountAfter == 0)
+        #expect(payload.outcome == "guaranteed_success")
+    }
+
+    @Test
+    func duplicateCaptureFailurePreservesAffinityAndIncrementsPity() throws {
+        let manager = try makeManager(prefix: "tokenmon-affinity-failure")
+        let species = try #require(SpeciesCatalog.all.first { $0.id == "GRS_035" })
+        _ = try manager.forgeEncounter(
+            TokenmonDeveloperEncounterForgeRequest(
+                provider: .codex,
+                field: species.field,
+                rarity: species.rarity,
+                speciesID: species.id,
+                outcome: .captured,
+                occurredAt: "2026-04-20T03:00:00Z"
+            )
+        )
+        let database = try manager.open()
+        try database.execute(
+            """
+            UPDATE dex_captured
+            SET affinity_level = 4,
+                affinity_pity_count = 0
+            WHERE species_id = ?;
+            """,
+            bindings: [.text(species.id)]
+        )
+
+        let resolver = SpeciesAffinityResolver()
+        var nextUsageSampleID = try maxUsageSampleID(database: database) + 1
+        var foundFailureSeed = false
+        for attempt in 0 ..< 50 {
+            let preview = try resolver.resolveCapture(
+                speciesID: species.id,
+                rarity: species.rarity,
+                encounterSeedContextID: "internal-devtools-\(nextUsageSampleID)",
+                capturedCountAfter: 2,
+                currentLevel: 4,
+                pityCount: 0
+            )
+            if preview.outcome == .failure {
+                foundFailureSeed = true
+                break
+            }
+            _ = try manager.forgeEncounter(
+                TokenmonDeveloperEncounterForgeRequest(
+                    provider: .codex,
+                    field: species.field,
+                    rarity: species.rarity,
+                    speciesID: species.id,
+                    outcome: .escaped,
+                    occurredAt: "2026-04-20T03:\(String(format: "%02d", attempt)):00Z"
+                )
+            )
+            nextUsageSampleID = try maxUsageSampleID(database: database) + 1
+        }
+        #expect(foundFailureSeed)
+
+        _ = try manager.forgeEncounter(
+            TokenmonDeveloperEncounterForgeRequest(
+                provider: .codex,
+                field: species.field,
+                rarity: species.rarity,
+                speciesID: species.id,
+                outcome: .captured,
+                occurredAt: "2026-04-20T03:10:00Z"
+            )
+        )
+
+        let aggregate = try #require(database.fetchOne(
+            """
+            SELECT captured_count,
+                   affinity_level,
+                   affinity_pity_count,
+                   affinity_last_roll,
+                   affinity_last_probability,
+                   affinity_last_outcome
+            FROM dex_captured
+            WHERE species_id = ?;
+            """,
+            bindings: [.text(species.id)]
+        ) { statement in
+            (
+                capturedCount: SQLiteDatabase.columnInt64(statement, index: 0),
+                affinityLevel: SQLiteDatabase.columnInt64(statement, index: 1),
+                pityCount: SQLiteDatabase.columnInt64(statement, index: 2),
+                lastRoll: SQLiteDatabase.columnOptionalDouble(statement, index: 3),
+                lastProbability: SQLiteDatabase.columnOptionalDouble(statement, index: 4),
+                lastOutcome: SQLiteDatabase.columnText(statement, index: 5)
+            )
+        })
+        let payload = try latestSpeciesAffinityPayload(database: database, speciesID: species.id)
+
+        #expect(aggregate.capturedCount == 2)
+        #expect(aggregate.affinityLevel == 4)
+        #expect(aggregate.pityCount == 1)
+        #expect(aggregate.lastRoll != nil)
+        #expect(abs((aggregate.lastProbability ?? 0) - 0.0756) < 0.000_001)
+        #expect(aggregate.lastOutcome == "failure")
+        #expect(payload.previousLevel == 4)
+        #expect(payload.newLevel == 4)
+        #expect(payload.targetLevel == 5)
+        #expect(payload.pityCountBefore == 0)
+        #expect(payload.pityCountAfter == 1)
+        #expect(payload.outcome == "failure")
+    }
+
+    @Test
     func dexEntrySummaryIncludesStatsAndTraits() throws {
         let tempDirectory = FileManager.default.temporaryDirectory
             .appendingPathComponent("tokenmon-dex-stats-\(UUID().uuidString)", isDirectory: true)
@@ -2196,6 +2875,40 @@ struct TokenmonDataContractTests {
         // After seeding, stats should have real values (not default all-1s)
         #expect(first.stats.total >= 12, "First species (Common) total should be at least 12")
         #expect(first.stats.traits.isEmpty == false, "First species should have at least 1 trait")
+    }
+
+    @Test
+    func dexEntrySummaryIncludesTrainingStateForCapturedSpecies() throws {
+        let manager = try makeManager(prefix: "dex-training-state")
+        _ = try manager.forgeEncounter(
+            TokenmonDeveloperEncounterForgeRequest(
+                provider: .codex,
+                field: .grassland,
+                rarity: .common,
+                speciesID: "GRS_001",
+                outcome: .captured,
+                occurredAt: "2026-04-20T00:00:00Z"
+            )
+        )
+
+        let database = try manager.open()
+        try database.execute(
+            """
+            UPDATE species_training
+            SET training_rank = 3,
+                training_resonance = 2,
+                training_attempt_count = 4
+            WHERE species_id = 'GRS_001';
+            """
+        )
+
+        let entry = try #require(try manager.dexEntrySummaries(database: database).first { $0.speciesID == "GRS_001" })
+
+        #expect(entry.status == .captured)
+        #expect(entry.trainingRank == .rankIII)
+        #expect(entry.trainingResonance == 2)
+        #expect(entry.trainingAttemptCount == 4)
+        #expect(entry.trainingTrait == SpeciesCatalog.all.first { $0.id == "GRS_001" }?.trainingTrait)
     }
 
     @Test
@@ -3439,7 +4152,8 @@ struct TokenmonDataContractTests {
                 planning: 3, design: 2, frontend: 1,
                 backend: 5, pm: 2, infra: 1,
                 traits: ["Deep Focus"]
-            )
+            ),
+            trainingTrait: .trail
         )
 
         #expect(definition.stats.total == 14)
@@ -3537,6 +4251,153 @@ struct TokenmonDataContractTests {
     }
 
     @Test
+    func nowCampV20SchemaExistsAfterBootstrap() throws {
+        let manager = try makeManager(prefix: "now-camp-schema")
+        let database = try manager.open()
+
+        let speciesColumns = Set(try database.fetchAll("PRAGMA table_info(species);") { statement in
+            SQLiteDatabase.columnText(statement, index: 1)
+        })
+        let nowCampColumns = Set(try database.fetchAll("PRAGMA table_info(now_camp_state);") { statement in
+            SQLiteDatabase.columnText(statement, index: 1)
+        })
+        let trainingColumns = Set(try database.fetchAll("PRAGMA table_info(species_training);") { statement in
+            SQLiteDatabase.columnText(statement, index: 1)
+        })
+        let raidHitColumns = Set(try database.fetchAll("PRAGMA table_info(raid_member_hits);") { statement in
+            SQLiteDatabase.columnText(statement, index: 1)
+        })
+
+        #expect(speciesColumns.contains("training_trait"))
+        #expect(nowCampColumns.isSuperset(of: [
+            "singleton_id",
+            "lead_species_id",
+            "focus_energy",
+            "focus_remainder_tokens",
+            "focus_earned_local_date",
+            "focus_earned_today",
+            "save_training_seed",
+            "care_ready",
+            "care_elapsed_seconds",
+            "care_focus_earned_local_date",
+            "care_focus_earned_today",
+            "updated_at",
+        ]))
+        #expect(trainingColumns.isSuperset(of: [
+            "species_id",
+            "training_rank",
+            "training_resonance",
+            "training_attempt_count",
+            "updated_at",
+        ]))
+        #expect(trainingColumns.contains("care_charge") == false)
+        #expect(raidHitColumns.contains("training_raid_bonus"))
+
+        let nowCampCreateSQL = try #require(try database.fetchOne(
+            """
+            SELECT sql
+            FROM sqlite_master
+            WHERE type = 'table'
+              AND name = 'now_camp_state';
+            """
+        ) { statement in
+            SQLiteDatabase.columnText(statement, index: 0)
+        })
+        #expect(nowCampCreateSQL.contains("focus_energy BETWEEN 0 AND 50"))
+    }
+
+    @Test
+    func nowCampV20ClearsHiddenRemainderAndCapsFocusCharge() throws {
+        let manager = try makeManager(prefix: "now-camp-v18-remainder")
+        let database = try manager.open()
+        try database.execute(
+            """
+            UPDATE now_camp_state
+            SET focus_energy = 50,
+                focus_remainder_tokens = 12345
+            WHERE singleton_id = 1;
+            """
+        )
+        try database.execute("PRAGMA user_version = 17;")
+
+        let migratedDatabase = try manager.open()
+        let migrated = try #require(try migratedDatabase.fetchOne(
+            """
+            SELECT focus_energy,
+                   focus_remainder_tokens
+            FROM now_camp_state
+            WHERE singleton_id = 1;
+            """
+        ) { statement in
+            (
+                focusEnergy: SQLiteDatabase.columnInt64(statement, index: 0),
+                focusRemainderTokens: SQLiteDatabase.columnInt64(statement, index: 1)
+            )
+        })
+
+        #expect(migrated.focusEnergy == 50)
+        #expect(migrated.focusRemainderTokens == 0)
+
+        #expect(throws: (any Error).self) {
+            try migratedDatabase.execute(
+                """
+                UPDATE now_camp_state
+                SET focus_energy = 72
+                WHERE singleton_id = 1;
+                """
+            )
+        }
+    }
+
+    @Test
+    func nowCampRuntimeAssetContractFilesExist() {
+        let repoRoot = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+        let runtimeRoot = repoRoot.appendingPathComponent("assets/sprites/effects/now-camp/runtime", isDirectory: true)
+        let fieldFiles = [
+            "camp_mat_64.png",
+            "camp_prop_primary_32.png",
+            "camp_prop_secondary_32.png",
+            "camp_prop_32.png",
+            "care_fx_16.png",
+            "train_fx_16.png",
+        ]
+        let commonFiles = ["resonance_orb_16.png", "training_success_16.png", "training_fail_16.png"]
+
+        for field in FieldType.allCases {
+            for filename in fieldFiles {
+                let path = runtimeRoot
+                    .appendingPathComponent(field.rawValue, isDirectory: true)
+                    .appendingPathComponent(filename)
+                    .path
+                #expect(FileManager.default.fileExists(atPath: path))
+                #expect(runtimePNGHasAlpha(atPath: path))
+            }
+        }
+
+        for filename in commonFiles {
+            let path = runtimeRoot
+                .appendingPathComponent("common", isDirectory: true)
+                .appendingPathComponent(filename)
+                .path
+            #expect(FileManager.default.fileExists(atPath: path))
+            #expect(runtimePNGHasAlpha(atPath: path))
+        }
+    }
+
+    private func runtimePNGHasAlpha(atPath path: String) -> Bool {
+        guard let image = NSImage(contentsOfFile: path),
+              let data = image.tiffRepresentation,
+              let rep = NSBitmapImageRep(data: data) else {
+            return false
+        }
+
+        return rep.hasAlpha
+    }
+
+    @Test
     func addToPartySucceedsForCapturedSpecies() throws {
         let manager = try makeManager(prefix: "party-add")
         _ = try manager.forgeEncounter(
@@ -3556,6 +4417,369 @@ struct TokenmonDataContractTests {
         #expect(summaries.count == 1)
         #expect(summaries[0].speciesID == "GRS_001")
         #expect(summaries[0].slotOrder == 1)
+        #expect(summaries[0].trainingRank == .rankI)
+        #expect(summaries[0].trainingTrait == SpeciesCatalog.all.first { $0.id == "GRS_001" }?.trainingTrait)
+    }
+
+    @Test
+    func nowCampLeadAutoRepairsAcrossPartyChanges() throws {
+        let manager = try makeManager(prefix: "now-camp-lead-repair")
+        _ = try manager.forgeEncounter(
+            TokenmonDeveloperEncounterForgeRequest(
+                provider: .codex, field: .grassland, rarity: .common,
+                speciesID: "GRS_001", outcome: .captured,
+                occurredAt: "2026-04-14T00:00:00Z"
+            )
+        )
+        _ = try manager.forgeEncounter(
+            TokenmonDeveloperEncounterForgeRequest(
+                provider: .codex, field: .grassland, rarity: .common,
+                speciesID: "GRS_002", outcome: .captured,
+                occurredAt: "2026-04-14T00:00:01Z"
+            )
+        )
+
+        #expect(try manager.nowCampSummary().leadSpeciesID == nil)
+        try manager.addToParty(speciesID: "GRS_001")
+        try manager.addToParty(speciesID: "GRS_002")
+        #expect(try manager.nowCampSummary().leadSpeciesID == "GRS_001")
+
+        try manager.setNowCampLead(speciesID: "GRS_002")
+        #expect(try manager.nowCampSummary().leadSpeciesID == "GRS_002")
+
+        try manager.removeFromParty(speciesID: "GRS_002")
+        #expect(try manager.nowCampSummary().leadSpeciesID == "GRS_001")
+
+        try manager.removeFromParty(speciesID: "GRS_001")
+        #expect(try manager.nowCampSummary().leadSpeciesID == nil)
+    }
+
+    @Test
+    func nowCampFocusAccruesOnlyFromEligibleLiveGameplayUsage() throws {
+        let manager = try makeManager(prefix: "now-camp-focus-live")
+        let database = try manager.open()
+        try upsertStringSetting(
+            database: database,
+            key: "live_gameplay_started_at",
+            value: "2026-04-01T00:00:00Z"
+        )
+        let service = UsageSampleIngestionService(databasePath: manager.path)
+
+        _ = try service.ingestProviderEvents(
+            [
+                codexUsageEvent(
+                    sessionID: "now-camp-focus-live",
+                    observedAt: "2026-04-23T00:01:00Z",
+                    totalInputTokens: 400_000,
+                    totalOutputTokens: 0,
+                    fingerprint: "codex:now-camp-focus-live:001"
+                ),
+            ],
+            sourceKey: "now-camp-focus-live",
+            sourceKind: "ndjson_file"
+        )
+        #expect(try manager.nowCampSummary().focusEnergy == 1)
+
+        _ = try service.ingestProviderEvents(
+            [
+                codexUsageEvent(
+                    sessionID: "now-camp-focus-recovery",
+                    observedAt: "2026-04-23T00:02:00Z",
+                    totalInputTokens: 600_000,
+                    totalOutputTokens: 0,
+                    fingerprint: "codex:now-camp-focus-recovery:001"
+                ),
+            ],
+            sourceKey: "now-camp-focus-recovery",
+            sourceKind: "recovery_scan"
+        )
+        #expect(try manager.nowCampSummary().focusEnergy == 1)
+    }
+
+    @Test
+    func nowCampCareClaimGrantsFocusAndTrainSpendsFocusAndUpdatesTrainingState() throws {
+        let manager = try makeManager(prefix: "now-camp-train")
+        let database = try manager.open()
+        let localDate = TokenmonDatabaseManager.currentLocalDate()
+        _ = try manager.forgeEncounter(
+            TokenmonDeveloperEncounterForgeRequest(
+                provider: .codex, field: .grassland, rarity: .common,
+                speciesID: "GRS_001", outcome: .captured,
+                occurredAt: "2026-04-14T00:00:00Z"
+            )
+        )
+        try database.execute(
+            """
+            UPDATE dex_captured
+            SET affinity_level = 2
+            WHERE species_id = 'GRS_001';
+            """
+        )
+        try manager.addToParty(speciesID: "GRS_001")
+        try database.execute(
+            """
+            UPDATE now_camp_state
+            SET focus_energy = 45,
+                care_ready = 1,
+                care_elapsed_seconds = 3600,
+                care_focus_earned_local_date = ?,
+                care_focus_earned_today = 0,
+                updated_at = '2026-04-14T00:01:00Z'
+            WHERE singleton_id = 1;
+            """,
+            bindings: [.text(localDate)]
+        )
+
+        let care = try manager.applyLeadCare()
+        let afterCareSummary = try manager.nowCampSummary()
+        #expect(care.focusGranted == 5)
+        #expect(care.focusEnergyAfter == 50)
+        #expect(care.careFocusEarnedTodayAfter == 5)
+        #expect(afterCareSummary.focusEnergy == 50)
+        #expect(afterCareSummary.careReady == false)
+        #expect(afterCareSummary.careElapsedSeconds == 0)
+
+        let train = try manager.trainNowCampLead()
+        let summary = try manager.nowCampSummary()
+        #expect(train.focusEnergyAfter == 0)
+        #expect(summary.focusEnergy == 0)
+        #expect(summary.lead?.training.trainingAttemptCount == 1)
+        #expect((summary.lead?.training.trainingRank.rawValue ?? 0) >= TrainingRank.rankI.rawValue)
+        #expect((summary.lead?.training.trainingRank.rawValue ?? 0) <= TrainingRank.rankII.rawValue)
+
+        let carePayload = try database.fetchOne(
+            """
+            SELECT json_extract(payload_json, '$.focus_granted'),
+                   json_extract(payload_json, '$.focus_energy_after'),
+                   json_extract(payload_json, '$.care_focus_earned_today_after')
+            FROM domain_events
+            WHERE event_type = 'lead_care_claimed'
+            ORDER BY occurred_at DESC
+            LIMIT 1;
+            """
+        ) { statement in
+            (
+                SQLiteDatabase.columnInt64(statement, index: 0),
+                SQLiteDatabase.columnInt64(statement, index: 1),
+                SQLiteDatabase.columnInt64(statement, index: 2)
+            )
+        }
+        #expect(carePayload?.0 == 5)
+        #expect(carePayload?.1 == 50)
+        #expect(carePayload?.2 == 5)
+
+        let trainingAttemptPayload = try database.fetchOne(
+            """
+            SELECT json_extract(payload_json, '$.focus_spent'),
+                   json_extract(payload_json, '$.focus_energy_after'),
+                   json_extract(payload_json, '$.care_charge_consumed')
+            FROM domain_events
+            WHERE event_type = 'lead_training_attempted'
+            ORDER BY occurred_at DESC
+            LIMIT 1;
+            """
+        ) { statement in
+            (
+                SQLiteDatabase.columnInt64(statement, index: 0),
+                SQLiteDatabase.columnInt64(statement, index: 1),
+                SQLiteDatabase.columnText(statement, index: 2)
+            )
+        }
+        #expect(trainingAttemptPayload?.0 == 50)
+        #expect(trainingAttemptPayload?.1 == 0)
+        #expect(trainingAttemptPayload?.2.isEmpty == true)
+    }
+
+    @Test
+    func nowCampCareClaimDoesNotRequireNextTrainingAffinity() throws {
+        let manager = try makeManager(prefix: "now-camp-care-affinity-independent")
+        let database = try manager.open()
+        let localDate = TokenmonDatabaseManager.currentLocalDate()
+        _ = try manager.forgeEncounter(
+            TokenmonDeveloperEncounterForgeRequest(
+                provider: .codex, field: .grassland, rarity: .common,
+                speciesID: "GRS_001", outcome: .captured,
+                occurredAt: "2026-04-14T00:00:00Z"
+            )
+        )
+        try database.execute(
+            """
+            UPDATE dex_captured
+            SET affinity_level = 1
+            WHERE species_id = 'GRS_001';
+            """
+        )
+        try manager.addToParty(speciesID: "GRS_001")
+        try database.execute(
+            """
+            UPDATE now_camp_state
+            SET focus_energy = 45,
+                care_ready = 1,
+                care_elapsed_seconds = 3600,
+                care_focus_earned_local_date = ?,
+                care_focus_earned_today = 0,
+                updated_at = '2026-04-14T00:01:00Z'
+            WHERE singleton_id = 1;
+            """,
+            bindings: [.text(localDate)]
+        )
+
+        let care = try manager.applyLeadCare()
+        #expect(care.focusGranted == 5)
+        #expect(care.focusEnergyAfter == 50)
+    }
+
+    @Test
+    func nowCampTrainRequiresFullFocus() throws {
+        let manager = try makeManager(prefix: "now-camp-train-full-focus")
+        let database = try manager.open()
+        _ = try manager.forgeEncounter(
+            TokenmonDeveloperEncounterForgeRequest(
+                provider: .codex, field: .grassland, rarity: .common,
+                speciesID: "GRS_001", outcome: .captured,
+                occurredAt: "2026-04-14T00:00:00Z"
+            )
+        )
+        try database.execute(
+            """
+            UPDATE dex_captured
+            SET affinity_level = 2
+            WHERE species_id = 'GRS_001';
+            """
+        )
+        try manager.addToParty(speciesID: "GRS_001")
+        try database.execute(
+            """
+            UPDATE now_camp_state
+            SET focus_energy = 49,
+                updated_at = '2026-04-14T00:01:00Z'
+            WHERE singleton_id = 1;
+            """
+        )
+
+        #expect(throws: NowCampStoreError.insufficientFocus(required: 50, available: 49)) {
+            try manager.trainNowCampLead()
+        }
+    }
+
+    @Test
+    func nowCampCareUptimeReadiesOneClaimWithoutOfflineStacking() throws {
+        let manager = try makeManager(prefix: "now-camp-care-uptime")
+        let database = try manager.open()
+        let localDate = "2026-05-05"
+
+        let first = try manager.advanceNowCampCareUptime(seconds: 3_599, localDate: localDate)
+        #expect(first.didChange)
+        #expect(first.careBecameReady == false)
+        #expect(first.careReady == false)
+        #expect(first.careElapsedSeconds == 3_599)
+
+        let second = try manager.advanceNowCampCareUptime(seconds: 1, localDate: localDate)
+        #expect(second.didChange)
+        #expect(second.careBecameReady)
+        #expect(second.careReady)
+        #expect(second.careElapsedSeconds == NowCampCarePolicy.intervalSeconds)
+
+        let third = try manager.advanceNowCampCareUptime(seconds: 600, localDate: localDate)
+        #expect(third.didChange == false)
+        #expect(third.careBecameReady == false)
+        #expect(third.careReady)
+        #expect(third.careElapsedSeconds == NowCampCarePolicy.intervalSeconds)
+
+        let summary = try manager.nowCampSummary()
+        #expect(summary.careReady)
+        #expect(summary.careElapsedSeconds == NowCampCarePolicy.intervalSeconds)
+
+        let readiedPayload = try database.fetchOne(
+            """
+            SELECT json_extract(payload_json, '$.elapsed_seconds'),
+                   json_extract(payload_json, '$.interval_seconds'),
+                   json_extract(payload_json, '$.care_focus_earned_local_date')
+            FROM domain_events
+            WHERE event_type = 'now_camp_care_readied'
+            ORDER BY occurred_at DESC
+            LIMIT 1;
+            """
+        ) { statement in
+            (
+                SQLiteDatabase.columnInt64(statement, index: 0),
+                SQLiteDatabase.columnInt64(statement, index: 1),
+                SQLiteDatabase.columnText(statement, index: 2)
+            )
+        }
+        #expect(readiedPayload?.0 == Int64(NowCampCarePolicy.intervalSeconds))
+        #expect(readiedPayload?.1 == Int64(NowCampCarePolicy.intervalSeconds))
+        #expect(readiedPayload?.2 == localDate)
+
+        let readiedCount = try database.fetchOne(
+            """
+            SELECT COUNT(*)
+            FROM domain_events
+            WHERE event_type = 'now_camp_care_readied';
+            """
+        ) { statement in
+            SQLiteDatabase.columnInt64(statement, index: 0)
+        }
+        #expect(readiedCount == 1)
+    }
+
+    @Test
+    func nowCampCareClaimFillsOneTrainingChargeWithoutBankingExtraFocus() throws {
+        let manager = try makeManager(prefix: "now-camp-care-capped")
+        let database = try manager.open()
+        let localDate = TokenmonDatabaseManager.currentLocalDate()
+        _ = try manager.forgeEncounter(
+            TokenmonDeveloperEncounterForgeRequest(
+                provider: .codex, field: .grassland, rarity: .common,
+                speciesID: "GRS_001", outcome: .captured,
+                occurredAt: "2026-04-14T00:00:00Z"
+            )
+        )
+        try database.execute(
+            """
+            UPDATE dex_captured
+            SET affinity_level = 2
+            WHERE species_id = 'GRS_001';
+            """
+        )
+        try manager.addToParty(speciesID: "GRS_001")
+        try database.execute(
+            """
+            UPDATE now_camp_state
+            SET focus_energy = 48,
+                care_ready = 1,
+                care_elapsed_seconds = 3600,
+                care_focus_earned_local_date = ?,
+                care_focus_earned_today = 18,
+                updated_at = '2026-04-14T00:01:00Z'
+            WHERE singleton_id = 1;
+            """,
+            bindings: [.text(localDate)]
+        )
+
+        let firstGrant = try manager.applyLeadCare()
+        #expect(firstGrant.focusGranted == 2)
+        #expect(firstGrant.focusEnergyAfter == 50)
+        #expect(firstGrant.careFocusEarnedTodayAfter == 20)
+
+        try database.execute(
+            """
+            UPDATE now_camp_state
+            SET focus_energy = 50,
+                care_ready = 1,
+                care_elapsed_seconds = 3600,
+                care_focus_earned_today = 20
+            WHERE singleton_id = 1;
+            """
+        )
+        #expect(throws: NowCampStoreError.focusFull(capacity: 50)) {
+            _ = try manager.applyLeadCare()
+        }
+        let fullChargeSummary = try manager.nowCampSummary()
+        #expect(fullChargeSummary.focusEnergy == 50)
+        #expect(fullChargeSummary.careReady)
+        #expect(fullChargeSummary.careElapsedSeconds == 3600)
+        #expect(fullChargeSummary.careFocusEarnedToday == 20)
     }
 
     @Test
@@ -3760,6 +4984,7 @@ struct TokenmonDataContractTests {
             rarity: .rare,
             slotOrder: 1,
             capturedCount: 4,
+            affinityLevel: 2,
             stats: SpeciesStatBlock(
                 planning: 2,
                 design: 7,
@@ -3785,6 +5010,41 @@ struct TokenmonDataContractTests {
     }
 
     @Test
+    func raidDamageCalculatorAddsPartyFieldSynergyForMatchingRaidField() throws {
+        let raid = RaidCatalog.allRaids.first { $0.raidID == "raid_2026_06_logo_vault" }!
+        let members = (1...3).map { slot in
+            RaidPartyMember(
+                speciesID: "CST_TEST_\(slot)",
+                assetKey: "cst_test",
+                displayName: "Coralcoder \(slot)",
+                field: .coast,
+                rarity: .rare,
+                slotOrder: slot,
+                capturedCount: 4,
+                affinityLevel: 2,
+                stats: SpeciesStatBlock(
+                    planning: 2,
+                    design: 7,
+                    frontend: 8,
+                    backend: 4,
+                    pm: 2,
+                    infra: 1,
+                    traits: ["Quick Prototyper", "Clean Coder"]
+                )
+            )
+        }
+
+        let resolution = RaidDamageCalculator.resolveAttack(raid: raid, partyMembers: members)
+
+        #expect(resolution.rawPartyDamage == 27)
+        #expect(resolution.formationMultiplier == 1.05)
+        #expect(resolution.fieldMatchCount == 3)
+        #expect(resolution.fieldSynergyMultiplier == 1.12)
+        #expect(resolution.unmodifiedTotalDamage == 31)
+        #expect(resolution.totalDamage == 31)
+    }
+
+    @Test
     func raidDamageRollsAreDeterministicPerUsageSample() throws {
         let raid = RaidCatalog.allRaids.first { $0.raidID == "raid_2026_06_logo_vault" }!
         let member = RaidPartyMember(
@@ -3795,6 +5055,7 @@ struct TokenmonDataContractTests {
             rarity: .rare,
             slotOrder: 1,
             capturedCount: 4,
+            affinityLevel: 2,
             stats: SpeciesStatBlock(
                 planning: 2,
                 design: 7,
@@ -3830,6 +5091,105 @@ struct TokenmonDataContractTests {
     }
 
     @Test
+    func raidDamageIgnoresCapturedCountForCaptureBondBonus() throws {
+        let raid = RaidCatalog.allRaids.first { $0.raidID == "raid_2026_06_logo_vault" }!
+        let member = RaidPartyMember(
+            speciesID: "CST_TEST",
+            assetKey: "cst_test",
+            displayName: "Coralcoder",
+            field: .coast,
+            rarity: .rare,
+            slotOrder: 1,
+            capturedCount: 30,
+            affinityLevel: 1,
+            stats: SpeciesStatBlock(
+                planning: 2,
+                design: 7,
+                frontend: 8,
+                backend: 4,
+                pm: 2,
+                infra: 1,
+                traits: ["Quick Prototyper", "Clean Coder"]
+            )
+        )
+
+        let hit = RaidDamageCalculator.memberHit(raid: raid, member: member)
+
+        #expect(hit.captureBondBonus == 0)
+        #expect(hit.baseHitPower == 8)
+    }
+
+    @Test
+    func raidAttackSnapshotPersistsAffinityLevelAndBondBonus() throws {
+        let manager = try makeManager(prefix: "raid-affinity-snapshot")
+        let database = try manager.open()
+        try upsertStringSetting(
+            database: database,
+            key: "live_gameplay_started_at",
+            value: "2026-04-01T00:00:00Z"
+        )
+
+        _ = try manager.forgeEncounter(
+            TokenmonDeveloperEncounterForgeRequest(
+                provider: .codex,
+                field: .grassland,
+                rarity: .common,
+                speciesID: "GRS_001",
+                outcome: .captured,
+                occurredAt: "2026-04-23T00:00:00Z"
+            )
+        )
+        try database.execute(
+            """
+            UPDATE dex_captured
+            SET affinity_level = 2,
+                affinity_pity_count = 0
+            WHERE species_id = 'GRS_001';
+            """
+        )
+        try manager.addToParty(speciesID: "GRS_001")
+
+        let service = UsageSampleIngestionService(databasePath: manager.path)
+        _ = try service.ingestProviderEvents(
+            [
+                codexUsageEvent(
+                    sessionID: "raid-affinity-session",
+                    observedAt: "2026-04-23T00:01:00Z",
+                    totalInputTokens: 1_000,
+                    totalOutputTokens: 500,
+                    fingerprint: "codex:raid-affinity-session:001"
+                ),
+            ],
+            sourceKey: "raid-affinity-snapshot",
+            sourceKind: "ndjson_file"
+        )
+
+        let snapshotJSON = try #require(database.fetchOne(
+            """
+            SELECT party_snapshot_json
+            FROM raid_attacks
+            ORDER BY raid_attack_row_id DESC
+            LIMIT 1;
+            """
+        ) { statement in
+            SQLiteDatabase.columnText(statement, index: 0)
+        })
+        let captureBondBonus = try #require(database.fetchOne(
+            """
+            SELECT capture_bond_bonus
+            FROM raid_member_hits
+            ORDER BY raid_member_hit_id DESC
+            LIMIT 1;
+            """
+        ) { statement in
+            SQLiteDatabase.columnInt64(statement, index: 0)
+        })
+
+        #expect(snapshotJSON.contains("\"affinityLevel\":2"))
+        #expect(captureBondBonus == 1)
+    }
+
+    @Test
     func raidTablesAndSeedExistAfterBootstrap() throws {
         let manager = try makeManager(prefix: "raid-bootstrap")
         let database = try manager.open()
@@ -3847,8 +5207,14 @@ struct TokenmonDataContractTests {
         #expect(dashboard.archiveEntries.contains { $0.rewardID == "reward_2026_12_december_relic" })
         #expect(dashboard.archiveEntries.first { $0.rewardID == "reward_2026_04_april_relic" }?.status == .available)
         #expect(dashboard.archiveEntries.first { $0.rewardID == "reward_2026_04_april_relic" }?.sourceRaidTargetName == "Clovercore Sentinel")
-        #expect(dashboard.archiveEntries.first { $0.rewardID == "reward_2026_04_april_relic" }?.sourceRaidTargetArtKey == "raid_target_token_vault_sentinel")
+        #expect(dashboard.archiveEntries.first { $0.rewardID == "reward_2026_04_april_relic" }?.sourceRaidTargetArtKey == "raid_target_2026_04_clovercore_sentinel")
         #expect(dashboard.archiveEntries.first { $0.rewardID == "reward_2026_05_may_relic" }?.status == .unknown)
+
+        let monthlyTargetKeys = RaidCatalog.allRaids
+            .filter { $0.availabilityKind == .scheduled }
+            .map(\.targetArtKey)
+        #expect(Set(monthlyTargetKeys).count == monthlyTargetKeys.count)
+        #expect(monthlyTargetKeys.allSatisfy { $0.hasPrefix("raid_target_2026_") })
 
         let decemberHP = try database.fetchOne(
             "SELECT max_hp FROM raid_definitions WHERE raid_id = 'raid_2026_12_december_vault';"
@@ -3948,8 +5314,11 @@ struct TokenmonDataContractTests {
 
         #expect(totalDamage == 120)
         #expect(attackEventPayload?.contains("\"damage_blessing_id\":\"first_spark_blessing\"") == true)
+        #expect(attackEventPayload?.contains("\"field_match_count\":1") == true)
         #expect(dashboard.currentRaid?.activeBlessing?.id == "first_spark_blessing")
         #expect(dashboard.currentRaid?.partyPower == 120)
+        #expect(dashboard.currentRaid?.fieldMatchCount == 1)
+        #expect(dashboard.currentRaid?.fieldSynergyMultiplier == 1.05)
     }
 
     @Test

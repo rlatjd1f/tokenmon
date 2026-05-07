@@ -495,6 +495,15 @@ enum TokenmonSceneTiming {
     static func tick(for context: TokenmonSceneContext, at date: Date) -> Int {
         Int(date.timeIntervalSinceReferenceDate * tickMultiplier(for: context.sceneState))
     }
+
+    static func statusItemTick(for context: TokenmonSceneContext, at date: Date) -> Int {
+        switch context.sceneState {
+        case .idle, .loading, .exploring, .unavailable:
+            return 0
+        case .rustle, .alert, .spawn, .resolveSuccess, .resolveEscape, .settle:
+            return tick(for: context, at: date)
+        }
+    }
 }
 
 struct TokenmonDummyScene: View {

@@ -122,15 +122,34 @@ struct DexPreviewGrid: View {
             onSelect(entry)
         } label: {
             VStack(spacing: 4) {
-                TokenmonDexSpritePreview(
-                    status: entry.status,
-                    revealStage: TokenmonDexPresentation.revealStage(for: entry),
-                    field: entry.field,
-                    rarity: entry.rarity,
-                    assetKey: entry.assetKey,
-                    cardSize: 56,
-                    spriteSize: 38
-                )
+                ZStack {
+                    TokenmonDexSpritePreview(
+                        status: entry.status,
+                        revealStage: TokenmonDexPresentation.revealStage(for: entry),
+                        field: entry.field,
+                        rarity: entry.rarity,
+                        assetKey: entry.assetKey,
+                        cardSize: 56,
+                        spriteSize: 38
+                    )
+
+                    if model.nowCampLeadSpeciesID == entry.speciesID {
+                        Image(systemName: "crown.fill")
+                            .font(.system(size: 9, weight: .black))
+                            .foregroundStyle(.yellow)
+                            .padding(4)
+                            .background(Circle().fill(Color(nsColor: .controlBackgroundColor).opacity(0.86)))
+                            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                            .offset(x: -4, y: -4)
+                            .accessibilityHidden(true)
+                    }
+
+                    if entry.status == .captured, entry.affinityLevel >= 2 {
+                        TokenmonAffinityBadge(level: entry.affinityLevel, compact: true, emphasized: true)
+                            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
+                            .offset(x: 4, y: 4)
+                    }
+                }
 
                 Text(TokenmonDexPresentation.visibleSpeciesName(for: entry))
                     .font(.caption2)
@@ -155,6 +174,12 @@ struct DexPreviewGrid: View {
 
             if isMember {
                 Button {
+                    model.setNowCampLead(entry.speciesID)
+                } label: {
+                    Label(TokenmonL10n.string("dex.context_menu.set_lead"), systemImage: "crown.fill")
+                }
+
+                Button {
                     _ = model.removeSpeciesFromParty(entry.speciesID)
                 } label: {
                     Label(TokenmonL10n.string("dex.context_menu.remove_from_party"), systemImage: "bag.badge.minus")
@@ -176,8 +201,19 @@ struct DexPreviewGrid: View {
 
     private func accessibilityLabel(for entry: DexEntrySummary) -> String {
         let baseLabel = TokenmonDexPresentation.visibleSpeciesName(for: entry)
-        guard model.partySpeciesIDs.contains(entry.speciesID) else { return baseLabel }
-        return "\(baseLabel), \(TokenmonL10n.string("dex.card.accessibility.party_suffix"))"
+        var parts = [baseLabel]
+        if entry.status == .captured {
+            if let trainingLabel = TokenmonDexPresentation.trainingLevelLabel(for: entry) {
+                parts.append(trainingLabel)
+            }
+            let level = TokenmonDexPresentation.affinityLevelNumber(for: entry)
+            parts.append(TokenmonDexPresentation.affinityLevelLabel(level: level))
+            parts.append(TokenmonDexPresentation.affinityRaidBonusShortLabel(level: level))
+        }
+        if model.partySpeciesIDs.contains(entry.speciesID) {
+            parts.append(TokenmonL10n.string("dex.card.accessibility.party_suffix"))
+        }
+        return parts.joined(separator: ", ")
     }
 
     private func tooltip(for entry: DexEntrySummary) -> String {
@@ -187,6 +223,14 @@ struct DexPreviewGrid: View {
 
         let date = entry.lastCapturedAt ?? entry.lastSeenAt ?? ""
         let displayName = TokenmonDexPresentation.visibleSpeciesName(for: entry, style: .sentence)
-        return TokenmonL10n.format("dex.preview.tooltip.known", displayName, entry.rarity.displayName, entry.field.displayName, date)
+        var tooltip = TokenmonL10n.format("dex.preview.tooltip.known", displayName, entry.rarity.displayName, entry.field.displayName, date)
+        if entry.status == .captured {
+            if let trainingLabel = TokenmonDexPresentation.trainingLevelLabel(for: entry) {
+                tooltip += " · \(trainingLabel)"
+            }
+            let level = TokenmonDexPresentation.affinityLevelNumber(for: entry)
+            tooltip += " · \(TokenmonDexPresentation.affinityLevelLabel(level: level)) · \(TokenmonDexPresentation.affinityRaidBonusShortLabel(level: level))"
+        }
+        return tooltip
     }
 }
