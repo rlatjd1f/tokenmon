@@ -777,6 +777,9 @@ final class TokenmonMenuModel: ObservableObject {
                 Int64(required)
             )
         case .rankAtAffinityGate(_, let rank, let affinityLevel):
+            guard rank.next != nil else {
+                return TokenmonL10n.string("now.camp.action.rank_max")
+            }
             return TokenmonL10n.format(
                 "now.camp.action.rank_gate",
                 affinityLevel,
@@ -795,10 +798,40 @@ final class TokenmonMenuModel: ObservableObject {
             refresh(reason: .partyChanged)
             return .resolved(result)
         } catch {
-            let message = error.localizedDescription
+            let message = localizedNowCampTrainFailureMessage(for: error)
             loadError = message
             refresh(reason: .partyChanged)
             return .failed(message)
+        }
+    }
+
+    private func localizedNowCampTrainFailureMessage(for error: Error) -> String {
+        guard let storeError = error as? NowCampStoreError else {
+            return error.localizedDescription
+        }
+
+        switch storeError {
+        case .missingLead:
+            return TokenmonL10n.string("now.camp.action.missing_lead")
+        case .insufficientFocus(let required, let available):
+            return TokenmonL10n.format(
+                "now.camp.feedback.train_not_ready",
+                Int64(available),
+                Int64(required)
+            )
+        case .rankAtAffinityGate(_, let rank, let affinityLevel):
+            guard rank.next != nil else {
+                return TokenmonL10n.string("now.camp.action.rank_max")
+            }
+            return TokenmonL10n.format(
+                "now.camp.feedback.train_bond_gate",
+                affinityLevel,
+                Int64(min(TrainingRank.rankV.rawValue, rank.rawValue + 1))
+            )
+        case .careNotReady:
+            return TokenmonL10n.string("now.camp.feedback.care_not_ready")
+        case .leadNotInParty, .missingTraining:
+            return storeError.localizedDescription
         }
     }
 

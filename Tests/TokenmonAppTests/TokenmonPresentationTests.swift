@@ -227,6 +227,7 @@ struct TokenmonPresentationTests {
         #expect(presentation.lead?.speciesID == lead.id)
         #expect(presentation.supportSlots.count == 2)
         #expect(presentation.trainAction.isEnabled)
+        #expect(presentation.trainAction.acceptsTapForFeedback)
         #expect(presentation.careAction.availability == .careCharging(remainingSeconds: NowCampCarePolicy.intervalSeconds))
         #expect(presentation.careAction.acceptsTapForFeedback)
         #expect(presentation.careStatusLine == TokenmonL10n.format("now.camp.care.minutes_remaining", Int64(60)))
@@ -426,6 +427,7 @@ struct TokenmonPresentationTests {
 
         #expect(presentation.lead == nil)
         #expect(presentation.trainAction.availability == .missingLead)
+        #expect(presentation.trainAction.acceptsTapForFeedback)
         #expect(presentation.careAction.availability == .missingLead)
         #expect(presentation.careAction.acceptsTapForFeedback == false)
         #expect(presentation.practiceControlTitleText == TokenmonL10n.string("now.camp.practice.status.no_lead"))
@@ -456,6 +458,7 @@ struct TokenmonPresentationTests {
             sceneContext: makeNowCampSceneContext(field: .ice)
         )
         #expect(focusLimited.trainAction.availability == .insufficientFocus(current: 12, required: 50))
+        #expect(focusLimited.trainAction.acceptsTapForFeedback)
         #expect(focusLimited.careAction.availability == .careCharging(remainingSeconds: NowCampCarePolicy.intervalSeconds))
         #expect(focusLimited.careAction.isEnabled == false)
         #expect(focusLimited.careAction.acceptsTapForFeedback)
@@ -546,6 +549,7 @@ struct TokenmonPresentationTests {
             sceneContext: makeNowCampSceneContext(field: .ice)
         )
         #expect(rankLimited.trainAction.availability == .rankAtAffinityGate(current: 2, required: 3))
+        #expect(rankLimited.trainAction.acceptsTapForFeedback)
         #expect(rankLimited.practiceStatusText == TokenmonL10n.string("now.camp.practice.status.bond_gate"))
         #expect(rankLimited.practiceControlTitleText == TokenmonL10n.string("now.camp.practice.status.bond_gate"))
         #expect(rankLimited.practiceControlDetailText == TokenmonL10n.format("now.camp.action.rank_gate.short", Int64(2), Int64(3)))
@@ -827,6 +831,76 @@ struct TokenmonPresentationTests {
             return
         }
         #expect(chargingCareMessage == TokenmonL10n.string("now.camp.feedback.care_not_ready"))
+
+        try database.execute(
+            """
+            UPDATE now_camp_state
+            SET focus_energy = 0,
+                updated_at = '2026-04-24T00:01:30Z'
+            WHERE singleton_id = 1;
+            """
+        )
+        try database.execute(
+            """
+            UPDATE dex_captured
+            SET affinity_level = 3
+            WHERE species_id = 'GRS_001';
+            """
+        )
+        try database.execute(
+            """
+            UPDATE species_training
+            SET training_rank = 1,
+                training_resonance = 0
+            WHERE species_id = 'GRS_001';
+            """
+        )
+
+        let focusBlockedTrainResult = model.trainNowCampLead()
+        guard case .failed(let focusBlockedTrainMessage) = focusBlockedTrainResult else {
+            Issue.record("expected train focus failure")
+            return
+        }
+        #expect(focusBlockedTrainMessage == TokenmonL10n.format(
+            "now.camp.feedback.train_not_ready",
+            Int64(0),
+            Int64(50)
+        ))
+
+        try database.execute(
+            """
+            UPDATE now_camp_state
+            SET focus_energy = 50,
+                updated_at = '2026-04-24T00:02:00Z'
+            WHERE singleton_id = 1;
+            """
+        )
+        try database.execute(
+            """
+            UPDATE dex_captured
+            SET affinity_level = 2
+            WHERE species_id = 'GRS_001';
+            """
+        )
+        try database.execute(
+            """
+            UPDATE species_training
+            SET training_rank = 2,
+                training_resonance = 0
+            WHERE species_id = 'GRS_001';
+            """
+        )
+
+        let bondBlockedTrainResult = model.trainNowCampLead()
+        guard case .failed(let bondBlockedTrainMessage) = bondBlockedTrainResult else {
+            Issue.record("expected train bond failure")
+            return
+        }
+        #expect(bondBlockedTrainMessage == TokenmonL10n.format(
+            "now.camp.feedback.train_bond_gate",
+            Int64(2),
+            Int64(3)
+        ))
     }
 
     @Test

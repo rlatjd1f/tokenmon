@@ -870,6 +870,8 @@
 "now.camp.feedback.train_success" = "Lv.%1$lld 훈련 성공";
 "now.camp.feedback.train_guaranteed_success" = "Lv.%1$lld 확실히 익힘";
 "now.camp.feedback.train_failure" = "실패 보정 +1";
+"now.camp.feedback.train_not_ready" = "훈련 준비 중 · 집중 %1$lld/%2$lld";
+"now.camp.feedback.train_bond_gate" = "친밀도 %1$lld/%2$lld 필요 · 같은 종을 더 포획하세요";
 "now.camp.feedback.care_not_ready" = "돌봄 충전 중";
 "now.camp.feedback.action_failed" = "%1$@";
 "now.camp.v2.title" = "Now";

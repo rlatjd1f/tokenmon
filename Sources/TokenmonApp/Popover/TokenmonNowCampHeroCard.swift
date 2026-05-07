@@ -107,7 +107,7 @@ struct NowCampHeroActionState: Equatable {
     var acceptsTapForFeedback: Bool {
         switch kind {
         case .train:
-            return isEnabled
+            return true
         case .care:
             return availability != .missingLead
         }
@@ -2171,10 +2171,7 @@ struct TokenmonNowCampHeroV2PresentationCard<HeaderAccessory: View>: View {
     private var actionRow: some View {
         HStack(spacing: 12) {
             Button {
-                guard presentation.trainAction.isEnabled else {
-                    return
-                }
-                onTrain()
+                triggerTrainAction()
             } label: {
                 Label {
                     Text(TokenmonL10n.string("now.camp.v2.train"))
@@ -2260,6 +2257,13 @@ struct TokenmonNowCampHeroV2PresentationCard<HeaderAccessory: View>: View {
             .contentShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
             .help(presentation.v2.scoutActionHelpText)
         }
+    }
+
+    private func triggerTrainAction() {
+        guard presentation.trainAction.acceptsTapForFeedback else {
+            return
+        }
+        onTrain()
     }
 
     private var footerLine: some View {
@@ -3069,10 +3073,7 @@ struct TokenmonNowCampHeroPresentationCard<HeaderAccessory: View>: View {
 
     private var compactTrainColumn: some View {
         Button {
-            guard presentation.trainAction.isEnabled else {
-                return
-            }
-            onTrain()
+            triggerCompactTrain()
         } label: {
             HStack(spacing: 7) {
                 compactTrainIcon(for: presentation.trainAction)
@@ -3116,6 +3117,13 @@ struct TokenmonNowCampHeroPresentationCard<HeaderAccessory: View>: View {
         .accessibilityHint(compactTrainDetailText)
         .accessibilityIdentifier("now-camp-compact-train-action")
         .accessibilityAddTraits(.isButton)
+    }
+
+    private func triggerCompactTrain() {
+        guard presentation.trainAction.acceptsTapForFeedback else {
+            return
+        }
+        onTrain()
     }
 
     private func compactTrainIcon(for state: NowCampHeroActionState) -> some View {
@@ -3216,8 +3224,8 @@ struct TokenmonNowCampHeroPresentationCard<HeaderAccessory: View>: View {
         if state.isEnabled {
             return LinearGradient(
                 colors: [
-                    presentation.field.nowCampTint.opacity(0.055),
-                    presentation.field.nowCampTint.opacity(0.025),
+                    presentation.field.nowCampTint.opacity(0.24),
+                    presentation.field.nowCampTint.opacity(0.12),
                 ],
                 startPoint: .topLeading,
                 endPoint: .bottomTrailing
@@ -3289,7 +3297,7 @@ struct TokenmonNowCampHeroPresentationCard<HeaderAccessory: View>: View {
         if state.kind == .care {
             return compactCareAccent.opacity(0.12)
         }
-        return presentation.field.nowCampTint.opacity(0.13)
+        return presentation.field.nowCampTint.opacity(0.30)
     }
 
     private func actionButtonStroke(for state: NowCampHeroActionState) -> Color {
@@ -3299,7 +3307,7 @@ struct TokenmonNowCampHeroPresentationCard<HeaderAccessory: View>: View {
         if state.kind == .care {
             return compactCareAccent.opacity(0.50)
         }
-        return presentation.field.nowCampTint.opacity(0.38)
+        return presentation.field.nowCampTint.opacity(0.58)
     }
 
     private func actionForeground(for state: NowCampHeroActionState) -> Color {
@@ -3325,12 +3333,15 @@ struct TokenmonNowCampHeroPresentationCard<HeaderAccessory: View>: View {
         guard state.isEnabled else {
             return Color.clear
         }
-        return state.kind == .care ? compactCareAccent.opacity(0.14) : presentation.field.nowCampTint.opacity(0.16)
+        return state.kind == .care ? compactCareAccent.opacity(0.14) : presentation.field.nowCampTint.opacity(0.28)
     }
 
     private func compactActionIconForeground(for state: NowCampHeroActionState) -> Color {
         if state.isEnabled, state.kind == .care {
             return compactCareAccent.opacity(0.92)
+        }
+        if state.isEnabled, state.kind == .train {
+            return Color.white.opacity(0.96)
         }
         return state.isEnabled ? Color.white.opacity(0.92) : Color.white.opacity(0.62)
     }
@@ -3339,12 +3350,18 @@ struct TokenmonNowCampHeroPresentationCard<HeaderAccessory: View>: View {
         if state.isEnabled, state.kind == .care {
             return compactCareAccent.opacity(0.12)
         }
+        if state.isEnabled, state.kind == .train {
+            return presentation.field.nowCampTint.opacity(0.26)
+        }
         return Color.white.opacity(state.isEnabled ? 0.10 : 0.055)
     }
 
     private func compactActionIconStroke(for state: NowCampHeroActionState) -> Color {
         if state.isEnabled, state.kind == .care {
             return compactCareAccent.opacity(0.34)
+        }
+        if state.isEnabled, state.kind == .train {
+            return presentation.field.nowCampTint.opacity(0.50)
         }
         return Color.white.opacity(state.isEnabled ? 0.18 : 0.08)
     }
