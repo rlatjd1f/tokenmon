@@ -477,7 +477,7 @@ struct NowCampHeroPresentation: Equatable {
                     "now.camp.lead_picker.status.focus_needed",
                     Int64(max(0, required - current))
                 )
-                systemImage = isSelected ? "crown.fill" : "bolt.circle.fill"
+                systemImage = isSelected ? "crown.fill" : "gauge"
                 isTrainable = false
             case .rankAtAffinityGate(let current, let required):
                 statusText = TokenmonL10n.format(
@@ -577,7 +577,7 @@ struct NowCampHeroPresentation: Equatable {
         case .capture:
             return "scope"
         case .raider:
-            return "bolt.fill"
+            return "shield.fill"
         }
     }
 
@@ -925,10 +925,7 @@ struct NowCampHeroPresentation: Equatable {
     }
 
     private static func focusValueText(focusEnergy: Int) -> String {
-        let current = max(0, focusEnergy)
-        guard current < focusCapacity else {
-            return "\(current)"
-        }
+        let current = min(max(0, focusEnergy), focusCapacity)
         return "\(current)/\(focusCapacity)"
     }
 
@@ -1473,7 +1470,7 @@ struct TokenmonNowCampHeroCard: View {
         case .careCharging:
             return "hourglass.circle.fill"
         case .insufficientFocus:
-            return "bolt.fill"
+            return "gauge"
         case .rankAtAffinityGate:
             return "heart.circle.fill"
         case .rankMaximum:
@@ -1675,7 +1672,7 @@ struct TokenmonNowCampHeroV2Card: View {
         case .careCharging:
             return "hourglass.circle.fill"
         case .insufficientFocus:
-            return "bolt.fill"
+            return "gauge"
         case .rankAtAffinityGate:
             return "heart.circle.fill"
         case .rankMaximum:
@@ -2084,7 +2081,7 @@ struct TokenmonNowCampHeroV2PresentationCard<HeaderAccessory: View>: View {
     private var summaryPanel: some View {
         HStack(spacing: 0) {
             summaryColumn(
-                icon: "bolt.fill",
+                icon: "gauge",
                 title: presentation.v2.focusTitleText,
                 value: presentation.v2.focusValueText,
                 detail: presentation.energySourceLine,
@@ -2539,7 +2536,7 @@ struct TokenmonNowCampHeroV2PresentationCard<HeaderAccessory: View>: View {
         case .missingLead:
             return "crown"
         case .insufficientFocus:
-            return "bolt.fill"
+            return "gauge"
         }
     }
 
@@ -3040,6 +3037,15 @@ struct TokenmonNowCampHeroPresentationCard<HeaderAccessory: View>: View {
                     .lineLimit(1)
                     .minimumScaleFactor(0.70)
                     .layoutPriority(1)
+
+                Text(TokenmonL10n.format(
+                    "now.camp.v2.reward.compact.success_line",
+                    presentation.v2.rewardPreview.successLine.valueText
+                ))
+                    .font(.system(size: 8.2, weight: .semibold, design: .rounded))
+                    .foregroundStyle(Color.white.opacity(0.62))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.58)
             }
             .layoutPriority(1)
         }
@@ -3316,7 +3322,7 @@ struct TokenmonNowCampHeroPresentationCard<HeaderAccessory: View>: View {
         case .missingLead:
             return "crown"
         case .insufficientFocus:
-            return "bolt.fill"
+            return "gauge"
         }
     }
 

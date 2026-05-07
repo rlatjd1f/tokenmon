@@ -255,7 +255,7 @@ struct TokenmonPresentationTests {
         #expect(presentation.campStatusLine == TokenmonL10n.string("now.camp.status.ready"))
         #expect(presentation.energySourceLine == TokenmonL10n.string("now.camp.energy.source.ready"))
         #expect(presentation.trainingLevelPipCount == 2)
-        #expect(presentation.v2.focusValueText == "50")
+        #expect(presentation.v2.focusValueText == "50/50")
         #expect(presentation.v2.practiceTitleText == TokenmonL10n.string("now.camp.v2.practice.title"))
         #expect(presentation.v2.practiceChanceText == expectedNowCampV2PracticeChance(
             rarity: lead.rarity,
@@ -5982,7 +5982,7 @@ struct TokenmonPresentationTests {
         case .capture:
             return "scope"
         case .raider:
-            return "bolt.fill"
+            return "shield.fill"
         }
     }
 
