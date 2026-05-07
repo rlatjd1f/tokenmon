@@ -385,12 +385,25 @@ struct TokenmonPresentationTests {
         ))
 
         let selectedStatus = presentation.leadMenuStatus(for: selectedLead.id)
-        #expect(selectedStatus?.statusText == TokenmonL10n.format("now.camp.lead_picker.status.bond", Int64(2), Int64(3)))
+        #expect(selectedStatus?.statusText == TokenmonL10n.format(
+            "now.camp.lead_picker.status.bond",
+            "II",
+            "III",
+            Int64(2),
+            Int64(3)
+        ))
+        #expect(selectedStatus?.titleText == "\(selectedLead.name) · \(selectedStatus?.statusText ?? "")")
+        #expect(selectedStatus?.statusText.contains("blocked") == true)
         #expect(selectedStatus?.isSelected == true)
         #expect(selectedStatus?.isTrainable == false)
 
         let trainableStatus = presentation.leadMenuStatus(for: trainableLead.id)
-        #expect(trainableStatus?.statusText == TokenmonL10n.string("now.camp.lead_picker.status.ready"))
+        #expect(trainableStatus?.statusText == TokenmonL10n.format(
+            "now.camp.lead_picker.status.ready",
+            "I",
+            "II"
+        ))
+        #expect(trainableStatus?.statusText.contains("ready") == true)
         #expect(trainableStatus?.isTrainable == true)
 
         let maxStatus = presentation.leadMenuStatus(for: maxLead.id)
@@ -413,8 +426,11 @@ struct TokenmonPresentationTests {
 
         #expect(focusLimited.leadMenuStatus(for: selectedLead.id)?.statusText == TokenmonL10n.format(
             "now.camp.lead_picker.status.focus_needed",
+            "I",
+            "II",
             Int64(38)
         ))
+        #expect(focusLimited.leadMenuStatus(for: selectedLead.id)?.statusText.contains("eligible") == true)
     }
 
     @Test

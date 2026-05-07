@@ -463,29 +463,51 @@ struct NowCampHeroPresentation: Equatable {
                 lead: lead
             )
             let isSelected = member.speciesID == selectedLeadSpeciesID
+            let currentRankText = lead.trainingRank.romanNumeral
+            let nextRankText = lead.trainingRank.next?.romanNumeral
             let statusText: String
             let systemImage: String
             let isTrainable: Bool
 
             switch action.availability {
             case .enabled:
-                statusText = TokenmonL10n.string("now.camp.lead_picker.status.ready")
+                if let nextRankText {
+                    statusText = TokenmonL10n.format(
+                        "now.camp.lead_picker.status.ready",
+                        currentRankText,
+                        nextRankText
+                    )
+                } else {
+                    statusText = TokenmonL10n.string("now.camp.lead_picker.status.max")
+                }
                 systemImage = isSelected ? "crown.fill" : "checkmark.circle.fill"
                 isTrainable = true
             case .insufficientFocus(let current, let required):
-                statusText = TokenmonL10n.format(
-                    "now.camp.lead_picker.status.focus_needed",
-                    Int64(max(0, required - current))
-                )
+                if let nextRankText {
+                    statusText = TokenmonL10n.format(
+                        "now.camp.lead_picker.status.focus_needed",
+                        currentRankText,
+                        nextRankText,
+                        Int64(max(0, required - current))
+                    )
+                } else {
+                    statusText = TokenmonL10n.string("now.camp.lead_picker.status.max")
+                }
                 systemImage = isSelected ? "crown.fill" : "gauge"
                 isTrainable = false
             case .rankAtAffinityGate(let current, let required):
-                statusText = TokenmonL10n.format(
-                    "now.camp.lead_picker.status.bond",
-                    Int64(current),
-                    Int64(required)
-                )
-                systemImage = isSelected ? "crown.fill" : "heart.circle.fill"
+                if let nextRankText {
+                    statusText = TokenmonL10n.format(
+                        "now.camp.lead_picker.status.bond",
+                        currentRankText,
+                        nextRankText,
+                        Int64(current),
+                        Int64(required)
+                    )
+                } else {
+                    statusText = TokenmonL10n.string("now.camp.lead_picker.status.max")
+                }
+                systemImage = isSelected ? "crown.fill" : "lock.circle.fill"
                 isTrainable = false
             case .rankMaximum:
                 statusText = TokenmonL10n.string("now.camp.lead_picker.status.max")
