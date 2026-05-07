@@ -458,11 +458,11 @@
 "now.camp.header.no_rank" = "Choose Lead";
 "now.camp.lead.empty" = "No Lead";
 "now.camp.lead_picker.help" = "Choose Now Camp Lead";
-"now.camp.lead_picker.status.ready" = "Lv.%1$@→%2$@";
-"now.camp.lead_picker.status.focus_needed" = "Lv.%1$@→%2$@ · charge -%3$lld";
-"now.camp.lead_picker.status.bond" = "Lv.%1$@→%2$@ · bond %3$lld/%4$lld";
-"now.camp.lead_picker.status.max" = "Lv.MAX";
-"now.camp.lead_picker.status.unavailable" = "Lv.--";
+"now.camp.lead_picker.status.ready" = "%1$@→%2$@";
+"now.camp.lead_picker.status.focus_needed" = "%1$@→%2$@ · -%3$lld";
+"now.camp.lead_picker.status.bond" = "%1$@→%2$@ · %3$lld/%4$lld";
+"now.camp.lead_picker.status.max" = "MAX";
+"now.camp.lead_picker.status.unavailable" = "--";
 "now.camp.no_party" = "No Party Lead";
 "now.camp.training_level" = "Training Lv.%1$lld/%2$lld";
 "now.camp.train" = "Train";

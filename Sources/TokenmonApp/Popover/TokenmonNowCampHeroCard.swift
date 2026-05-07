@@ -480,7 +480,7 @@ struct NowCampHeroPresentation: Equatable {
                 } else {
                     statusText = TokenmonL10n.string("now.camp.lead_picker.status.max")
                 }
-                systemImage = isSelected ? "crown.fill" : "checkmark.circle.fill"
+                systemImage = "checkmark.circle.fill"
                 isTrainable = true
             case .insufficientFocus(let current, let required):
                 if let nextRankText {
@@ -493,7 +493,7 @@ struct NowCampHeroPresentation: Equatable {
                 } else {
                     statusText = TokenmonL10n.string("now.camp.lead_picker.status.max")
                 }
-                systemImage = isSelected ? "crown.fill" : "gauge"
+                systemImage = "gauge"
                 isTrainable = false
             case .rankAtAffinityGate(let current, let required):
                 if let nextRankText {
@@ -507,15 +507,15 @@ struct NowCampHeroPresentation: Equatable {
                 } else {
                     statusText = TokenmonL10n.string("now.camp.lead_picker.status.max")
                 }
-                systemImage = isSelected ? "crown.fill" : "lock.circle.fill"
+                systemImage = "lock.circle.fill"
                 isTrainable = false
             case .rankMaximum:
                 statusText = TokenmonL10n.string("now.camp.lead_picker.status.max")
-                systemImage = isSelected ? "crown.fill" : "checkmark.seal.fill"
+                systemImage = "checkmark.seal.fill"
                 isTrainable = false
             case .missingLead, .careCharging, .focusFull:
                 statusText = TokenmonL10n.string("now.camp.lead_picker.status.unavailable")
-                systemImage = isSelected ? "crown.fill" : "person.crop.circle"
+                systemImage = "person.crop.circle"
                 isTrainable = false
             }
 

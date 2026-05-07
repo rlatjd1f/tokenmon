@@ -393,6 +393,7 @@ struct TokenmonPresentationTests {
             Int64(3)
         ))
         #expect(selectedStatus?.titleText == "\(selectedLead.name) · \(selectedStatus?.statusText ?? "")")
+        #expect(selectedStatus?.systemImage == "lock.circle.fill")
         #expect(selectedStatus?.isSelected == true)
         #expect(selectedStatus?.isTrainable == false)
 
@@ -402,10 +403,13 @@ struct TokenmonPresentationTests {
             "I",
             "II"
         ))
+        #expect(trainableStatus?.titleText == "\(trainableLead.name) · \(trainableStatus?.statusText ?? "")")
+        #expect(trainableStatus?.systemImage == "checkmark.circle.fill")
         #expect(trainableStatus?.isTrainable == true)
 
         let maxStatus = presentation.leadMenuStatus(for: maxLead.id)
         #expect(maxStatus?.statusText == TokenmonL10n.string("now.camp.lead_picker.status.max"))
+        #expect(maxStatus?.systemImage == "checkmark.seal.fill")
         #expect(maxStatus?.isTrainable == false)
 
         let focusLimited = NowCampHeroPresentation.make(
@@ -428,6 +432,7 @@ struct TokenmonPresentationTests {
             "II",
             Int64(38)
         ))
+        #expect(focusLimited.leadMenuStatus(for: selectedLead.id)?.systemImage == "gauge")
     }
 
     @Test
