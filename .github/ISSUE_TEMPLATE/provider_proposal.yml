@@ -1,0 +1,72 @@
+name: Provider Proposal
+description: Propose a new AI coding provider integration before opening an implementation PR.
+title: "[Provider]: "
+labels:
+  - provider-proposal
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Provider proposals must describe the contract before code review. Read `docs/development/provider-proposals.md` first. Tokenmon P0 gameplay must not require reading or storing prompt text or model response text.
+  - type: input
+    id: provider_name
+    attributes:
+      label: Provider Name
+      placeholder: ExampleTool
+    validations:
+      required: true
+  - type: textarea
+    id: source
+    attributes:
+      label: Machine-Readable Source
+      description: What documented file, command, hook, API, or JSONL source would Tokenmon observe?
+      placeholder: Include public docs links when available.
+    validations:
+      required: true
+  - type: textarea
+    id: event_shape
+    attributes:
+      label: Event Or Usage Shape
+      description: Show a small redacted example containing only the fields Tokenmon needs.
+      render: json
+    validations:
+      required: true
+  - type: textarea
+    id: privacy
+    attributes:
+      label: Privacy Posture
+      description: Explain why Tokenmon does not need prompt text, model response text, semantic analysis, or prompt indexing.
+    validations:
+      required: true
+  - type: textarea
+    id: mapping
+    attributes:
+      label: Normalized Usage Mapping
+      description: Map provider fields to Tokenmon usage facts, including token totals/deltas and session identity.
+    validations:
+      required: true
+  - type: textarea
+    id: degraded_modes
+    attributes:
+      label: Degraded Modes
+      description: How should Tokenmon behave for missing, partial, rotated, malformed, or duplicated input?
+    validations:
+      required: true
+  - type: textarea
+    id: tests
+    attributes:
+      label: Proposed Tests
+      description: List fixtures and tests you expect to add before merge review.
+    validations:
+      required: true
+  - type: checkboxes
+    id: acceptance
+    attributes:
+      label: Acceptance Checks
+      options:
+        - label: This proposal does not require Tokenmon to read or persist prompt text or model response text.
+          required: true
+        - label: This proposal does not add private maintainer workflow assets or machine-local state.
+          required: true
+        - label: I understand a draft PR may be closed or deferred until this contract is accepted.
+          required: true

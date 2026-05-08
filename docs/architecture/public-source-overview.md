@@ -86,6 +86,8 @@ Practical implications:
 
 - pull requests should stay limited to public code, public docs, or release
   tooling that ships from this repo
+- new provider integrations should start with the public provider proposal
+  contract in `../development/provider-proposals.md`
 - maintainer-only workflow assets, internal planning docs, original art review
   files, and private operator materials belong outside this repo
 - issues and PRs may still be accepted selectively based on product fit and

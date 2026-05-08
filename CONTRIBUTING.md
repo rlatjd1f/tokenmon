@@ -9,8 +9,13 @@ Tokenmon. External issues and pull requests should target this repository.
 
 - GitHub Releases, Sparkle app updates, and Homebrew installs are published
   from this repository.
+- Issues are enabled for focused public bug reports, CLI discovery reports,
+  provider proposals, and docs requests. Pick the closest issue template.
 - Pull requests are welcome when they are focused, reproducible, and limited to
   public product/runtime changes.
+- New provider integrations need an accepted provider proposal before merge
+  review. See
+  [docs/development/provider-proposals.md](docs/development/provider-proposals.md).
 - Maintainer-only workflow assets, internal planning docs, original art review
   files, and private operator materials are not accepted in this repo.
 - Release publishing stays here, so changes that affect the shipped app must
@@ -27,6 +32,8 @@ swift build
 ## Public Repo Rules
 
 - Keep the repo buildable from source.
+- Do not include prompt text, model response text, API keys, or private
+  machine-local secrets in issues, PRs, fixtures, or docs.
 - Do not add maintainer-only workflow assets, internal review artifacts, or
   private operator docs here.
 - Keep user-facing docs product-first and release-focused.
