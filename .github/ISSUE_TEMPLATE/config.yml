@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Provider Proposal Requirements
+    url: https://github.com/aroido/tokenmon/blob/main/docs/development/provider-proposals.md
+    about: Read this before proposing a new provider integration.
