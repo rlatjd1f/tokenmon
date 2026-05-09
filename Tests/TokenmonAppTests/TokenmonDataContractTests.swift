@@ -5544,6 +5544,165 @@ struct TokenmonDataContractTests {
         #expect(reward?.acquiredAt != nil)
         #expect(try rowCount(in: "reward_archive_entries", database: database) == 1)
     }
+
+    @Test
+    func p1V1CoreLoopConnectsAffinityLeadTrainingRaidAndRewardArchive() throws {
+        let manager = try makeManager(prefix: "p1-v1-e2e")
+        let database = try manager.open()
+        try upsertStringSetting(
+            database: database,
+            key: "live_gameplay_started_at",
+            value: "2026-03-02T00:00:00Z"
+        )
+
+        _ = try manager.forgeEncounter(
+            TokenmonDeveloperEncounterForgeRequest(
+                provider: .codex,
+                field: .grassland,
+                rarity: .common,
+                speciesID: "GRS_001",
+                outcome: .captured,
+                occurredAt: "2026-03-02T00:00:00Z"
+            )
+        )
+        try database.execute(
+            """
+            UPDATE dex_captured
+            SET affinity_level = 1,
+                affinity_pity_count = 2
+            WHERE species_id = 'GRS_001';
+            """
+        )
+        _ = try manager.forgeEncounter(
+            TokenmonDeveloperEncounterForgeRequest(
+                provider: .codex,
+                field: .grassland,
+                rarity: .common,
+                speciesID: "GRS_001",
+                outcome: .captured,
+                occurredAt: "2026-03-02T00:01:00Z"
+            )
+        )
+
+        let affinity = try #require(database.fetchOne(
+            """
+            SELECT affinity_level, affinity_last_outcome
+            FROM dex_captured
+            WHERE species_id = 'GRS_001';
+            """
+        ) { statement in
+            (
+                level: SQLiteDatabase.columnInt64(statement, index: 0),
+                outcome: SQLiteDatabase.columnText(statement, index: 1)
+            )
+        })
+        #expect(affinity.level == 2)
+        #expect(affinity.outcome == "guaranteed_success")
+
+        try manager.addToParty(speciesID: "GRS_001")
+        for speciesID in ["GRS_002", "GRS_003", "GRS_004", "GRS_005", "GRS_006", "GRS_007", "GRS_008", "GRS_009", "GRS_010"] {
+            _ = try manager.forgeEncounter(
+                TokenmonDeveloperEncounterForgeRequest(
+                    provider: .codex,
+                    field: .grassland,
+                    rarity: .common,
+                    speciesID: speciesID,
+                    outcome: .captured,
+                    occurredAt: "2026-03-02T00:02:00Z"
+                )
+            )
+            try manager.addToParty(speciesID: speciesID)
+        }
+
+        let focus = try manager.addNowCampFocus(
+            database: database,
+            usageSampleID: 99_001,
+            gameplayDeltaTokens: 1_500,
+            observedAt: "2026-03-02T00:03:00Z",
+            correlationID: nil,
+            localDate: "2026-03-02"
+        )
+        #expect(focus.focusEarned == 1)
+
+        try database.execute(
+            """
+            UPDATE now_camp_state
+            SET focus_energy = 45,
+                care_ready = 1,
+                care_elapsed_seconds = 3600,
+                care_focus_earned_local_date = '2026-03-02',
+                care_focus_earned_today = 0,
+                updated_at = '2026-03-02T00:04:00Z'
+            WHERE singleton_id = 1;
+            """
+        )
+        let care = try manager.applyLeadCare()
+        #expect(care.focusGranted == 5)
+        #expect(care.focusEnergyAfter == 50)
+
+        let training = try manager.trainNowCampLead()
+        let nowCamp = try manager.nowCampSummary()
+        #expect(training.focusEnergyAfter == 0)
+        #expect(nowCamp.lead?.speciesID == "GRS_001")
+        #expect(nowCamp.lead?.training.trainingAttemptCount == 1)
+
+        let service = UsageSampleIngestionService(databasePath: manager.path)
+        var events: [ProviderUsageSampleEvent] = []
+        var runningInput: Int64 = 0
+        for index in 1...20 {
+            runningInput += 5_000
+            events.append(
+                codexUsageEvent(
+                    sessionID: "p1-v1-e2e-raid-session",
+                    observedAt: String(format: "2026-03-02T00:%02d:00Z", index + 4),
+                    totalInputTokens: runningInput,
+                    totalOutputTokens: 1_000,
+                    fingerprint: "codex:p1-v1-e2e-raid-session:\(index)"
+                )
+            )
+        }
+        _ = try service.ingestProviderEvents(
+            events,
+            sourceKey: "p1-v1-e2e-raid",
+            sourceKind: "ndjson_file"
+        )
+
+        let raid = try #require(database.fetchOne(
+            """
+            SELECT COUNT(*), COALESCE(SUM(total_damage), 0)
+            FROM raid_attacks;
+            """
+        ) { statement in
+            (
+                attackCount: SQLiteDatabase.columnInt64(statement, index: 0),
+                totalDamage: SQLiteDatabase.columnInt64(statement, index: 1)
+            )
+        })
+        #expect(raid.attackCount > 0)
+        #expect(raid.totalDamage > 0)
+
+        let leadHit = try #require(database.fetchOne(
+            """
+            SELECT capture_bond_bonus, training_raid_bonus
+            FROM raid_member_hits
+            WHERE species_id = 'GRS_001'
+            ORDER BY raid_member_hit_id DESC
+            LIMIT 1;
+            """
+        ) { statement in
+            (
+                captureBondBonus: SQLiteDatabase.columnInt64(statement, index: 0),
+                trainingRaidBonus: SQLiteDatabase.columnInt64(statement, index: 1)
+            )
+        })
+        #expect(leadHit.captureBondBonus > 0)
+        #expect(leadHit.trainingRaidBonus >= 0)
+
+        let dashboard = try manager.raidDashboardSummary(
+            asOf: ISO8601DateFormatter().date(from: "2026-03-02T00:30:00Z")!
+        )
+        #expect(dashboard.archiveEntries.first { $0.rewardID == "reward_first_spark_trophy" }?.status == .acquired)
+    }
 }
 
 private final class StubGeminiReceiverDataSource: GeminiOtelReceiverDataSource {
