@@ -391,6 +391,7 @@ public extension TokenmonDatabaseManager {
                 correlationID: correlationID
             )
         }
+        try evaluateAchievementBadges(database: database, occurredAt: observedAt)
 
         return RaidAttackSummary(
             attackID: attackID,

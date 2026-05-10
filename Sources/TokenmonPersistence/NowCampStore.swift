@@ -357,6 +357,7 @@ public extension TokenmonDatabaseManager {
                 reason: "user",
                 occurredAt: now
             )
+            try evaluateAchievementBadges(database: database, occurredAt: now)
         }
     }
 
@@ -439,6 +440,7 @@ public extension TokenmonDatabaseManager {
                 focusEnergyAfter: focusAfter,
                 careFocusEarnedTodayAfter: careEarnedTodayAfter
             )
+            try evaluateAchievementBadges(database: database, occurredAt: now)
         }
 
         guard let result else {
@@ -676,6 +678,7 @@ public extension TokenmonDatabaseManager {
                 )
             )
             result = NowCampTrainingAttemptResult(resolution: resolution, focusEnergyAfter: focusAfter)
+            try evaluateAchievementBadges(database: database, occurredAt: now)
         }
 
         guard let result else {

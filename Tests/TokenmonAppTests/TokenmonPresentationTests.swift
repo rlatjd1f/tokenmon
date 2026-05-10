@@ -5981,6 +5981,23 @@ struct TokenmonPresentationTests {
         #expect(TokenmonRaidArtLoader.image(artKey: "reward_2026_12_december_relic") != nil)
     }
 
+    @Test
+    func achievementBadgeArtLoaderLoadsCatalogAssets() {
+        #expect(AchievementCatalog.allBadges.count == 36)
+        for badge in AchievementCatalog.allBadges {
+            #expect(TokenmonBadgeArtLoader.image(artKey: badge.artKey) != nil)
+        }
+    }
+
+    @Test
+    func achievementBadgeCatalogHasLocalizedCopy() {
+        TokenmonL10n.setLocaleOverride("en")
+        for badge in AchievementCatalog.allBadges {
+            #expect(TokenmonL10n.string(forKey: badge.titleKey) != badge.titleKey)
+            #expect(TokenmonL10n.string(forKey: badge.descriptionKey) != badge.descriptionKey)
+        }
+    }
+
     private func sampleSpecies(field: FieldType, offset: Int) -> SpeciesDefinition {
         let species = SpeciesCatalog.all.filter { $0.isActive && $0.field == field }
         guard offset < species.count else {

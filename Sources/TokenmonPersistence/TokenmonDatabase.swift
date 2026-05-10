@@ -705,6 +705,7 @@ public final class TokenmonDatabaseManager {
         try ensureEncounterTotalsConsistent(database: database)
         try ensurePendingEncounterThresholdPolicy(database: database, force: false)
         try ensureGameplayStartedAt(database)
+        try evaluateAchievementBadges(database: database)
     }
 
     private func ensureEncounterTotalsConsistent(database: SQLiteDatabase) throws {
@@ -2924,6 +2925,19 @@ public final class TokenmonDatabaseManager {
                 """,
                 "DROP TABLE now_camp_state;",
                 "ALTER TABLE now_camp_state_v20 RENAME TO now_camp_state;",
+            ]),
+            SQLiteMigration(version: 21, statements: [
+                """
+                CREATE TABLE IF NOT EXISTS achievement_badge_entries (
+                    badge_id TEXT PRIMARY KEY NOT NULL,
+                    status TEXT NOT NULL CHECK(status = 'unlocked'),
+                    unlocked_at TEXT NOT NULL,
+                    progress INTEGER NOT NULL DEFAULT 0 CHECK(progress >= 0),
+                    target INTEGER NOT NULL DEFAULT 1 CHECK(target > 0),
+                    updated_at TEXT NOT NULL
+                );
+                """,
+                "CREATE INDEX IF NOT EXISTS idx_achievement_badge_status ON achievement_badge_entries(status, updated_at DESC);",
             ]),
         ]
     }

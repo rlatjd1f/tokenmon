@@ -1418,6 +1418,7 @@ public extension TokenmonDatabaseManager {
             )
             try ensureSpeciesTrainingRowsForCaptured(database: database)
             try repairNowCampLead(database: database)
+            try evaluateAchievementBadges(database: database, occurredAt: nowISO)
         }
     }
 

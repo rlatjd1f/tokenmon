@@ -26,6 +26,7 @@ public enum TokenmonDomainEventType: String, Sendable {
     case raidRewardAcquired = "raid_reward_acquired"
     case raidRewardMissed = "raid_reward_missed"
     case rewardArchiveRecorded = "reward_archive_recorded"
+    case achievementBadgeUnlocked = "achievement_badge_unlocked"
     case focusEnergyEarned = "focus_energy_earned"
     case nowCampLeadSelected = "now_camp_lead_selected"
     case nowCampCareReadied = "now_camp_care_readied"

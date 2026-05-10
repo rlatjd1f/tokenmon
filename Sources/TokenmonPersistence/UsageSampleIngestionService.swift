@@ -548,6 +548,8 @@ public final class UsageSampleIngestionService {
                 }
             }
 
+            try databaseManager.evaluateAchievementBadges(database: database, occurredAt: event.observedAt)
+
             try updateIngestSource(
                 database: database,
                 sourceID: ingestSourceID,

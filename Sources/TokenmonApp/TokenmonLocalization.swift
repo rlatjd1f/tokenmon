@@ -21,6 +21,13 @@ enum TokenmonL10n {
         return fallbackEnglish(forKey: keyString)
     }
 
+    static func string(forKey key: String) -> String {
+        if let localized = activeLocalizedString(forKey: key) {
+            return localized
+        }
+        return fallbackEnglish(forKey: key)
+    }
+
     static func format(_ key: StaticString, _ arguments: CVarArg...) -> String {
         let keyString = String(describing: key)
         let format = activeLocalizedString(forKey: keyString) ?? keyString

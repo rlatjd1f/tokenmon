@@ -786,32 +786,59 @@ struct TokenmonRewardArchivePanel: View {
     private static let idealWindowSize = CGSize(width: 1120, height: 720)
 
     @ObservedObject var model: TokenmonMenuModel
-    @State private var sidebarSelection: RewardArchiveSidebarSelection = .all
+    @State private var sidebarSelection: RewardArchiveSidebarSelection = .raidAll
     @State private var selectedRewardID: String?
+    @State private var selectedBadgeID: String?
 
     private var entries: [RaidArchiveEntrySummary] {
         model.raidDashboard?.archiveEntries ?? []
     }
 
+    private var badges: [AchievementBadgeSummary] {
+        model.achievementBadges
+    }
+
     private var filteredEntries: [RaidArchiveEntrySummary] {
         switch sidebarSelection {
-        case .all:
+        case .raidAll:
             return entries
-        case .available:
+        case .raidAvailable:
             return entries.filter { $0.status == .available }
-        case .acquired:
+        case .raidAcquired:
             return entries.filter { $0.status == .acquired }
-        case .missed:
+        case .raidMissed:
             return entries.filter { $0.status == .missed }
+        case .badgeAll, .badgeUnlocked, .badgeLocked:
+            return []
         }
     }
 
-    private var selectedEntry: RaidArchiveEntrySummary? {
+    private var filteredBadges: [AchievementBadgeSummary] {
+        switch sidebarSelection {
+        case .badgeAll:
+            return badges
+        case .badgeUnlocked:
+            return badges.filter(\.isUnlocked)
+        case .badgeLocked:
+            return badges.filter { !$0.isUnlocked }
+        case .raidAll, .raidAvailable, .raidAcquired, .raidMissed:
+            return []
+        }
+    }
+
+    private var selectedEntry: RewardArchiveSelectedItem? {
+        if sidebarSelection.isBadgeSelection {
+            if let selectedBadgeID,
+               let selected = filteredBadges.first(where: { $0.badgeID == selectedBadgeID }) {
+                return .achievement(selected)
+            }
+            return filteredBadges.first.map(RewardArchiveSelectedItem.achievement)
+        }
         if let selectedRewardID,
            let selected = filteredEntries.first(where: { $0.rewardID == selectedRewardID }) {
-            return selected
+            return .raidReward(selected)
         }
-        return filteredEntries.first
+        return filteredEntries.first.map(RewardArchiveSelectedItem.raidReward)
     }
 
     private var acquiredCount: Int {
@@ -820,6 +847,14 @@ struct TokenmonRewardArchivePanel: View {
 
     private var availableCount: Int {
         entries.filter { $0.status == .available }.count
+    }
+
+    private var filteredSelectionIsEmpty: Bool {
+        sidebarSelection.isBadgeSelection ? filteredBadges.isEmpty : filteredEntries.isEmpty
+    }
+
+    private var unlockedBadgeCount: Int {
+        badges.filter(\.isUnlocked).count
     }
 
     var body: some View {
@@ -835,7 +870,7 @@ struct TokenmonRewardArchivePanel: View {
 
             Divider()
 
-            TokenmonRewardArchiveDetail(entry: selectedEntry)
+            TokenmonArchiveDetailPanel(selection: selectedEntry)
         }
         .frame(
             minWidth: Self.minimumWindowSize.width,
@@ -853,6 +888,9 @@ struct TokenmonRewardArchivePanel: View {
         .onChange(of: entries) { _, _ in
             normalizeSelection()
         }
+        .onChange(of: badges) { _, _ in
+            normalizeSelection()
+        }
     }
 
     private var rewardSidebar: some View {
@@ -862,26 +900,14 @@ struct TokenmonRewardArchivePanel: View {
                 .foregroundStyle(.primary)
 
             VStack(alignment: .leading, spacing: 6) {
-                ForEach(rewardSidebarItems, id: \.selection) { item in
-                    Button {
-                        sidebarSelection = item.selection
-                    } label: {
-                        RewardArchiveSidebarRow(
-                            title: item.title,
-                            systemImage: item.systemImage,
-                            count: item.count
-                        )
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 8)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .background(
-                            RoundedRectangle(cornerRadius: 10, style: .continuous)
-                                .fill(item.selection == sidebarSelection ? Color.accentColor.opacity(0.16) : Color.clear)
-                        )
-                        .contentShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
-                    }
-                    .buttonStyle(.plain)
-                }
+                sidebarGroup(
+                    title: TokenmonL10n.string("archive.group.raid_rewards"),
+                    items: raidSidebarItems
+                )
+                sidebarGroup(
+                    title: TokenmonL10n.string("archive.group.badges"),
+                    items: badgeSidebarItems
+                )
             }
 
             Spacer(minLength: 0)
@@ -890,31 +916,87 @@ struct TokenmonRewardArchivePanel: View {
         .background(Color(nsColor: .windowBackgroundColor))
     }
 
-    private var rewardSidebarItems: [(selection: RewardArchiveSidebarSelection, title: String, systemImage: String, count: Int)] {
+    private func sidebarGroup(
+        title: String,
+        items: [(selection: RewardArchiveSidebarSelection, title: String, systemImage: String, count: Int)]
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 5) {
+            Text(title)
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(.secondary)
+                .padding(.horizontal, 10)
+                .padding(.top, 4)
+            ForEach(items, id: \.selection) { item in
+                Button {
+                    sidebarSelection = item.selection
+                } label: {
+                    RewardArchiveSidebarRow(
+                        title: item.title,
+                        systemImage: item.systemImage,
+                        count: item.count
+                    )
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 8)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(
+                        RoundedRectangle(cornerRadius: 10, style: .continuous)
+                            .fill(item.selection == sidebarSelection ? Color.accentColor.opacity(0.16) : Color.clear)
+                    )
+                    .contentShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                }
+                .buttonStyle(.plain)
+            }
+        }
+    }
+
+    private var raidSidebarItems: [(selection: RewardArchiveSidebarSelection, title: String, systemImage: String, count: Int)] {
         [
             (
-                .all,
+                .raidAll,
                 TokenmonL10n.string("raid.archive.sidebar.all"),
                 "shippingbox.fill",
                 entries.count
             ),
             (
-                .available,
+                .raidAvailable,
                 TokenmonL10n.string("raid.archive.metric.available"),
                 "sparkles",
                 availableCount
             ),
             (
-                .acquired,
+                .raidAcquired,
                 TokenmonL10n.string("raid.archive.metric.acquired"),
                 "checkmark.seal.fill",
                 acquiredCount
             ),
             (
-                .missed,
+                .raidMissed,
                 TokenmonL10n.string("raid.reward.status.missed"),
                 "clock.badge.xmark",
                 entries.filter { $0.status == .missed }.count
+            ),
+        ]
+    }
+
+    private var badgeSidebarItems: [(selection: RewardArchiveSidebarSelection, title: String, systemImage: String, count: Int)] {
+        [
+            (
+                .badgeAll,
+                TokenmonL10n.string("achievement.archive.sidebar.all"),
+                "rosette",
+                badges.count
+            ),
+            (
+                .badgeUnlocked,
+                TokenmonL10n.string("achievement.status.unlocked"),
+                "checkmark.seal.fill",
+                unlockedBadgeCount
+            ),
+            (
+                .badgeLocked,
+                TokenmonL10n.string("achievement.status.locked"),
+                "lock.fill",
+                badges.count - unlockedBadgeCount
             ),
         ]
     }
@@ -931,11 +1013,11 @@ struct TokenmonRewardArchivePanel: View {
             .padding(.horizontal, 18)
             .padding(.top, 18)
 
-            if filteredEntries.isEmpty {
+            if filteredSelectionIsEmpty {
                 ContentUnavailableView(
-                    TokenmonL10n.string("raid.archive.empty.title"),
-                    systemImage: "shippingbox",
-                    description: Text(TokenmonL10n.string("raid.archive.empty.description"))
+                    TokenmonL10n.string(sidebarSelection.isBadgeSelection ? "achievement.archive.empty.title" : "raid.archive.empty.title"),
+                    systemImage: sidebarSelection.isBadgeSelection ? "rosette" : "shippingbox",
+                    description: Text(TokenmonL10n.string(sidebarSelection.isBadgeSelection ? "achievement.archive.empty.description" : "raid.archive.empty.description"))
                 )
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
@@ -946,17 +1028,32 @@ struct TokenmonRewardArchivePanel: View {
                         ],
                         spacing: 14
                     ) {
-                        ForEach(filteredEntries, id: \.rewardID) { entry in
-                            Button {
-                                selectedRewardID = entry.rewardID
-                            } label: {
-                                TokenmonRewardArchiveCard(
-                                    entry: entry,
-                                    isSelected: selectedEntry?.rewardID == entry.rewardID
-                                )
+                        if sidebarSelection.isBadgeSelection {
+                            ForEach(filteredBadges, id: \.badgeID) { badge in
+                                Button {
+                                    selectedBadgeID = badge.badgeID
+                                } label: {
+                                    TokenmonAchievementBadgeCard(
+                                        badge: badge,
+                                        isSelected: selectedBadgeID == badge.badgeID
+                                    )
+                                }
+                                .contentShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                                .buttonStyle(.plain)
                             }
-                            .contentShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-                            .buttonStyle(.plain)
+                        } else {
+                            ForEach(filteredEntries, id: \.rewardID) { entry in
+                                Button {
+                                    selectedRewardID = entry.rewardID
+                                } label: {
+                                    TokenmonRewardArchiveCard(
+                                        entry: entry,
+                                        isSelected: selectedRewardID == entry.rewardID
+                                    )
+                                }
+                                .contentShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                                .buttonStyle(.plain)
+                            }
                         }
                     }
                     .padding(.horizontal, 18)
@@ -968,7 +1065,14 @@ struct TokenmonRewardArchivePanel: View {
     }
 
     private var archiveSummaryText: String {
-        [
+        if sidebarSelection.isBadgeSelection {
+            return [
+                TokenmonL10n.format("raid.archive.summary.shown", filteredBadges.count),
+                "\(unlockedBadgeCount) \(TokenmonL10n.string("achievement.status.unlocked"))",
+                "\(badges.count - unlockedBadgeCount) \(TokenmonL10n.string("achievement.status.locked"))",
+            ].joined(separator: " • ")
+        }
+        return [
             TokenmonL10n.format("raid.archive.summary.shown", filteredEntries.count),
             "\(acquiredCount) \(TokenmonL10n.string("raid.archive.metric.acquired"))",
             "\(availableCount) \(TokenmonL10n.string("raid.archive.metric.available"))",
@@ -976,12 +1080,25 @@ struct TokenmonRewardArchivePanel: View {
     }
 
     private func normalizeSelection() {
-        if let selectedRewardID,
-           filteredEntries.contains(where: { $0.rewardID == selectedRewardID }) {
-            return
+        if sidebarSelection.isBadgeSelection {
+            if let selectedBadgeID,
+               filteredBadges.contains(where: { $0.badgeID == selectedBadgeID }) {
+                return
+            }
+            selectedBadgeID = filteredBadges.first?.badgeID
+        } else {
+            if let selectedRewardID,
+               filteredEntries.contains(where: { $0.rewardID == selectedRewardID }) {
+                return
+            }
+            selectedRewardID = filteredEntries.first?.rewardID
         }
-        selectedRewardID = filteredEntries.first?.rewardID
     }
+}
+
+private enum RewardArchiveSelectedItem: Equatable {
+    case raidReward(RaidArchiveEntrySummary)
+    case achievement(AchievementBadgeSummary)
 }
 
 private struct TokenmonRewardArchiveCard: View {
@@ -1192,14 +1309,27 @@ private struct TokenmonRewardArchiveArtImage: View {
 }
 
 private enum RewardArchiveSidebarSelection: String, Hashable {
-    case all, available, acquired, missed
+    case raidAll, raidAvailable, raidAcquired, raidMissed
+    case badgeAll, badgeUnlocked, badgeLocked
+
+    var isBadgeSelection: Bool {
+        switch self {
+        case .badgeAll, .badgeUnlocked, .badgeLocked:
+            return true
+        case .raidAll, .raidAvailable, .raidAcquired, .raidMissed:
+            return false
+        }
+    }
 
     var title: String {
         switch self {
-        case .all: return TokenmonL10n.string("raid.archive.sidebar.all")
-        case .available: return TokenmonL10n.string("raid.archive.metric.available")
-        case .acquired: return TokenmonL10n.string("raid.archive.metric.acquired")
-        case .missed: return TokenmonL10n.string("raid.reward.status.missed")
+        case .raidAll: return TokenmonL10n.string("raid.archive.sidebar.all")
+        case .raidAvailable: return TokenmonL10n.string("raid.archive.metric.available")
+        case .raidAcquired: return TokenmonL10n.string("raid.archive.metric.acquired")
+        case .raidMissed: return TokenmonL10n.string("raid.reward.status.missed")
+        case .badgeAll: return TokenmonL10n.string("achievement.archive.sidebar.all")
+        case .badgeUnlocked: return TokenmonL10n.string("achievement.status.unlocked")
+        case .badgeLocked: return TokenmonL10n.string("achievement.status.locked")
         }
     }
 }
@@ -1221,6 +1351,194 @@ private struct RewardArchiveSidebarRow: View {
         } icon: {
             Image(systemName: systemImage)
         }
+    }
+}
+
+private struct TokenmonAchievementBadgeCard: View {
+    let badge: AchievementBadgeSummary
+    let isSelected: Bool
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(alignment: .top) {
+                Text(statusText)
+                    .font(.caption2.weight(.bold))
+                    .foregroundStyle(tint)
+                    .padding(.horizontal, 9)
+                    .padding(.vertical, 5)
+                    .background(Capsule(style: .continuous).fill(tint.opacity(0.13)))
+                Spacer()
+                Image(systemName: badge.isUnlocked ? "checkmark.seal.fill" : "lock.fill")
+                    .font(.caption2.weight(.bold))
+                    .foregroundStyle(tint)
+                    .frame(width: 30, height: 28)
+                    .background(
+                        RoundedRectangle(cornerRadius: 12, style: .continuous)
+                            .fill(tint.opacity(0.15))
+                    )
+            }
+
+            HStack {
+                Spacer()
+                TokenmonBadgeArtImage(artKey: badge.artKey, isUnlocked: badge.isUnlocked)
+                    .frame(width: 118, height: 118)
+                Spacer()
+            }
+
+            VStack(alignment: .leading, spacing: 4) {
+                Text(TokenmonL10n.string(forKey: badge.titleKey))
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(badge.isUnlocked ? .primary : .secondary)
+                    .lineLimit(1)
+                Text(categoryText)
+                    .font(.caption2.weight(.semibold))
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                Text(progressText)
+                    .font(.caption2.monospacedDigit().weight(.semibold))
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+            }
+        }
+        .padding(12)
+        .frame(maxWidth: .infinity, minHeight: 184, alignment: .topLeading)
+        .background(
+            RoundedRectangle(cornerRadius: 16)
+                .fill(cardBackground)
+        )
+        .shadow(color: tint.opacity(0.10), radius: isSelected ? 7 : 4, y: isSelected ? 2 : 1)
+        .overlay(
+            RoundedRectangle(cornerRadius: 16)
+                .stroke(isSelected ? Color.accentColor : tint.opacity(0.32), lineWidth: isSelected ? 2 : 1)
+        )
+        .contentShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+    }
+
+    private var statusText: String {
+        TokenmonL10n.string(badge.isUnlocked ? "achievement.status.unlocked" : "achievement.status.locked")
+    }
+
+    private var categoryText: String {
+        TokenmonL10n.string(forKey: "achievement.category.\(badge.category.rawValue)")
+    }
+
+    private var progressText: String {
+        TokenmonL10n.format("achievement.progress.format", badge.progress, badge.target)
+    }
+
+    private var tint: Color {
+        badge.isUnlocked ? .green : .secondary.opacity(0.72)
+    }
+
+    private var cardBackground: LinearGradient {
+        LinearGradient(
+            colors: [
+                tint.opacity(badge.isUnlocked ? 0.10 : 0.05),
+                Color(nsColor: .controlBackgroundColor),
+            ],
+            startPoint: .topLeading,
+            endPoint: .bottom
+        )
+    }
+}
+
+private struct TokenmonArchiveDetailPanel: View {
+    let selection: RewardArchiveSelectedItem?
+
+    var body: some View {
+        switch selection {
+        case .raidReward(let entry):
+            TokenmonRewardArchiveDetail(entry: entry)
+        case .achievement(let badge):
+            TokenmonAchievementBadgeDetail(badge: badge)
+        case nil:
+            ContentUnavailableView(
+                TokenmonL10n.string("raid.archive.empty.title"),
+                systemImage: "shippingbox",
+                description: Text(TokenmonL10n.string("raid.archive.empty.description"))
+            )
+            .frame(minWidth: tokenmonDexSupportingWidth + 24, maxWidth: tokenmonDexSupportingWidth + 24, maxHeight: .infinity)
+        }
+    }
+}
+
+private struct TokenmonAchievementBadgeDetail: View {
+    let badge: AchievementBadgeSummary
+
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 16) {
+                ZStack {
+                    RoundedRectangle(cornerRadius: 24, style: .continuous)
+                        .fill(surfaceTint)
+                    TokenmonBadgeArtImage(artKey: badge.artKey, isUnlocked: badge.isUnlocked)
+                        .padding(34)
+                }
+                .frame(maxWidth: tokenmonDexSupportingWidth, minHeight: 220, alignment: .topLeading)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 24, style: .continuous)
+                        .stroke(tint.opacity(0.22), lineWidth: 1)
+                )
+
+                VStack(alignment: .leading, spacing: 7) {
+                    Text(TokenmonL10n.string(forKey: badge.titleKey))
+                        .font(.title2.weight(.semibold))
+                    Label(statusText, systemImage: badge.isUnlocked ? "checkmark.seal.fill" : "lock.fill")
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(tint)
+                    Text(TokenmonL10n.string(forKey: badge.descriptionKey))
+                        .font(.body)
+                        .foregroundStyle(.secondary)
+                }
+
+                detailRow(
+                    title: TokenmonL10n.string("achievement.detail.category"),
+                    value: TokenmonL10n.string(forKey: "achievement.category.\(badge.category.rawValue)")
+                )
+                detailRow(
+                    title: TokenmonL10n.string("achievement.detail.progress"),
+                    value: TokenmonL10n.format("achievement.progress.format", badge.progress, badge.target)
+                )
+                if let unlockedAt = badge.unlockedAt {
+                    detailRow(
+                        title: TokenmonL10n.string("achievement.detail.unlocked_at"),
+                        value: TokenmonDexPresentation.formattedTimestamp(unlockedAt) ?? unlockedAt
+                    )
+                }
+                Spacer(minLength: 0)
+            }
+            .padding(22)
+            .frame(maxWidth: tokenmonDexSupportingWidth, alignment: .leading)
+        }
+        .frame(minWidth: tokenmonDexSupportingWidth + 24, maxWidth: tokenmonDexSupportingWidth + 24, maxHeight: .infinity, alignment: .topLeading)
+    }
+
+    private var statusText: String {
+        TokenmonL10n.string(badge.isUnlocked ? "achievement.status.unlocked" : "achievement.status.locked")
+    }
+
+    private var tint: Color {
+        badge.isUnlocked ? .green : .secondary.opacity(0.72)
+    }
+
+    private var surfaceTint: Color {
+        badge.isUnlocked ? .green.opacity(0.10) : .secondary.opacity(0.06)
+    }
+
+    private func detailRow(title: String, value: String) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(title)
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(.secondary)
+            Text(value)
+                .font(.body)
+        }
+        .padding(12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .fill(Color.secondary.opacity(0.07))
+        )
     }
 }
 
