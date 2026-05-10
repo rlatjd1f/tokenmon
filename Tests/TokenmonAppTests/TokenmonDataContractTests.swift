@@ -4387,6 +4387,42 @@ struct TokenmonDataContractTests {
         }
     }
 
+    @Test
+    func achievementBadgeAssetContractFilesAvoidMagentaMatte() {
+        let repoRoot = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+        let badgeRoot = repoRoot
+            .appendingPathComponent("Sources/TokenmonApp/Resources/badges", isDirectory: true)
+        let artKeys = AchievementCatalog.allBadges.map(\.artKey).sorted()
+
+        #expect(artKeys.count == 36)
+
+        for artKey in artKeys {
+            let path = badgeRoot
+                .appendingPathComponent("\(artKey).png")
+                .path
+            let inspection = runtimePNGInspection(atPath: path)
+
+            #expect(FileManager.default.fileExists(atPath: path))
+            #expect(inspection?.width == 768, "\(artKey) badge width should be 768px")
+            #expect(inspection?.height == 768, "\(artKey) badge height should be 768px")
+            #expect(inspection?.hasAlpha == true, "\(artKey) badge should preserve alpha")
+            #expect(
+                inspection?.lowAlphaMagentaMattePixels == 0,
+                "\(artKey) badge should not contain visible low-alpha magenta matte pixels"
+            )
+        }
+    }
+
+    private struct RuntimePNGInspection {
+        let width: Int
+        let height: Int
+        let hasAlpha: Bool
+        let lowAlphaMagentaMattePixels: Int
+    }
+
     private func runtimePNGHasAlpha(atPath path: String) -> Bool {
         guard let image = NSImage(contentsOfFile: path),
               let data = image.tiffRepresentation,
@@ -4395,6 +4431,67 @@ struct TokenmonDataContractTests {
         }
 
         return rep.hasAlpha
+    }
+
+    private func runtimePNGInspection(atPath path: String) -> RuntimePNGInspection? {
+        guard let data = try? Data(contentsOf: URL(fileURLWithPath: path)),
+              let rep = NSBitmapImageRep(data: data) else {
+            return nil
+        }
+
+        var lowAlphaMagentaMattePixels = 0
+        let bytesPerPixel = max(1, rep.bitsPerPixel / 8)
+        let alphaFirst = rep.bitmapFormat.contains(.alphaFirst)
+
+        if !rep.isPlanar,
+           rep.bitsPerSample == 8,
+           rep.samplesPerPixel >= 4,
+           bytesPerPixel >= 4,
+           let bitmapData = rep.bitmapData {
+            for y in 0..<rep.pixelsHigh {
+                for x in 0..<rep.pixelsWide {
+                    let offset = y * rep.bytesPerRow + x * bytesPerPixel
+                    let red: Int
+                    let green: Int
+                    let blue: Int
+                    let alpha: Int
+
+                    if alphaFirst {
+                        alpha = Int(bitmapData[offset])
+                        red = Int(bitmapData[offset + 1])
+                        green = Int(bitmapData[offset + 2])
+                        blue = Int(bitmapData[offset + 3])
+                    } else {
+                        red = Int(bitmapData[offset])
+                        green = Int(bitmapData[offset + 1])
+                        blue = Int(bitmapData[offset + 2])
+                        alpha = Int(bitmapData[offset + 3])
+                    }
+
+                    guard alpha > 0, alpha <= 96 else {
+                        continue
+                    }
+
+                    let isMagentaKey = red >= 120
+                        && blue >= 120
+                        && green <= 128
+                        && abs(red - blue) <= 48
+                        && red - green >= 60
+                        && blue - green >= 45
+
+                    if isMagentaKey {
+                        lowAlphaMagentaMattePixels += 1
+                    }
+                }
+            }
+        }
+
+        return RuntimePNGInspection(
+            width: rep.pixelsWide,
+            height: rep.pixelsHigh,
+            hasAlpha: rep.hasAlpha,
+            lowAlphaMagentaMattePixels: lowAlphaMagentaMattePixels
+        )
     }
 
     @Test
