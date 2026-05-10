@@ -4396,6 +4396,11 @@ struct TokenmonDataContractTests {
         let badgeRoot = repoRoot
             .appendingPathComponent("Sources/TokenmonApp/Resources/badges", isDirectory: true)
         let artKeys = AchievementCatalog.allBadges.map(\.artKey).sorted()
+        let edgeSensitiveArtKeys: Set<String> = [
+            "achievement_common_capture",
+            "achievement_first_capture",
+            "achievement_first_seen",
+        ]
 
         #expect(artKeys.count == 36)
 
@@ -4403,7 +4408,10 @@ struct TokenmonDataContractTests {
             let path = badgeRoot
                 .appendingPathComponent("\(artKey).png")
                 .path
-            let inspection = runtimePNGInspection(atPath: path)
+            let inspection = runtimePNGInspection(
+                atPath: path,
+                inspectEdgeFringe: edgeSensitiveArtKeys.contains(artKey)
+            )
 
             #expect(FileManager.default.fileExists(atPath: path))
             #expect(inspection?.width == 768, "\(artKey) badge width should be 768px")
@@ -4413,6 +4421,12 @@ struct TokenmonDataContractTests {
                 inspection?.lowAlphaMagentaMattePixels == 0,
                 "\(artKey) badge should not contain visible low-alpha magenta matte pixels"
             )
+            if edgeSensitiveArtKeys.contains(artKey) {
+                #expect(
+                    inspection?.edgeMagentaFringePixels == 0,
+                    "\(artKey) badge should not contain saturated magenta outer-edge fringe"
+                )
+            }
         }
     }
 
@@ -4421,6 +4435,7 @@ struct TokenmonDataContractTests {
         let height: Int
         let hasAlpha: Bool
         let lowAlphaMagentaMattePixels: Int
+        let edgeMagentaFringePixels: Int
     }
 
     private func runtimePNGHasAlpha(atPath path: String) -> Bool {
@@ -4433,13 +4448,15 @@ struct TokenmonDataContractTests {
         return rep.hasAlpha
     }
 
-    private func runtimePNGInspection(atPath path: String) -> RuntimePNGInspection? {
+    private func runtimePNGInspection(atPath path: String, inspectEdgeFringe: Bool = false) -> RuntimePNGInspection? {
         guard let data = try? Data(contentsOf: URL(fileURLWithPath: path)),
               let rep = NSBitmapImageRep(data: data) else {
             return nil
         }
 
         var lowAlphaMagentaMattePixels = 0
+        var visibleAlphaMask = inspectEdgeFringe ? [Bool](repeating: false, count: rep.pixelsWide * rep.pixelsHigh) : []
+        var edgeMagentaCandidates = inspectEdgeFringe ? [Bool](repeating: false, count: rep.pixelsWide * rep.pixelsHigh) : []
         let bytesPerPixel = max(1, rep.bitsPerPixel / 8)
         let alphaFirst = rep.bitmapFormat.contains(.alphaFirst)
 
@@ -4468,6 +4485,18 @@ struct TokenmonDataContractTests {
                         alpha = Int(bitmapData[offset + 3])
                     }
 
+                    if inspectEdgeFringe {
+                        let index = y * rep.pixelsWide + x
+                        visibleAlphaMask[index] = alpha > 0
+                        edgeMagentaCandidates[index] = alpha > 0
+                            && red >= 105
+                            && blue >= 100
+                            && green <= 165
+                            && red - green >= 22
+                            && blue - green >= 12
+                            && abs(red - blue) <= 105
+                    }
+
                     guard alpha > 0, alpha <= 96 else {
                         continue
                     }
@@ -4486,12 +4515,64 @@ struct TokenmonDataContractTests {
             }
         }
 
+        let edgeMagentaFringePixels = inspectEdgeFringe
+            ? countOuterEdgeCandidates(
+                visibleAlphaMask: visibleAlphaMask,
+                candidates: edgeMagentaCandidates,
+                width: rep.pixelsWide,
+                height: rep.pixelsHigh,
+                layers: 14
+            )
+            : 0
+
         return RuntimePNGInspection(
             width: rep.pixelsWide,
             height: rep.pixelsHigh,
             hasAlpha: rep.hasAlpha,
-            lowAlphaMagentaMattePixels: lowAlphaMagentaMattePixels
+            lowAlphaMagentaMattePixels: lowAlphaMagentaMattePixels,
+            edgeMagentaFringePixels: edgeMagentaFringePixels
         )
+    }
+
+    private func countOuterEdgeCandidates(
+        visibleAlphaMask: [Bool],
+        candidates: [Bool],
+        width: Int,
+        height: Int,
+        layers: Int
+    ) -> Int {
+        guard width > 2, height > 2, visibleAlphaMask.count == candidates.count else {
+            return 0
+        }
+
+        var erodedMask = visibleAlphaMask
+        for _ in 0..<layers {
+            var nextMask = [Bool](repeating: false, count: erodedMask.count)
+            for y in 1..<(height - 1) {
+                for x in 1..<(width - 1) {
+                    let index = y * width + x
+                    guard erodedMask[index] else {
+                        continue
+                    }
+
+                    let above = index - width
+                    let below = index + width
+                    nextMask[index] =
+                        erodedMask[above - 1] && erodedMask[above] && erodedMask[above + 1]
+                        && erodedMask[index - 1] && erodedMask[index + 1]
+                        && erodedMask[below - 1] && erodedMask[below] && erodedMask[below + 1]
+                }
+            }
+            erodedMask = nextMask
+        }
+
+        var outerEdgeCandidateCount = 0
+        for index in visibleAlphaMask.indices {
+            if visibleAlphaMask[index], !erodedMask[index], candidates[index] {
+                outerEdgeCandidateCount += 1
+            }
+        }
+        return outerEdgeCandidateCount
     }
 
     @Test
