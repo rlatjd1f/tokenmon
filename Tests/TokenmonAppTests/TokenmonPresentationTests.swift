@@ -426,7 +426,8 @@ struct TokenmonPresentationTests {
             "now.camp.lead_picker.status.focus_needed",
             "I"
         ))
-        #expect(focusLimited.leadMenuStatus(for: selectedLead.id)?.systemImage == "lock.fill")
+        #expect(focusLimited.leadMenuStatus(for: selectedLead.id)?.systemImage == "lock.open.fill")
+        #expect(focusLimited.leadMenuStatus(for: selectedLead.id)?.isTrainable == false)
     }
 
     @Test
