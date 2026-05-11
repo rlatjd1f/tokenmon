@@ -475,7 +475,7 @@ struct NowCampHeroPresentation: Equatable {
                 isTrainable = true
             case .insufficientFocus(_, _):
                 statusText = TokenmonL10n.format("now.camp.lead_picker.status.focus_needed", currentRankText)
-                systemImage = "lock.fill"
+                systemImage = "lock.open.fill"
                 isTrainable = false
             case .rankAtAffinityGate(_, _):
                 statusText = TokenmonL10n.format("now.camp.lead_picker.status.bond", currentRankText)

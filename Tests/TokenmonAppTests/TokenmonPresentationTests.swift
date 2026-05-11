@@ -426,7 +426,8 @@ struct TokenmonPresentationTests {
             "now.camp.lead_picker.status.focus_needed",
             "I"
         ))
-        #expect(focusLimited.leadMenuStatus(for: selectedLead.id)?.systemImage == "lock.fill")
+        #expect(focusLimited.leadMenuStatus(for: selectedLead.id)?.systemImage == "lock.open.fill")
+        #expect(focusLimited.leadMenuStatus(for: selectedLead.id)?.isTrainable == false)
     }
 
     @Test
@@ -5979,6 +5980,23 @@ struct TokenmonPresentationTests {
         #expect(TokenmonRaidArtLoader.image(artKey: "reward_2026_10_october_relic") != nil)
         #expect(TokenmonRaidArtLoader.image(artKey: "reward_2026_11_november_relic") != nil)
         #expect(TokenmonRaidArtLoader.image(artKey: "reward_2026_12_december_relic") != nil)
+    }
+
+    @Test
+    func achievementBadgeArtLoaderLoadsCatalogAssets() {
+        #expect(AchievementCatalog.allBadges.count == 36)
+        for badge in AchievementCatalog.allBadges {
+            #expect(TokenmonBadgeArtLoader.image(artKey: badge.artKey) != nil)
+        }
+    }
+
+    @Test
+    func achievementBadgeCatalogHasLocalizedCopy() {
+        TokenmonL10n.setLocaleOverride("en")
+        for badge in AchievementCatalog.allBadges {
+            #expect(TokenmonL10n.string(forKey: badge.titleKey) != badge.titleKey)
+            #expect(TokenmonL10n.string(forKey: badge.descriptionKey) != badge.descriptionKey)
+        }
     }
 
     private func sampleSpecies(field: FieldType, offset: Int) -> SpeciesDefinition {

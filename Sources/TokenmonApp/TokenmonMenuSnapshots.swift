@@ -83,6 +83,7 @@ struct TokenmonRuntimeSnapshot: Equatable, Sendable {
     var providerHealthSummaries: [ProviderHealthSummary] = []
     var ambientCompanionRoster: AmbientCompanionRoster = .byField([:])
     var raidDashboard: RaidDashboardSummary?
+    var achievementBadges: [AchievementBadgeSummary] = []
     var nowCampSummary: NowCampSummary?
 }
 
@@ -235,6 +236,7 @@ enum TokenmonMenuSnapshotLoader {
                 providerHealthSummaries: providerHealth,
                 ambientCompanionRoster: ambientRoster,
                 raidDashboard: try manager.raidDashboardSummary(database: database),
+                achievementBadges: try manager.achievementBadgeSummaries(database: database),
                 nowCampSummary: nowCamp
             )
             let rosterMetric: String = {

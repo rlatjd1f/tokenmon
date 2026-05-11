@@ -1199,6 +1199,8 @@ final class TokenmonMenuModel: ObservableObject {
 
     var raidDashboard: RaidDashboardSummary? { runtimeSnapshot.raidDashboard }
 
+    var achievementBadges: [AchievementBadgeSummary] { runtimeSnapshot.achievementBadges }
+
     var nowCampSummary: NowCampSummary? { runtimeSnapshot.nowCampSummary }
 
     var dexEntries: [DexEntrySummary] { insightsSnapshot.dexEntries }
@@ -1468,6 +1470,7 @@ final class TokenmonMenuModel: ObservableObject {
                 providerHealthSummaries: [],
                 ambientCompanionRoster: try databaseManager.ambientCompanionRoster(),
                 raidDashboard: try databaseManager.raidDashboardSummary(),
+                achievementBadges: try databaseManager.achievementBadgeSummaries(),
                 nowCampSummary: try databaseManager.nowCampSummary()
             )
             loadError = nil

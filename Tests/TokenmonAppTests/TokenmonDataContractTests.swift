@@ -4387,6 +4387,57 @@ struct TokenmonDataContractTests {
         }
     }
 
+    @Test
+    func achievementBadgeAssetContractFilesAvoidMagentaMatte() {
+        let repoRoot = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+        let badgeRoot = repoRoot
+            .appendingPathComponent("Sources/TokenmonApp/Resources/badges", isDirectory: true)
+        let artKeys = AchievementCatalog.allBadges.map(\.artKey).sorted()
+        let edgeSensitiveArtKeys: Set<String> = [
+            "achievement_common_capture",
+            "achievement_first_capture",
+            "achievement_first_seen",
+        ]
+
+        #expect(artKeys.count == 36)
+
+        for artKey in artKeys {
+            let path = badgeRoot
+                .appendingPathComponent("\(artKey).png")
+                .path
+            let inspection = runtimePNGInspection(
+                atPath: path,
+                inspectEdgeFringe: edgeSensitiveArtKeys.contains(artKey)
+            )
+
+            #expect(FileManager.default.fileExists(atPath: path))
+            #expect(inspection?.width == 768, "\(artKey) badge width should be 768px")
+            #expect(inspection?.height == 768, "\(artKey) badge height should be 768px")
+            #expect(inspection?.hasAlpha == true, "\(artKey) badge should preserve alpha")
+            #expect(
+                inspection?.lowAlphaMagentaMattePixels == 0,
+                "\(artKey) badge should not contain visible low-alpha magenta matte pixels"
+            )
+            if edgeSensitiveArtKeys.contains(artKey) {
+                #expect(
+                    inspection?.edgeMagentaFringePixels == 0,
+                    "\(artKey) badge should not contain saturated magenta outer-edge fringe"
+                )
+            }
+        }
+    }
+
+    private struct RuntimePNGInspection {
+        let width: Int
+        let height: Int
+        let hasAlpha: Bool
+        let lowAlphaMagentaMattePixels: Int
+        let edgeMagentaFringePixels: Int
+    }
+
     private func runtimePNGHasAlpha(atPath path: String) -> Bool {
         guard let image = NSImage(contentsOfFile: path),
               let data = image.tiffRepresentation,
@@ -4395,6 +4446,133 @@ struct TokenmonDataContractTests {
         }
 
         return rep.hasAlpha
+    }
+
+    private func runtimePNGInspection(atPath path: String, inspectEdgeFringe: Bool = false) -> RuntimePNGInspection? {
+        guard let data = try? Data(contentsOf: URL(fileURLWithPath: path)),
+              let rep = NSBitmapImageRep(data: data) else {
+            return nil
+        }
+
+        var lowAlphaMagentaMattePixels = 0
+        var visibleAlphaMask = inspectEdgeFringe ? [Bool](repeating: false, count: rep.pixelsWide * rep.pixelsHigh) : []
+        var edgeMagentaCandidates = inspectEdgeFringe ? [Bool](repeating: false, count: rep.pixelsWide * rep.pixelsHigh) : []
+        let bytesPerPixel = max(1, rep.bitsPerPixel / 8)
+        let alphaFirst = rep.bitmapFormat.contains(.alphaFirst)
+
+        if !rep.isPlanar,
+           rep.bitsPerSample == 8,
+           rep.samplesPerPixel >= 4,
+           bytesPerPixel >= 4,
+           let bitmapData = rep.bitmapData {
+            for y in 0..<rep.pixelsHigh {
+                for x in 0..<rep.pixelsWide {
+                    let offset = y * rep.bytesPerRow + x * bytesPerPixel
+                    let red: Int
+                    let green: Int
+                    let blue: Int
+                    let alpha: Int
+
+                    if alphaFirst {
+                        alpha = Int(bitmapData[offset])
+                        red = Int(bitmapData[offset + 1])
+                        green = Int(bitmapData[offset + 2])
+                        blue = Int(bitmapData[offset + 3])
+                    } else {
+                        red = Int(bitmapData[offset])
+                        green = Int(bitmapData[offset + 1])
+                        blue = Int(bitmapData[offset + 2])
+                        alpha = Int(bitmapData[offset + 3])
+                    }
+
+                    if inspectEdgeFringe {
+                        let index = y * rep.pixelsWide + x
+                        visibleAlphaMask[index] = alpha > 0
+                        edgeMagentaCandidates[index] = alpha > 0
+                            && red >= 105
+                            && blue >= 100
+                            && green <= 165
+                            && red - green >= 22
+                            && blue - green >= 12
+                            && abs(red - blue) <= 105
+                    }
+
+                    guard alpha > 0, alpha <= 96 else {
+                        continue
+                    }
+
+                    let isMagentaKey = red >= 120
+                        && blue >= 120
+                        && green <= 128
+                        && abs(red - blue) <= 48
+                        && red - green >= 60
+                        && blue - green >= 45
+
+                    if isMagentaKey {
+                        lowAlphaMagentaMattePixels += 1
+                    }
+                }
+            }
+        }
+
+        let edgeMagentaFringePixels = inspectEdgeFringe
+            ? countOuterEdgeCandidates(
+                visibleAlphaMask: visibleAlphaMask,
+                candidates: edgeMagentaCandidates,
+                width: rep.pixelsWide,
+                height: rep.pixelsHigh,
+                layers: 14
+            )
+            : 0
+
+        return RuntimePNGInspection(
+            width: rep.pixelsWide,
+            height: rep.pixelsHigh,
+            hasAlpha: rep.hasAlpha,
+            lowAlphaMagentaMattePixels: lowAlphaMagentaMattePixels,
+            edgeMagentaFringePixels: edgeMagentaFringePixels
+        )
+    }
+
+    private func countOuterEdgeCandidates(
+        visibleAlphaMask: [Bool],
+        candidates: [Bool],
+        width: Int,
+        height: Int,
+        layers: Int
+    ) -> Int {
+        guard width > 2, height > 2, visibleAlphaMask.count == candidates.count else {
+            return 0
+        }
+
+        var erodedMask = visibleAlphaMask
+        for _ in 0..<layers {
+            var nextMask = [Bool](repeating: false, count: erodedMask.count)
+            for y in 1..<(height - 1) {
+                for x in 1..<(width - 1) {
+                    let index = y * width + x
+                    guard erodedMask[index] else {
+                        continue
+                    }
+
+                    let above = index - width
+                    let below = index + width
+                    nextMask[index] =
+                        erodedMask[above - 1] && erodedMask[above] && erodedMask[above + 1]
+                        && erodedMask[index - 1] && erodedMask[index + 1]
+                        && erodedMask[below - 1] && erodedMask[below] && erodedMask[below + 1]
+                }
+            }
+            erodedMask = nextMask
+        }
+
+        var outerEdgeCandidateCount = 0
+        for index in visibleAlphaMask.indices {
+            if visibleAlphaMask[index], !erodedMask[index], candidates[index] {
+                outerEdgeCandidateCount += 1
+            }
+        }
+        return outerEdgeCandidateCount
     }
 
     @Test
@@ -5222,6 +5400,208 @@ struct TokenmonDataContractTests {
             SQLiteDatabase.columnInt64(statement, index: 0)
         }
         #expect(decemberHP == 120_000)
+    }
+
+    @Test
+    func achievementBadgesBootstrapCatalogAndMigration() throws {
+        let manager = try makeManager(prefix: "achievement-bootstrap")
+        let database = try manager.open()
+
+        #expect(AchievementCatalog.allBadges.count == 36)
+        let achievementTableExists = try database.fetchOne(
+            """
+            SELECT COUNT(*)
+            FROM sqlite_master
+            WHERE type = 'table'
+              AND name = 'achievement_badge_entries';
+            """
+        ) { statement in
+            SQLiteDatabase.columnInt64(statement, index: 0)
+        } ?? 0
+        #expect(achievementTableExists == 1)
+        #expect(try rowCount(in: "achievement_badge_entries", database: database) == 0)
+
+        let badges = try manager.achievementBadgeSummaries(database: database)
+        #expect(badges.count == 36)
+        #expect(badges.allSatisfy { $0.status == .locked })
+        #expect(badges.first { $0.badgeID == "badge_first_capture" }?.progress == 0)
+        #expect(badges.first { $0.badgeID == "badge_first_capture" }?.target == 1)
+    }
+
+    @Test
+    func achievementBadgesRetroactivelyUnlockAndStayIdempotent() throws {
+        let manager = try makeManager(prefix: "achievement-retroactive")
+        let database = try manager.open()
+        let stamp = "2026-05-10T10:00:00Z"
+
+        try database.execute("PRAGMA foreign_keys = OFF;")
+        for index in 1...10 {
+            let speciesID = String(format: "GRS_%03d", index)
+            let encounterID = "achievement-\(index)"
+            try database.execute(
+                """
+                INSERT INTO encounters (
+                    encounter_id, encounter_sequence, provider_code, provider_session_row_id,
+                    usage_sample_id, threshold_event_index, occurred_at, field_code,
+                    rarity_tier, species_id, burst_intensity_band, capture_probability,
+                    capture_roll, outcome, created_at
+                ) VALUES (?, ?, NULL, NULL, 1, ?, ?, 'grassland', 'common',
+                          ?, 1, 0.5, 0.2, 'captured', ?);
+                """,
+                bindings: [
+                    .text(encounterID),
+                    .integer(Int64(index)),
+                    .integer(Int64(index)),
+                    .text(stamp),
+                    .text(speciesID),
+                    .text(stamp),
+                ]
+            )
+            try database.execute(
+                """
+                INSERT INTO dex_seen (
+                    species_id, first_seen_at, last_seen_at, seen_count,
+                    last_encounter_id, updated_at
+                ) VALUES (?, ?, ?, 1, ?, ?);
+                """,
+                bindings: [.text(speciesID), .text(stamp), .text(stamp), .text(encounterID), .text(stamp)]
+            )
+            try database.execute(
+                """
+                INSERT INTO dex_captured (
+                    species_id, first_captured_at, last_captured_at, captured_count,
+                    last_encounter_id, updated_at
+                ) VALUES (?, ?, ?, 1, ?, ?);
+                """,
+                bindings: [.text(speciesID), .text(stamp), .text(stamp), .text(encounterID), .text(stamp)]
+            )
+            if index <= 5 {
+                try database.execute(
+                    "INSERT INTO party_members (species_id, slot_order, added_at) VALUES (?, ?, ?);",
+                    bindings: [.text(speciesID), .integer(Int64(index)), .text(stamp)]
+                )
+            }
+        }
+        try database.execute(
+            """
+            INSERT INTO now_camp_state (
+                singleton_id, lead_species_id, focus_energy, focus_remainder_tokens,
+                focus_earned_local_date, focus_earned_today, save_training_seed,
+                care_ready, care_elapsed_seconds, care_focus_earned_local_date,
+                care_focus_earned_today, updated_at
+            ) VALUES (
+                1, 'GRS_001', 0, 0, '2026-05-10', 0, 'seed',
+                0, 0, '2026-05-10', 0, ?
+            )
+            ON CONFLICT(singleton_id) DO UPDATE SET
+                lead_species_id = excluded.lead_species_id,
+                updated_at = excluded.updated_at;
+            """,
+            bindings: [.text(stamp)]
+        )
+        try database.execute(
+            """
+            INSERT INTO species_training (
+                species_id, training_rank, training_resonance, training_attempt_count, updated_at
+            ) VALUES ('GRS_001', 2, 0, 1, ?)
+            ON CONFLICT(species_id) DO UPDATE SET
+                training_rank = excluded.training_rank,
+                training_attempt_count = excluded.training_attempt_count,
+                updated_at = excluded.updated_at;
+            """,
+            bindings: [.text(stamp)]
+        )
+        try database.execute(
+            """
+            INSERT INTO domain_events (
+                event_id, event_type, occurred_at, producer, payload_json, created_at
+            ) VALUES ('lead_care_claimed:test', 'lead_care_claimed', ?, 'test', '{}', ?);
+            """,
+            bindings: [.text(stamp), .text(stamp)]
+        )
+        try database.execute(
+            """
+            INSERT INTO raid_instances (
+                raid_instance_id, raid_id, status, current_hp, total_attacks,
+                total_damage, first_seen_at, started_at, cleared_at, updated_at
+            ) VALUES (9001, 'raid_first_spark_training_vault', 'cleared', 0, 1, 100, ?, ?, ?, ?);
+            """,
+            bindings: [.text(stamp), .text(stamp), .text(stamp), .text(stamp)]
+        )
+        try database.execute(
+            """
+            INSERT INTO raid_attacks (
+                raid_attack_row_id, raid_instance_id, raid_id, usage_sample_id,
+                occurred_at, party_snapshot_json, party_size, total_damage, created_at
+            ) VALUES (9001, 9001, 'raid_first_spark_training_vault', 1, ?, '[]', 5, 100, ?);
+            """,
+            bindings: [.text(stamp), .text(stamp)]
+        )
+        try database.execute(
+            """
+            INSERT INTO reward_archive_entries (
+                reward_id, source_raid_id, status, acquired_at, missed_at, updated_at
+            ) VALUES ('reward_first_spark_trophy', 'raid_first_spark_training_vault', 'acquired', ?, NULL, ?);
+            """,
+            bindings: [.text(stamp), .text(stamp)]
+        )
+        for index in 1...100 {
+            try database.execute(
+                """
+                INSERT INTO usage_samples (
+                    usage_sample_id, provider_ingest_event_id, provider_code,
+                    provider_session_row_id, observed_at, total_input_tokens,
+                    total_output_tokens, total_cached_input_tokens,
+                    normalized_total_tokens, normalized_delta_tokens,
+                    current_input_tokens, current_output_tokens,
+                    gameplay_eligibility, gameplay_delta_tokens,
+                    burst_intensity_band, created_at
+                ) VALUES (?, ?, 'codex', 1, ?, ?, 0, 0, ?, 1, 1, 0, 'eligible_live', 1, 1, ?);
+                """,
+                bindings: [
+                    .integer(Int64(10_000 + index)),
+                    .integer(Int64(10_000 + index)),
+                    .text(stamp),
+                    .integer(Int64(index)),
+                    .integer(Int64(index)),
+                    .text(stamp),
+                ]
+            )
+        }
+        try database.execute("PRAGMA foreign_keys = ON;")
+
+        let badges = try manager.evaluateAchievementBadges(database: database, occurredAt: stamp)
+        let unlocked = Set(badges.filter(\.isUnlocked).map(\.badgeID))
+
+        #expect(unlocked.contains("badge_first_seen"))
+        #expect(unlocked.contains("badge_first_capture"))
+        #expect(unlocked.contains("badge_common_capture"))
+        #expect(unlocked.contains("badge_grassland_collector_10"))
+        #expect(unlocked.contains("badge_seen_10"))
+        #expect(unlocked.contains("badge_captured_10"))
+        #expect(unlocked.contains("badge_party_five"))
+        #expect(unlocked.contains("badge_lead_selected"))
+        #expect(unlocked.contains("badge_care_claimed"))
+        #expect(unlocked.contains("badge_training_rank_ii"))
+        #expect(unlocked.contains("badge_first_raid_attack"))
+        #expect(unlocked.contains("badge_first_raid_clear"))
+        #expect(unlocked.contains("badge_first_raid_reward"))
+        #expect(unlocked.contains("badge_live_usage_100"))
+        #expect(badges.first { $0.badgeID == "badge_captured_50" }?.status == .locked)
+        #expect(badges.first { $0.badgeID == "badge_captured_50" }?.progress == 10)
+
+        let unlockedRows = try rowCount(in: "achievement_badge_entries", database: database)
+        let unlockedEvents = try database.fetchOne(
+            "SELECT COUNT(*) FROM domain_events WHERE event_type = 'achievement_badge_unlocked';"
+        ) { SQLiteDatabase.columnInt64($0, index: 0) } ?? 0
+
+        _ = try manager.evaluateAchievementBadges(database: database, occurredAt: stamp)
+
+        #expect(try rowCount(in: "achievement_badge_entries", database: database) == unlockedRows)
+        let unlockedEventsAfterReplay = try database.fetchOne(
+            "SELECT COUNT(*) FROM domain_events WHERE event_type = 'achievement_badge_unlocked';"
+        ) { SQLiteDatabase.columnInt64($0, index: 0) } ?? 0
+        #expect(unlockedEventsAfterReplay == unlockedEvents)
     }
 
     @Test
