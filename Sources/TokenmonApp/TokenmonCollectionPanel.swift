@@ -1,10 +1,10 @@
 import SwiftUI
 
 let tokenmonCollectionSidebarWidth: CGFloat = 220
-let tokenmonCollectionMinimumWidth: CGFloat = 1_000
 let tokenmonCollectionIdealWidth: CGFloat = 1_120
-let tokenmonCollectionMinimumHeight: CGFloat = 640
 let tokenmonCollectionIdealHeight: CGFloat = 720
+let tokenmonCollectionMinimumWidth: CGFloat = tokenmonCollectionIdealWidth
+let tokenmonCollectionMinimumHeight: CGFloat = tokenmonCollectionIdealHeight
 
 enum TokenmonCollectionSection: String, CaseIterable, Hashable {
     case dex

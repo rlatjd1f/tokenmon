@@ -2379,11 +2379,13 @@ struct TokenmonDexPanel: View {
 
     @ToolbarContentBuilder
     private var dexToolbarContent: some ToolbarContent {
-        tokenmonAdaptiveSharedBackgroundHidden(
-            ToolbarItem {
-                TokenmonBuildVersionBadge()
-            }
-        )
+        if collectionNavigation == nil {
+            tokenmonAdaptiveSharedBackgroundHidden(
+                ToolbarItem {
+                    TokenmonBuildVersionBadge()
+                }
+            )
+        }
     }
 
     private func normalizeSelection() {

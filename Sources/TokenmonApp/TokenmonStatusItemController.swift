@@ -584,13 +584,18 @@ final class TokenmonAppController {
                 title: TokenmonL10n.string("window.title.collection"),
                 defaultSize: NSSize(width: tokenmonCollectionIdealWidth, height: tokenmonCollectionIdealHeight),
                 minSize: NSSize(width: tokenmonCollectionMinimumWidth, height: tokenmonCollectionMinimumHeight),
-                autosaveName: "TokenmonCollectionWindowV2",
+                autosaveName: "TokenmonCollectionWindowV3",
                 rootView: AnyView(
                     TokenmonCollectionPanel(
                         model: menuModel,
                         navigation: collectionNavigationState
                     )
                 )
+            )
+            collectionWindowController?.window?.titleVisibility = .hidden
+            collectionWindowController?.window?.contentMinSize = NSSize(
+                width: tokenmonCollectionMinimumWidth,
+                height: tokenmonCollectionMinimumHeight
             )
         }
         collectionWindowController?.show()
