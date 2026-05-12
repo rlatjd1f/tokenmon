@@ -79,9 +79,12 @@
 "popover.action.quit" = "Quit Tokenmon";
 "window.title.dex" = "Dex";
 "window.title.reward_archive" = "Reward Archive";
+"window.title.collection" = "Collection";
 "window.title.settings" = "Settings";
 "window.title.welcome_guide" = "Welcome to Tokenmon";
 "window.title.developer_tools" = "Developer Tools";
+"collection.section.dex" = "Dex";
+"collection.section.rewards" = "Rewards";
 
 "menu.headline.unavailable" = "Tokenmon unavailable";
 "menu.headline.loading" = "Loading Tokenmon";
@@ -418,7 +421,7 @@
 "raid.recent.empty" = "Live usage will send the party forward.";
 "raid.recent.row" = "%lld members · %lld damage";
 "raid.archive.title" = "Reward Archive";
-"raid.archive.open" = "Open Reward Archive";
+"raid.archive.open" = "Open Rewards";
 "raid.archive.more_format" = "+%lld more rewards";
 "raid.archive.window.subtitle" = "Raid rewards and achievement badges earned across local play.";
 "raid.archive.metric.acquired" = "Acquired";

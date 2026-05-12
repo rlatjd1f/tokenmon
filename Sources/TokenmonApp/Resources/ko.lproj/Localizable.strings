@@ -35,9 +35,12 @@
 "popover.action.quit" = "Tokenmon 종료";
 "window.title.dex" = "Dex";
 "window.title.reward_archive" = "리워드 아카이브";
+"window.title.collection" = "컬렉션";
 "window.title.settings" = "설정";
 "window.title.welcome_guide" = "Tokenmon 시작하기";
 "window.title.developer_tools" = "개발자 도구";
+"collection.section.dex" = "Dex";
+"collection.section.rewards" = "리워드";
 
 "menu.headline.unavailable" = "Tokenmon을 사용할 수 없음";
 "menu.headline.loading" = "Tokenmon 불러오는 중";
@@ -743,7 +746,7 @@
 "raid.recent.empty" = "라이브 사용이 감지되면 파티가 자동으로 출격합니다.";
 "raid.recent.row" = "%lld마리 · %lld 데미지";
 "raid.archive.title" = "리워드 아카이브";
-"raid.archive.open" = "전체 리워드 열기";
+"raid.archive.open" = "리워드 보기";
 "raid.archive.more_format" = "외 %lld개 리워드";
 "raid.archive.window.subtitle" = "로컬 플레이로 얻은 레이드 리워드와 업적 배지입니다.";
 "raid.archive.metric.acquired" = "획득";
