@@ -2221,6 +2221,7 @@ extension DexEntryStatus {
 
 struct TokenmonDexPanel: View {
     @ObservedObject var model: TokenmonMenuModel
+    let collectionNavigation: TokenmonCollectionNavigationState?
     @State private var sidebarSelection: TokenmonDexSidebarSelection = .all
     @State private var fieldFilter: TokenmonDexFieldFilter = .all
     @State private var rarityFilter: TokenmonDexRarityFilter = .all
@@ -2229,6 +2230,14 @@ struct TokenmonDexPanel: View {
     @State private var searchQuery = ""
     @State private var selectedSpeciesID: String?
     @StateObject private var cardTuning = TokenmonDexCardTuningStore()
+
+    init(
+        model: TokenmonMenuModel,
+        collectionNavigation: TokenmonCollectionNavigationState? = nil
+    ) {
+        self.model = model
+        self.collectionNavigation = collectionNavigation
+    }
 
     private var filteredEntries: [DexEntrySummary] {
         if sidebarSelection == .party {
@@ -2335,9 +2344,10 @@ struct TokenmonDexPanel: View {
             TokenmonDexSidebarList(
                 selection: $sidebarSelection,
                 dexEntries: model.dexEntries,
-                partyMembers: model.partyMembers
+                partyMembers: model.partyMembers,
+                collectionNavigation: collectionNavigation
             )
-            .frame(width: 220, alignment: .topLeading)
+            .frame(width: tokenmonCollectionSidebarWidth, alignment: .topLeading)
             .frame(maxHeight: .infinity, alignment: .topLeading)
     }
 
@@ -2408,23 +2418,31 @@ private struct TokenmonDexSidebarList: View {
     @Binding var selection: TokenmonDexSidebarSelection
     let dexEntries: [DexEntrySummary]
     let partyMembers: [PartyMemberSummary]
+    let collectionNavigation: TokenmonCollectionNavigationState?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
-            Text(TokenmonL10n.string("window.title.dex"))
-                .font(.headline)
-                .foregroundStyle(.primary)
+            if let collectionNavigation {
+                TokenmonCollectionSidebarHeader(navigation: collectionNavigation)
+
+                Divider()
+
+                TokenmonCollectionSidebarGroupTitle(title: TokenmonL10n.string("collection.section.dex"))
+            } else {
+                Text(TokenmonL10n.string("window.title.dex"))
+                    .font(.headline)
+                    .foregroundStyle(.primary)
+            }
 
             VStack(alignment: .leading, spacing: 6) {
                 ForEach(sidebarRows, id: \.selection) { row in
                     Button {
                         selection = row.selection
                     } label: {
-                        TokenmonDexSidebarRow(
+                        TokenmonCollectionSidebarRow(
                             title: row.selection.title,
                             systemImage: row.selection.systemImage,
-                            count: row.count,
-                            countText: row.countText
+                            countText: row.countText ?? "\(row.count)"
                         )
                         .padding(.horizontal, 10)
                         .padding(.vertical, 8)
@@ -2460,26 +2478,6 @@ private struct TokenmonDexSidebarList: View {
             (.unknown, dexEntries.filter { $0.status == .unknown }.count, nil),
             (.party, partyMembers.count, partyCountText),
         ]
-    }
-}
-
-private struct TokenmonDexSidebarRow: View {
-    let title: String
-    let systemImage: String
-    let count: Int
-    var countText: String? = nil
-
-    var body: some View {
-        HStack {
-            Label(title, systemImage: systemImage)
-                .lineLimit(1)
-                .layoutPriority(1)
-            Spacer(minLength: 4)
-            Text(countText ?? "\(count)")
-                .font(.caption)
-                .foregroundStyle(.secondary)
-                .lineLimit(1)
-        }
     }
 }
 

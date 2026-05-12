@@ -1,5 +1,7 @@
 import SwiftUI
 
+let tokenmonCollectionSidebarWidth: CGFloat = 220
+
 enum TokenmonCollectionSection: String, CaseIterable, Hashable {
     case dex
     case rewards
@@ -10,6 +12,15 @@ enum TokenmonCollectionSection: String, CaseIterable, Hashable {
             return TokenmonL10n.string("collection.section.dex")
         case .rewards:
             return TokenmonL10n.string("collection.section.rewards")
+        }
+    }
+
+    var systemImage: String {
+        switch self {
+        case .dex:
+            return "books.vertical.fill"
+        case .rewards:
+            return "shippingbox.fill"
         }
     }
 }
@@ -32,46 +43,20 @@ struct TokenmonCollectionPanel: View {
     @ObservedObject var navigation: TokenmonCollectionNavigationState
 
     var body: some View {
-        VStack(spacing: 0) {
-            header
-
-            Divider()
-
-            content
-        }
+        content
         .background(Color(nsColor: .windowBackgroundColor))
         .onChange(of: navigation.selectedSection) { _, section in
             noteSectionOpened(section)
         }
     }
 
-    private var header: some View {
-        HStack(spacing: 12) {
-            Text(TokenmonL10n.string("window.title.collection"))
-                .font(.headline)
-
-            Picker("", selection: $navigation.selectedSection) {
-                ForEach(TokenmonCollectionSection.allCases, id: \.self) { section in
-                    Text(section.title).tag(section)
-                }
-            }
-            .pickerStyle(.segmented)
-            .labelsHidden()
-            .frame(width: 260)
-
-            Spacer(minLength: 0)
-        }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 10)
-    }
-
     @ViewBuilder
     private var content: some View {
         switch navigation.selectedSection {
         case .dex:
-            TokenmonDexPanel(model: model)
+            TokenmonDexPanel(model: model, collectionNavigation: navigation)
         case .rewards:
-            TokenmonRewardArchivePanel(model: model)
+            TokenmonRewardArchivePanel(model: model, collectionNavigation: navigation)
         }
     }
 
@@ -81,6 +66,79 @@ struct TokenmonCollectionPanel: View {
             model.surfaceOpened(.dex, entrypoint: "collection_picker", emitAnalytics: false)
         case .rewards:
             model.surfaceOpened(.raid, entrypoint: "collection_picker", emitAnalytics: false)
+        }
+    }
+}
+
+struct TokenmonCollectionSidebarHeader: View {
+    @ObservedObject var navigation: TokenmonCollectionNavigationState
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text(TokenmonL10n.string("window.title.collection"))
+                .font(.headline)
+                .foregroundStyle(.primary)
+
+            VStack(alignment: .leading, spacing: 5) {
+                ForEach(TokenmonCollectionSection.allCases, id: \.self) { section in
+                    Button {
+                        navigation.show(section)
+                    } label: {
+                        TokenmonCollectionSidebarRow(
+                            title: section.title,
+                            systemImage: section.systemImage
+                        )
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 8)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .background(
+                            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                                .fill(section == navigation.selectedSection ? Color.accentColor.opacity(0.16) : Color.clear)
+                        )
+                        .contentShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+        }
+    }
+}
+
+struct TokenmonCollectionSidebarGroupTitle: View {
+    let title: String
+
+    var body: some View {
+        Text(title)
+            .font(.caption.weight(.semibold))
+            .foregroundStyle(.secondary)
+            .padding(.horizontal, 10)
+            .padding(.top, 4)
+    }
+}
+
+struct TokenmonCollectionSidebarRow: View {
+    let title: String
+    let systemImage: String
+    var countText: String?
+
+    var body: some View {
+        HStack {
+            Label {
+                Text(title)
+                    .lineLimit(1)
+            } icon: {
+                Image(systemName: systemImage)
+            }
+            .layoutPriority(1)
+
+            Spacer(minLength: 4)
+
+            if let countText {
+                Text(countText)
+                    .font(.caption.monospacedDigit())
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+            }
         }
     }
 }
