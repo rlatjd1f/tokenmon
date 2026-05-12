@@ -582,9 +582,9 @@ final class TokenmonAppController {
         if collectionWindowController == nil {
             collectionWindowController = TokenmonHostingWindowController(
                 title: TokenmonL10n.string("window.title.collection"),
-                defaultSize: NSSize(width: 1120, height: 720),
-                minSize: NSSize(width: 820, height: 560),
-                autosaveName: "TokenmonCollectionWindow",
+                defaultSize: NSSize(width: tokenmonCollectionIdealWidth, height: tokenmonCollectionIdealHeight),
+                minSize: NSSize(width: tokenmonCollectionMinimumWidth, height: tokenmonCollectionMinimumHeight),
+                autosaveName: "TokenmonCollectionWindowV2",
                 rootView: AnyView(
                     TokenmonCollectionPanel(
                         model: menuModel,

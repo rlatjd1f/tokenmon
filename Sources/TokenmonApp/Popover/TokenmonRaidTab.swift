@@ -882,10 +882,10 @@ struct TokenmonRewardArchivePanel: View {
             TokenmonArchiveDetailPanel(selection: selectedEntry)
         }
         .frame(
-            minWidth: Self.minimumWindowSize.width,
-            idealWidth: Self.idealWindowSize.width,
-            minHeight: Self.minimumWindowSize.height,
-            idealHeight: Self.idealWindowSize.height
+            minWidth: collectionNavigation == nil ? Self.minimumWindowSize.width : nil,
+            idealWidth: collectionNavigation == nil ? Self.idealWindowSize.width : nil,
+            minHeight: collectionNavigation == nil ? Self.minimumWindowSize.height : nil,
+            idealHeight: collectionNavigation == nil ? Self.idealWindowSize.height : nil
         )
         .background(Color(nsColor: .windowBackgroundColor))
         .onAppear {

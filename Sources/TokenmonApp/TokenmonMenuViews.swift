@@ -2426,8 +2426,6 @@ private struct TokenmonDexSidebarList: View {
                 TokenmonCollectionSidebarHeader(navigation: collectionNavigation)
 
                 Divider()
-
-                TokenmonCollectionSidebarGroupTitle(title: TokenmonL10n.string("collection.section.dex"))
             } else {
                 Text(TokenmonL10n.string("window.title.dex"))
                     .font(.headline)

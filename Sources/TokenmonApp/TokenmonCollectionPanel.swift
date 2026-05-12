@@ -1,6 +1,10 @@
 import SwiftUI
 
 let tokenmonCollectionSidebarWidth: CGFloat = 220
+let tokenmonCollectionMinimumWidth: CGFloat = 1_000
+let tokenmonCollectionIdealWidth: CGFloat = 1_120
+let tokenmonCollectionMinimumHeight: CGFloat = 640
+let tokenmonCollectionIdealHeight: CGFloat = 720
 
 enum TokenmonCollectionSection: String, CaseIterable, Hashable {
     case dex
@@ -44,6 +48,14 @@ struct TokenmonCollectionPanel: View {
 
     var body: some View {
         content
+        .frame(
+            minWidth: tokenmonCollectionMinimumWidth,
+            idealWidth: tokenmonCollectionIdealWidth,
+            maxWidth: .infinity,
+            minHeight: tokenmonCollectionMinimumHeight,
+            idealHeight: tokenmonCollectionIdealHeight,
+            maxHeight: .infinity
+        )
         .background(Color(nsColor: .windowBackgroundColor))
         .onChange(of: navigation.selectedSection) { _, section in
             noteSectionOpened(section)
@@ -74,31 +86,26 @@ struct TokenmonCollectionSidebarHeader: View {
     @ObservedObject var navigation: TokenmonCollectionNavigationState
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Text(TokenmonL10n.string("window.title.collection"))
-                .font(.headline)
-                .foregroundStyle(.primary)
-
-            VStack(alignment: .leading, spacing: 5) {
-                ForEach(TokenmonCollectionSection.allCases, id: \.self) { section in
-                    Button {
-                        navigation.show(section)
-                    } label: {
-                        TokenmonCollectionSidebarRow(
-                            title: section.title,
-                            systemImage: section.systemImage
-                        )
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 8)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .background(
-                            RoundedRectangle(cornerRadius: 10, style: .continuous)
-                                .fill(section == navigation.selectedSection ? Color.accentColor.opacity(0.16) : Color.clear)
-                        )
-                        .contentShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
-                    }
-                    .buttonStyle(.plain)
+        VStack(alignment: .leading, spacing: 5) {
+            ForEach(TokenmonCollectionSection.allCases, id: \.self) { section in
+                Button {
+                    navigation.show(section)
+                } label: {
+                    TokenmonCollectionSidebarRow(
+                        title: section.title,
+                        systemImage: section.systemImage
+                    )
+                    .font(.subheadline.weight(.semibold))
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 8)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(
+                        RoundedRectangle(cornerRadius: 10, style: .continuous)
+                            .fill(section == navigation.selectedSection ? Color.accentColor.opacity(0.16) : Color.clear)
+                    )
+                    .contentShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
                 }
+                .buttonStyle(.plain)
             }
         }
     }
