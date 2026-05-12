@@ -786,9 +786,18 @@ struct TokenmonRewardArchivePanel: View {
     private static let idealWindowSize = CGSize(width: 1120, height: 720)
 
     @ObservedObject var model: TokenmonMenuModel
+    let collectionNavigation: TokenmonCollectionNavigationState?
     @State private var sidebarSelection: RewardArchiveSidebarSelection = .raidAll
     @State private var selectedRewardID: String?
     @State private var selectedBadgeID: String?
+
+    init(
+        model: TokenmonMenuModel,
+        collectionNavigation: TokenmonCollectionNavigationState? = nil
+    ) {
+        self.model = model
+        self.collectionNavigation = collectionNavigation
+    }
 
     private var entries: [RaidArchiveEntrySummary] {
         model.raidDashboard?.archiveEntries ?? []
@@ -860,23 +869,23 @@ struct TokenmonRewardArchivePanel: View {
     var body: some View {
         HStack(spacing: 0) {
             rewardSidebar
-                .frame(width: 196, alignment: .topLeading)
+                .frame(width: tokenmonCollectionSidebarWidth, alignment: .topLeading)
                 .frame(maxHeight: .infinity, alignment: .topLeading)
 
             Divider()
 
             rewardBrowser
-                .frame(minWidth: 360, maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                .frame(minWidth: 480, maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
 
             Divider()
 
             TokenmonArchiveDetailPanel(selection: selectedEntry)
         }
         .frame(
-            minWidth: Self.minimumWindowSize.width,
-            idealWidth: Self.idealWindowSize.width,
-            minHeight: Self.minimumWindowSize.height,
-            idealHeight: Self.idealWindowSize.height
+            minWidth: collectionNavigation == nil ? Self.minimumWindowSize.width : nil,
+            idealWidth: collectionNavigation == nil ? Self.idealWindowSize.width : nil,
+            minHeight: collectionNavigation == nil ? Self.minimumWindowSize.height : nil,
+            idealHeight: collectionNavigation == nil ? Self.idealWindowSize.height : nil
         )
         .background(Color(nsColor: .windowBackgroundColor))
         .onAppear {
@@ -895,9 +904,15 @@ struct TokenmonRewardArchivePanel: View {
 
     private var rewardSidebar: some View {
         VStack(alignment: .leading, spacing: 14) {
-            Text(TokenmonL10n.string("window.title.reward_archive"))
-                .font(.headline)
-                .foregroundStyle(.primary)
+            if let collectionNavigation {
+                TokenmonCollectionSidebarHeader(navigation: collectionNavigation)
+
+                Divider()
+            } else {
+                Text(TokenmonL10n.string("window.title.reward_archive"))
+                    .font(.headline)
+                    .foregroundStyle(.primary)
+            }
 
             VStack(alignment: .leading, spacing: 6) {
                 sidebarGroup(
@@ -921,11 +936,7 @@ struct TokenmonRewardArchivePanel: View {
         items: [(selection: RewardArchiveSidebarSelection, title: String, systemImage: String, count: Int)]
     ) -> some View {
         VStack(alignment: .leading, spacing: 5) {
-            Text(title)
-                .font(.caption.weight(.semibold))
-                .foregroundStyle(.secondary)
-                .padding(.horizontal, 10)
-                .padding(.top, 4)
+            TokenmonCollectionSidebarGroupTitle(title: title)
             ForEach(items, id: \.selection) { item in
                 Button {
                     sidebarSelection = item.selection
@@ -1061,7 +1072,7 @@ struct TokenmonRewardArchivePanel: View {
                 }
             }
         }
-        .frame(minWidth: 360, maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .frame(minWidth: 480, maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
     }
 
     private var archiveSummaryText: String {
@@ -1340,17 +1351,11 @@ private struct RewardArchiveSidebarRow: View {
     let count: Int
 
     var body: some View {
-        Label {
-            HStack {
-                Text(title)
-                Spacer()
-                Text("\(count)")
-                    .font(.caption.monospacedDigit())
-                    .foregroundStyle(.secondary)
-            }
-        } icon: {
-            Image(systemName: systemImage)
-        }
+        TokenmonCollectionSidebarRow(
+            title: title,
+            systemImage: systemImage,
+            countText: "\(count)"
+        )
     }
 }
 

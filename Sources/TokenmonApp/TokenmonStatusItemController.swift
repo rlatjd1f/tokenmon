@@ -123,6 +123,7 @@ final class TokenmonAppController {
     private var recoveryTask: Task<Void, Never>?
     private var cursorSyncTask: Task<Void, Never>?
 
+    private let collectionNavigationState = TokenmonCollectionNavigationState()
     private lazy var statusItemController: TokenmonStatusItemController = {
         let controller = TokenmonStatusItemController(
             model: menuModel,
@@ -132,8 +133,7 @@ final class TokenmonAppController {
         return controller
     }()
 
-    private var dexWindowController: TokenmonHostingWindowController?
-    private var rewardArchiveWindowController: TokenmonHostingWindowController?
+    private var collectionWindowController: TokenmonHostingWindowController?
     private var settingsWindowController: TokenmonHostingWindowController?
     private var onboardingWindowController: TokenmonHostingWindowController?
     private var onboardingWindowCloseObserver: NSObjectProtocol?
@@ -558,29 +558,47 @@ final class TokenmonAppController {
         if let speciesID {
             menuModel.requestDexNavigation(to: speciesID)
         }
-        analyticsTracker.captureSurfaceOpened(surface: .dex, entrypoint: "window", settingsPane: nil)
-        if dexWindowController == nil {
-            dexWindowController = TokenmonHostingWindowController(
-                title: TokenmonL10n.string("window.title.dex"),
-                defaultSize: NSSize(width: 1120, height: 720),
-                autosaveName: "TokenmonDexWindow",
-                rootView: AnyView(TokenmonDexPanel(model: menuModel))
-            )
-        }
-        dexWindowController?.show()
+        showCollectionWindow(section: .dex, entrypoint: "dex_window")
     }
 
     func showRewardArchiveWindow() {
-        if rewardArchiveWindowController == nil {
-            rewardArchiveWindowController = TokenmonHostingWindowController(
-                title: TokenmonL10n.string("window.title.reward_archive"),
-                defaultSize: NSSize(width: 1120, height: 720),
-                minSize: NSSize(width: 820, height: 560),
-                autosaveName: "TokenmonRewardArchiveWindow",
-                rootView: AnyView(TokenmonRewardArchivePanel(model: menuModel))
+        showCollectionWindow(section: .rewards, entrypoint: "reward_archive_window")
+    }
+
+    private func showCollectionWindow(
+        section: TokenmonCollectionSection,
+        entrypoint: String
+    ) {
+        collectionNavigationState.show(section)
+        switch section {
+        case .dex:
+            analyticsTracker.captureSurfaceOpened(surface: .dex, entrypoint: entrypoint, settingsPane: nil)
+            menuModel.surfaceOpened(.dex, entrypoint: "collection_window", emitAnalytics: false)
+        case .rewards:
+            analyticsTracker.captureSurfaceOpened(surface: .raid, entrypoint: entrypoint, settingsPane: nil)
+            menuModel.surfaceOpened(.raid, entrypoint: "collection_window", emitAnalytics: false)
+        }
+
+        if collectionWindowController == nil {
+            collectionWindowController = TokenmonHostingWindowController(
+                title: TokenmonL10n.string("window.title.collection"),
+                defaultSize: NSSize(width: tokenmonCollectionIdealWidth, height: tokenmonCollectionIdealHeight),
+                minSize: NSSize(width: tokenmonCollectionMinimumWidth, height: tokenmonCollectionMinimumHeight),
+                autosaveName: "TokenmonCollectionWindowV3",
+                rootView: AnyView(
+                    TokenmonCollectionPanel(
+                        model: menuModel,
+                        navigation: collectionNavigationState
+                    )
+                )
+            )
+            collectionWindowController?.window?.titleVisibility = .hidden
+            collectionWindowController?.window?.contentMinSize = NSSize(
+                width: tokenmonCollectionMinimumWidth,
+                height: tokenmonCollectionMinimumHeight
             )
         }
-        rewardArchiveWindowController?.show()
+        collectionWindowController?.show()
     }
 
     func showSettings(pane: TokenmonSettingsPane) {
@@ -832,8 +850,10 @@ enum TokenmonStatusItemShortcutMenuItem: Equatable {
             return TokenmonL10n.string("popover.tab.tokens")
         case .popover(.stats):
             return TokenmonL10n.string("popover.tab.stats")
-        case .popover(.dex), .dexWindow:
+        case .popover(.dex):
             return TokenmonL10n.string("window.title.dex")
+        case .dexWindow:
+            return TokenmonL10n.string("window.title.collection")
         case .settingsWindow:
             return TokenmonL10n.string("window.title.settings")
         case .developerTools:
