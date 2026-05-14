@@ -1679,12 +1679,23 @@ chmod +x "$fake_gh_dir/gh"
 release_output="$(PATH="$fake_gh_dir:$PATH" TOKENMON_FAKE_GH_SPARKLE_KEY="$sparkle_public_key" "$ROOT/scripts/build-release" --output "$release_dir" 2>&1)"
 require_contains "$release_output" "release_output="
 require_contains "$release_output" "app_bundle="
+require_contains "$release_output" "release_archs=arm64 x86_64"
+require_contains "$release_output" "app_executable_archs="
+require_contains "$release_output" "sparkle_archs="
 require_contains "$release_output" "app_icon="
 require_contains "$release_output" "sparkle_public_key_source=github_variable"
 [[ -x "$release_dir/Tokenmon.app/Contents/MacOS/TokenmonApp" ]] || { printf 'VERIFY FAIL: missing release app bundle executable\n' >&2; exit 1; }
 [[ -f "$release_dir/Tokenmon.app/Contents/Resources/AppIcon.icns" ]] || { printf 'VERIFY FAIL: missing app icon bundle resource\n' >&2; exit 1; }
 [[ -d "$release_dir/Tokenmon.app/Contents/Resources/Tokenmon_TokenmonApp.bundle" ]] || { printf 'VERIFY FAIL: missing release app SwiftPM resource bundle\n' >&2; exit 1; }
 [[ -d "$release_dir/Tokenmon.app/Contents/Frameworks/Sparkle.framework" ]] || { printf 'VERIFY FAIL: missing Sparkle.framework in release app bundle\n' >&2; exit 1; }
+release_app_archs="$(lipo -archs "$release_dir/Tokenmon.app/Contents/MacOS/TokenmonApp" 2>/dev/null || true)"
+require_contains "$release_app_archs" "arm64"
+require_contains "$release_app_archs" "x86_64"
+release_sparkle_binary="$release_dir/Tokenmon.app/Contents/Frameworks/Sparkle.framework/Versions/B/Sparkle"
+[[ -f "$release_sparkle_binary" ]] || { printf 'VERIFY FAIL: missing Sparkle framework executable\n' >&2; exit 1; }
+release_sparkle_archs="$(lipo -archs "$release_sparkle_binary" 2>/dev/null || true)"
+require_contains "$release_sparkle_archs" "arm64"
+require_contains "$release_sparkle_archs" "x86_64"
 [[ -f "$release_dir/RELEASE_NOTES.txt" ]] || { printf 'VERIFY FAIL: missing release notes\n' >&2; exit 1; }
 [[ -f "$release_dir/FIRST_RUN_CHECKLIST.txt" ]] || { printf 'VERIFY FAIL: missing first-run checklist\n' >&2; exit 1; }
 codesign --verify --deep --strict "$release_dir/Tokenmon.app" >/dev/null 2>&1 || { printf 'VERIFY FAIL: release app bundle codesign verification failed\n' >&2; exit 1; }
@@ -1793,6 +1804,11 @@ if [[ "$include_release_tooling" == "1" ]]; then
   require_contains "$release_cask_contents" "sha256 \"$release_dmg_sha\""
   require_contains "$release_cask_contents" "url \"https://github.com/$public_release_repo/releases/download/v#{version}/Tokenmon-#{version}.dmg\""
   require_contains "$release_cask_contents" 'auto_updates true'
+  require_contains "$release_cask_contents" 'depends_on macos: ">= :sequoia"'
+  require_not_contains "$release_cask_contents" 'depends_on macos: ">= :sonoma"'
+  require_not_contains "$release_cask_contents" 'depends_on arch'
+  require_not_contains "$release_cask_contents" 'on_intel'
+  require_not_contains "$release_cask_contents" 'on_arm'
   require_contains "$release_cask_contents" 'app "Tokenmon.app"'
 
   appcast_output="$("$ROOT/scripts/generate-sparkle-appcast" \
@@ -1807,6 +1823,9 @@ if [[ "$include_release_tooling" == "1" ]]; then
   [[ -f "$release_archive_dir/Tokenmon-$release_version.txt" ]] || { printf 'VERIFY FAIL: missing generated Sparkle release notes asset\n' >&2; exit 1; }
   release_appcast_contents="$(cat "$release_archive_dir/appcast.xml")"
   require_contains "$release_appcast_contents" "<sparkle:shortVersionString>$release_version</sparkle:shortVersionString>"
+  require_contains "$release_appcast_contents" "<sparkle:minimumSystemVersion>15.0</sparkle:minimumSystemVersion>"
+  require_not_contains "$release_appcast_contents" "sparkle:hardwareRequirements"
+  require_not_contains "$release_appcast_contents" "<sparkle:hardwareRequirements>arm64</sparkle:hardwareRequirements>"
   require_contains "$release_appcast_contents" "https://github.com/$public_release_repo/releases/download/v$release_version/Tokenmon-$release_version.dmg"
   require_contains "$release_appcast_contents" "https://github.com/$public_release_repo/releases/download/v$release_version/Tokenmon-$release_version.txt"
   require_contains "$release_appcast_contents" "sparkle:edSignature="

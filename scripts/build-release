@@ -10,6 +10,7 @@ output_path="$ROOT/.build/release-artifacts"
 app_icon_source="$ROOT/assets/app-icon/tokenmon-icon-1024.png"
 plist_template="$ROOT/Packaging/Tokenmon-Info.plist"
 bundle_id="${BUNDLE_ID:-com.aroido.tokenmon}"
+release_archs_raw="${TOKENMON_RELEASE_ARCHS:-arm64 x86_64}"
 repository_target="${TOKENMON_GITHUB_REPOSITORY:-$("$ROOT/scripts/tokenmon-release-targets" repository)}"
 scratch_path="${TOKENMON_RELEASE_SCRATCH_PATH:-}"
 sparkle_public_ed_key="${SPARKLE_PUBLIC_ED_KEY:-}"
@@ -31,6 +32,12 @@ signing_identity_source="adhoc"
 iconset_dir=""
 typeset -a original_keychains
 original_keychains=()
+typeset -a release_archs
+release_archs=()
+typeset -a release_bin_paths
+release_bin_paths=()
+typeset -a release_app_binaries
+release_app_binaries=()
 
 timing_now() {
   python3 - <<'PY'
@@ -149,6 +156,43 @@ find_sparkle_framework() {
   fi
 
   find "$ROOT/.build" \( -type d -o -type l \) -path '*/Sparkle.framework' -print 2>/dev/null | sort | head -n 1
+}
+
+find_sparkle_binary() {
+  local framework_path="$1"
+  local sparkle_binary
+
+  if [[ -f "$framework_path/Versions/B/Sparkle" ]]; then
+    printf '%s\n' "$framework_path/Versions/B/Sparkle"
+    return 0
+  fi
+
+  if [[ -f "$framework_path/Sparkle" ]]; then
+    printf '%s\n' "$framework_path/Sparkle"
+    return 0
+  fi
+
+  sparkle_binary="$(find "$framework_path" \( -type f -o -type l \) -name Sparkle -print 2>/dev/null | sort | head -n 1)"
+  [[ -n "$sparkle_binary" ]] && printf '%s\n' "$sparkle_binary"
+}
+
+binary_archs() {
+  local binary_path="$1"
+  lipo -archs "$binary_path" 2>/dev/null | xargs
+}
+
+require_binary_archs() {
+  local label="$1"
+  local actual_archs="$2"
+  shift 2
+
+  local required_arch
+  for required_arch in "$@"; do
+    if [[ " $actual_archs " != *" $required_arch "* ]]; then
+      printf '%s is missing required architecture %s; found: %s\n' "$label" "$required_arch" "$actual_archs" >&2
+      exit 1
+    fi
+  done
 }
 
 has_signing_credentials() {
@@ -330,6 +374,13 @@ if [[ "$include_developer_tools" == "true" ]]; then
   printf 'NOTE: --include-developer-tools is accepted for release-script compatibility; TokenmonApp owns its automation entrypoints.\n' >&2
 fi
 
+release_archs_raw="${release_archs_raw//,/ }"
+read -r -a release_archs <<<"$release_archs_raw"
+if (( ${#release_archs[@]} == 0 )); then
+  printf 'TOKENMON_RELEASE_ARCHS resolved to an empty architecture list.\n' >&2
+  exit 1
+fi
+
 rm -rf "$output_path"
 mkdir -p "$output_path"
 
@@ -337,11 +388,21 @@ build_started_at="$(timing_now)"
 if [[ "$clean_release" == "true" ]]; then
   swift_cmd package clean
 fi
-swift_cmd build -c release
-bin_path="$(swift_cmd build -c release --show-bin-path)"
+
+for release_arch in "${release_archs[@]}"; do
+  swift_cmd build -c release --arch "$release_arch"
+  arch_bin_path="$(swift_cmd build -c release --arch "$release_arch" --show-bin-path)"
+  arch_app_src="$arch_bin_path/TokenmonApp"
+
+  [[ -x "$arch_app_src" ]] || { printf 'Missing %s app binary: %s\n' "$release_arch" "$arch_app_src" >&2; exit 1; }
+
+  release_bin_paths+=("$arch_bin_path")
+  release_app_binaries+=("$arch_app_src")
+done
+
+bin_path="${release_bin_paths[0]}"
 record_timing "build" "swift_release_build" "$build_started_at"
 
-app_src="$bin_path/TokenmonApp"
 app_bundle="$output_path/Tokenmon.app"
 app_macos_dir="$app_bundle/Contents/MacOS"
 app_frameworks_dir="$app_bundle/Contents/Frameworks"
@@ -354,19 +415,28 @@ app_icon_icns="$app_resources_dir/AppIcon.icns"
 release_notes="$output_path/RELEASE_NOTES.txt"
 first_run_checklist="$output_path/FIRST_RUN_CHECKLIST.txt"
 
-[[ -x "$app_src" ]] || { printf 'Missing app binary: %s\n' "$app_src" >&2; exit 1; }
 [[ -n "$sparkle_framework_src" ]] || { printf 'Missing Sparkle.framework in .build artifacts. Resolve SwiftPM dependencies before building release.\n' >&2; exit 1; }
 
 packaging_started_at="$(timing_now)"
 mkdir -p "$app_macos_dir" "$app_frameworks_dir" "$app_resources_dir"
-cp "$app_src" "$app_macos_dir/TokenmonApp"
+if (( ${#release_app_binaries[@]} == 1 )); then
+  cp "${release_app_binaries[0]}" "$app_macos_dir/TokenmonApp"
+else
+  lipo -create "${release_app_binaries[@]}" -output "$app_macos_dir/TokenmonApp"
+fi
 chmod +x "$app_macos_dir/TokenmonApp"
+app_executable_archs="$(binary_archs "$app_macos_dir/TokenmonApp")"
+require_binary_archs "TokenmonApp" "$app_executable_archs" "${release_archs[@]}"
 
 if [[ -d "$app_resource_bundle_src" ]]; then
   cp -R "$app_resource_bundle_src" "$app_resource_bundle_dst"
 fi
 
 ditto "$sparkle_framework_src" "$app_frameworks_dir/Sparkle.framework"
+sparkle_binary="$(find_sparkle_binary "$app_frameworks_dir/Sparkle.framework")"
+[[ -n "$sparkle_binary" ]] || { printf 'Missing Sparkle executable in copied framework.\n' >&2; exit 1; }
+sparkle_archs="$(binary_archs "$sparkle_binary")"
+require_binary_archs "Sparkle.framework" "$sparkle_archs" "${release_archs[@]}"
 
 [[ -f "$app_icon_source" ]] || { printf 'Missing app icon source: %s\n' "$app_icon_source" >&2; exit 1; }
 
@@ -444,6 +514,9 @@ CHECKLIST
 
 printf 'release_output=%s\n' "$output_path"
 printf 'app_bundle=%s\n' "$app_bundle"
+printf 'release_archs=%s\n' "${release_archs[*]}"
+printf 'app_executable_archs=%s\n' "$app_executable_archs"
+printf 'sparkle_archs=%s\n' "$sparkle_archs"
 printf 'app_icon=%s\n' "$app_icon_icns"
 printf 'sparkle_public_key_source=%s\n' "$sparkle_public_key_source"
 if [[ -n "${TOKENMON_LOCAL_RELEASE_ENV_FILE:-}" ]]; then

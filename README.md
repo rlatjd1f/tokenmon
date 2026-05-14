@@ -26,7 +26,7 @@ asking for an account or your prompt history.
 brew install --cask aroido/tokenmon/tokenmon
 ```
 
-- Requires macOS Sequoia or later
+- Requires macOS Sequoia 15.0 or later on Intel and Apple Silicon Macs
 
 ## Why People Keep It Open
 

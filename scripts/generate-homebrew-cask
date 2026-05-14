@@ -21,6 +21,32 @@ Examples:
 EOF
 }
 
+homebrew_macos_symbol_for_version() {
+  local version_value="$1"
+  local major_version="${version_value%%.*}"
+
+  case "$major_version" in
+    11)
+      printf 'big_sur\n'
+      ;;
+    12)
+      printf 'monterey\n'
+      ;;
+    13)
+      printf 'ventura\n'
+      ;;
+    14)
+      printf 'sonoma\n'
+      ;;
+    15)
+      printf 'sequoia\n'
+      ;;
+    *)
+      return 1
+      ;;
+  esac
+}
+
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --version)
@@ -67,6 +93,13 @@ fi
 [[ "$repository" == */* ]] || { printf 'Repository must be in owner/name form: %s\n' "$repository" >&2; exit 1; }
 [[ "$sha256" =~ ^[0-9a-f]{64}$ ]] || { printf 'Invalid SHA-256: %s\n' "$sha256" >&2; exit 1; }
 
+minimum_system_version="$(/usr/libexec/PlistBuddy -c 'Print :LSMinimumSystemVersion' "$PLIST_TEMPLATE")"
+[[ -n "$minimum_system_version" ]] || { printf 'Missing LSMinimumSystemVersion in %s\n' "$PLIST_TEMPLATE" >&2; exit 1; }
+minimum_system_symbol="$(homebrew_macos_symbol_for_version "$minimum_system_version")" || {
+  printf 'Unsupported LSMinimumSystemVersion for Homebrew cask mapping: %s\n' "$minimum_system_version" >&2
+  exit 1
+}
+
 if [[ -z "$asset_name" ]]; then
   asset_name='Tokenmon-#{version}.dmg'
 fi
@@ -83,7 +116,7 @@ cask "tokenmon" do
 
   auto_updates true
 
-  depends_on macos: ">= :sonoma"
+  depends_on macos: ">= :${minimum_system_symbol}"
 
   app "Tokenmon.app"
 
