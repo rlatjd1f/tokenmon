@@ -162,6 +162,103 @@ jobs:
             --release-notes dist/releases/RELEASE_NOTES.txt \
             --output dist/releases/appcast.xml
 
+      - name: Upload release assets
+        uses: actions/upload-artifact@v6
+        with:
+          name: release-assets-${{ env.RELEASE_TAG }}
+          path: |
+            dist/releases/Tokenmon.app
+            dist/releases/*.zip
+            dist/releases/*.dmg
+            dist/releases/*.txt
+            dist/releases/*.md
+            dist/releases/RELEASE_TITLE
+            dist/releases/RELEASE_TITLE.ko
+            dist/releases/SHA256SUMS.txt
+            dist/releases/tokenmon.rb
+            dist/releases/appcast.xml
+          retention-days: 14
+
+  intel-smoke-release:
+    if: ${{ github.repository == 'aroido/tokenmon' }}
+    needs: build-macos-release
+    runs-on: macos-26-intel
+    env:
+      RELEASE_TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
+
+    steps:
+      - name: Download release assets
+        uses: actions/download-artifact@v6
+        with:
+          name: release-assets-${{ env.RELEASE_TAG }}
+          path: dist/releases
+
+      - name: Smoke-test universal release zip on Intel
+        run: |
+          version="${RELEASE_TAG#v}"
+          zip_path="dist/releases/Tokenmon-${version}-macos.zip"
+          extract_dir="$RUNNER_TEMP/release-zip-smoke"
+
+          if [[ ! -f "$zip_path" ]]; then
+            echo "Missing release ZIP at $zip_path"
+            exit 1
+          fi
+
+          rm -rf "$extract_dir"
+          mkdir -p "$extract_dir"
+          ditto -x -k "$zip_path" "$extract_dir"
+
+          app_executable="$extract_dir/Tokenmon.app/Contents/MacOS/TokenmonApp"
+          sparkle_executable="$extract_dir/Tokenmon.app/Contents/Frameworks/Sparkle.framework/Versions/B/Sparkle"
+
+          if [[ ! -x "$app_executable" ]]; then
+            echo "Missing release executable at $app_executable"
+            exit 1
+          fi
+          if [[ ! -f "$sparkle_executable" ]]; then
+            echo "Missing Sparkle executable at $sparkle_executable"
+            exit 1
+          fi
+
+          app_archs="$(lipo -archs "$app_executable")"
+          sparkle_archs="$(lipo -archs "$sparkle_executable")"
+          echo "app_executable_archs=$app_archs"
+          echo "sparkle_archs=$sparkle_archs"
+
+          for required_arch in arm64 x86_64; do
+            if [[ " $app_archs " != *" $required_arch "* ]]; then
+              echo "TokenmonApp is missing $required_arch; found: $app_archs"
+              exit 1
+            fi
+            if [[ " $sparkle_archs " != *" $required_arch "* ]]; then
+              echo "Sparkle.framework is missing $required_arch; found: $sparkle_archs"
+              exit 1
+            fi
+          done
+
+          "$app_executable" --smoke-test --db "$extract_dir/release-smoke.sqlite" >/dev/null
+
+  publish-release:
+    if: ${{ github.repository == 'aroido/tokenmon' }}
+    needs: intel-smoke-release
+    runs-on: macos-26
+    env:
+      RELEASE_TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
+      HOMEBREW_TAP_REPOSITORY: ${{ vars.HOMEBREW_TAP_REPOSITORY }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref }}
+
+      - name: Download release assets
+        uses: actions/download-artifact@v6
+        with:
+          name: release-assets-${{ env.RELEASE_TAG }}
+          path: dist/releases
+
       - name: Detect prerelease tag
         id: release_meta
         run: |
@@ -280,17 +377,3 @@ jobs:
             --tap-repo "${HOMEBREW_TAP_REPOSITORY}" \
             --cask-file dist/releases/tokenmon.rb \
             --commit-message "tokenmon ${RELEASE_TAG}"
-
-      - name: Upload release assets
-        uses: actions/upload-artifact@v6
-        with:
-          name: release-assets-${{ env.RELEASE_TAG }}
-          path: |
-            dist/releases/Tokenmon.app
-            dist/releases/*.zip
-            dist/releases/*.dmg
-            dist/releases/*.txt
-            dist/releases/SHA256SUMS.txt
-            dist/releases/tokenmon.rb
-            dist/releases/appcast.xml
-          retention-days: 14
