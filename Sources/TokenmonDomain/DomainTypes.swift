@@ -4,10 +4,11 @@ public enum ProviderCode: String, CaseIterable, Codable, Sendable {
     case claude
     case codex
     case gemini
+    case antigravity
     case cursor
 
     public static var allCases: [ProviderCode] {
-        [.claude, .codex, .gemini, .cursor]
+        [.claude, .codex, .gemini, .antigravity, .cursor]
     }
 
     public var displayName: String {
@@ -18,6 +19,8 @@ public enum ProviderCode: String, CaseIterable, Codable, Sendable {
             return "Codex"
         case .gemini:
             return "Gemini CLI"
+        case .antigravity:
+            return "Google Antigravity"
         case .cursor:
             return "Cursor"
         }
@@ -31,6 +34,8 @@ public enum ProviderCode: String, CaseIterable, Codable, Sendable {
             return "best_effort"
         case .gemini:
             return "first_class"
+        case .antigravity:
+            return "best_effort"
         case .cursor:
             return "managed_only"
         }

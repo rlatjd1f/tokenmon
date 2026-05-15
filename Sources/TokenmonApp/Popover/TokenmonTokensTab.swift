@@ -90,13 +90,14 @@ struct TokenmonTokensTab: View {
         }
     }
 
-    private var providerSplitOrder: [ProviderCode] { [.claude, .codex, .gemini, .cursor] }
+    private var providerSplitOrder: [ProviderCode] { [.claude, .codex, .gemini, .antigravity, .cursor] }
 
     private func providerColor(_ provider: ProviderCode) -> Color {
         switch provider {
         case .claude: return .orange
         case .codex: return .teal
         case .gemini: return .indigo
+        case .antigravity: return .pink
         case .cursor: return .green
         }
     }
@@ -106,6 +107,7 @@ struct TokenmonTokensTab: View {
         case .claude: return "Claude"
         case .codex: return "Codex"
         case .gemini: return "Gemini"
+        case .antigravity: return "AG"
         case .cursor: return "Cursor"
         }
     }

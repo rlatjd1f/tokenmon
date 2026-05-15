@@ -341,6 +341,8 @@ public enum BackfillRunStore {
             message = "Codex transcript backfill is unsupported for the current configuration"
         case .gemini:
             message = "Gemini transcript backfill is unsupported for the current configuration"
+        case .antigravity:
+            message = "Antigravity RPC recovery is unsupported for the current configuration"
         case .cursor:
             message = "Cursor transcript backfill is unsupported for the current configuration"
         }

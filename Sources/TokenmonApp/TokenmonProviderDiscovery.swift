@@ -173,6 +173,8 @@ enum TokenmonProviderDiscovery {
             return "codex"
         case .gemini:
             return "gemini"
+        case .antigravity:
+            return "antigravity"
         case .cursor:
             return "cursor"
         }
@@ -186,6 +188,10 @@ enum TokenmonProviderDiscovery {
             return resolvedHomeDirectory().appendingPathComponent(".codex", isDirectory: true).path
         case .gemini:
             return resolvedHomeDirectory().appendingPathComponent(".gemini", isDirectory: true).path
+        case .antigravity:
+            return resolvedHomeDirectory()
+                .appendingPathComponent("Library/Application Support/Google/Antigravity", isDirectory: true)
+                .path
         case .cursor:
             return resolvedHomeDirectory()
                 .appendingPathComponent("Library/Application Support/Cursor/User", isDirectory: true)

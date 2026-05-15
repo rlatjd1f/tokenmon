@@ -58,6 +58,7 @@ struct TokenmonProviderIndicator: View {
         case .claude: return "Claude"
         case .codex: return "Codex"
         case .gemini: return "Gemini"
+        case .antigravity: return "Antigravity"
         case .cursor: return "Cursor"
         }
     }

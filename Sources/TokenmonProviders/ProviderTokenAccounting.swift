@@ -12,6 +12,7 @@ public enum ProviderAccountingSemantics: String, Sendable {
     case codexProviderTotal = "codex_provider_total"
     case codexInputOutputFallback = "codex_input_output_fallback"
     case geminiProviderTotal = "gemini_provider_total"
+    case antigravityRpcMetadata = "antigravity_rpc_metadata"
     case cursorExportTotal = "cursor_export_total"
     case cursorComponentFallback = "cursor_component_fallback"
 }
@@ -123,6 +124,25 @@ public enum ProviderTokenAccounting {
             currentOutputTokens: currentOutputTokens,
             confidence: .providerReportedTotal,
             semantics: .geminiProviderTotal
+        )
+    }
+
+    public static func antigravityRPCMetadata(
+        totalInputTokens: Int64,
+        totalOutputTokens: Int64,
+        totalCachedInputTokens: Int64,
+        currentInputTokens: Int64?,
+        currentOutputTokens: Int64?
+    ) -> ProviderAccountingSample {
+        ProviderAccountingSample(
+            totalInputTokens: totalInputTokens,
+            totalOutputTokens: totalOutputTokens,
+            totalCachedInputTokens: totalCachedInputTokens,
+            normalizedTotalTokens: totalInputTokens + totalOutputTokens + totalCachedInputTokens,
+            currentInputTokens: currentInputTokens,
+            currentOutputTokens: currentOutputTokens,
+            confidence: .componentDerivedTotal,
+            semantics: .antigravityRpcMetadata
         )
     }
 

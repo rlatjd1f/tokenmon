@@ -69,6 +69,8 @@ enum TokenmonProviderOnboarding {
                 )
             case .gemini:
                 return inspectGemini(preferences: preferences)
+            case .antigravity:
+                return inspectAntigravity(databasePath: databasePath, preferences: preferences)
             case .cursor:
                 return inspectCursor(databasePath: databasePath, preferences: preferences)
             }
@@ -109,6 +111,11 @@ enum TokenmonProviderOnboarding {
                 executablePath: executablePath,
                 preferences: preferences
             )
+        case .antigravity:
+            return TokenmonProviderInstallResult(
+                provider: .antigravity,
+                message: TokenmonL10n.string("provider.install.antigravity.no_setup")
+            )
         case .cursor:
             return TokenmonProviderInstallResult(
                 provider: .cursor,
@@ -128,6 +135,14 @@ enum TokenmonProviderOnboarding {
                     provider: provider,
                     configured: false,
                     message: TokenmonL10n.string("provider.cursor.sync.detail"),
+                    error: nil
+                )
+            }
+            if provider == .antigravity {
+                return TokenmonProviderAutoSetupResult(
+                    provider: provider,
+                    configured: false,
+                    message: TokenmonL10n.string("provider.antigravity.no_setup.detail"),
                     error: nil
                 )
             }
@@ -227,6 +242,49 @@ enum TokenmonProviderOnboarding {
             configurationSource: discovery.configurationSource,
             usesCustomExecutablePath: discovery.usesCustomExecutablePath,
             usesCustomConfigurationPath: discovery.usesCustomConfigurationPath,
+            codexMode: nil
+        )
+    }
+
+    private static func inspectAntigravity(
+        databasePath: String,
+        preferences: ProviderInstallationPreferences
+    ) -> TokenmonProviderOnboardingStatus {
+        let discovery = TokenmonProviderDiscovery.discover(provider: .antigravity, preferences: preferences)
+        let healthSummary = try? TokenmonDatabaseManager(path: databasePath)
+            .providerHealthSummaries()
+            .first(where: { $0.provider == .antigravity })
+        let healthState = healthSummary?.healthState
+        let isActive = healthState == "active"
+        let isConnected = isActive || healthState == "connected"
+        let isDegraded = healthState == "degraded"
+
+        return TokenmonProviderOnboardingStatus(
+            provider: .antigravity,
+            cliInstalled: true,
+            isConnected: isConnected,
+            isPartial: isDegraded,
+            title: TokenmonL10n.string(
+                isActive
+                    ? "provider.antigravity.active.title"
+                    : isConnected
+                    ? "provider.antigravity.connected.title"
+                    : (isDegraded ? "provider.antigravity.degraded.title" : "provider.antigravity.not_running.title")
+            ),
+            detail: TokenmonL10n.string(
+                isActive
+                    ? "provider.antigravity.active.detail"
+                    : isConnected
+                    ? "provider.antigravity.connected.detail"
+                    : (isDegraded ? "provider.antigravity.degraded.detail" : "provider.antigravity.not_running.detail")
+            ),
+            actionTitle: nil,
+            executablePath: discovery.executablePath,
+            executableSource: discovery.executableSource,
+            configurationPath: discovery.configurationPath,
+            configurationSource: discovery.configurationSource,
+            usesCustomExecutablePath: false,
+            usesCustomConfigurationPath: false,
             codexMode: nil
         )
     }

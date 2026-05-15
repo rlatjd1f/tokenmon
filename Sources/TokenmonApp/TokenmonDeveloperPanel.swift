@@ -1881,6 +1881,10 @@ private struct TokenmonDeveloperStateBadge: View {
             title = "Connected"
             tint = .green
             systemImage = "checkmark.circle.fill"
+        case .degraded:
+            title = "Degraded"
+            tint = .orange
+            systemImage = "exclamationmark.triangle.fill"
         case .repair:
             title = "Repair"
             tint = .orange
@@ -1889,6 +1893,10 @@ private struct TokenmonDeveloperStateBadge: View {
             title = "Needs Setup"
             tint = .accentColor
             systemImage = "exclamationmark.circle.fill"
+        case .notRunning:
+            title = "Not Running"
+            tint = .secondary
+            systemImage = "play.slash.fill"
         case .notFound:
             title = "Not Found"
             tint = .secondary

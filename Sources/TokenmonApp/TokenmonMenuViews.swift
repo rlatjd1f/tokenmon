@@ -1307,8 +1307,10 @@ struct TokenmonProviderOverviewSummary: Equatable {
 
 enum TokenmonProviderCardState: Equatable {
     case connected
+    case degraded
     case repair
     case needsSetup
+    case notRunning
     case notFound
 }
 
@@ -1347,6 +1349,9 @@ enum TokenmonSettingsPresentationBuilder {
         if status.isConnected {
             return .connected
         }
+        if status.provider == .antigravity {
+            return status.isPartial ? .degraded : .notRunning
+        }
         if status.isPartial {
             return .repair
         }
@@ -1375,6 +1380,9 @@ enum TokenmonSettingsPresentationBuilder {
         if status.provider == .cursor {
             pieces.append(TokenmonL10n.string("settings.providers.metadata.stats_only_no_gameplay"))
         }
+        if status.provider == .antigravity {
+            pieces.append(TokenmonL10n.string("settings.providers.metadata.antigravity_local_only"))
+        }
 
         return pieces.joined(separator: " · ")
     }
@@ -1383,6 +1391,8 @@ enum TokenmonSettingsPresentationBuilder {
         switch provider {
         case .claude, .gemini:
             return "first_class"
+        case .antigravity:
+            return "best_effort"
         case .codex:
             return "best_effort"
         case .cursor:
@@ -1457,6 +1467,10 @@ enum TokenmonSettingsPresentationBuilder {
             return TokenmonL10n.string("settings.providers.source_mode.cursor_usage_export_api")
         case "cursor_legacy_usage_sample":
             return TokenmonL10n.string("settings.providers.source_mode.cursor_legacy_usage_sample")
+        case "antigravity_rpc_metadata_live":
+            return TokenmonL10n.string("settings.providers.source_mode.antigravity_rpc_metadata_live")
+        case "antigravity_rpc_metadata_recovery":
+            return TokenmonL10n.string("settings.providers.source_mode.antigravity_rpc_metadata_recovery")
         default:
             return rawValue
                 .replacingOccurrences(of: "_", with: " ")
@@ -1711,7 +1725,14 @@ private struct TokenmonProviderSettingsCard: View {
                     geminiReceiverStateLabel(receiverState)
                 }
 
-                DisclosureGroup(TokenmonL10n.string("settings.providers.troubleshooting"), isExpanded: $troubleshootingExpanded) {
+                if status.provider == .antigravity {
+                    TokenmonSettingsStatusRow(
+                        text: TokenmonL10n.string("settings.providers.antigravity.no_setup_note"),
+                        systemImage: "info.circle.fill",
+                        tint: .secondary
+                    )
+                } else {
+                    DisclosureGroup(TokenmonL10n.string("settings.providers.troubleshooting"), isExpanded: $troubleshootingExpanded) {
                     VStack(alignment: .leading, spacing: 10) {
                         pathRow(
                             title: TokenmonL10n.string("settings.providers.path.executable"),
@@ -1752,6 +1773,7 @@ private struct TokenmonProviderSettingsCard: View {
                             .foregroundStyle(.secondary)
                     }
                     .padding(.top, 8)
+                    }
                 }
             }
         }
@@ -1765,6 +1787,8 @@ private struct TokenmonProviderSettingsCard: View {
             return "terminal"
         case .gemini:
             return "antenna.radiowaves.left.and.right"
+        case .antigravity:
+            return "atom"
         case .cursor:
             return "arrow.triangle.branch"
         }
@@ -1782,7 +1806,7 @@ private struct TokenmonProviderSettingsCard: View {
             }
             .tokenmonAdaptiveButtonStyle(.prominent)
             .controlSize(.small)
-        } else if status.cliInstalled == false {
+        } else if status.cliInstalled == false && status.provider != .antigravity {
             Button(TokenmonL10n.string("settings.providers.action.choose_path")) {
                 onChooseExecutable(status.provider)
             }
@@ -1850,10 +1874,14 @@ private extension TokenmonProviderCardState {
         switch self {
         case .connected:
             return TokenmonL10n.string("provider.card_state.connected")
+        case .degraded:
+            return TokenmonL10n.string("provider.card_state.degraded")
         case .repair:
             return TokenmonL10n.string("provider.card_state.repair")
         case .needsSetup:
             return TokenmonL10n.string("provider.card_state.needs_setup")
+        case .notRunning:
+            return TokenmonL10n.string("provider.card_state.not_running")
         case .notFound:
             return TokenmonL10n.string("provider.card_state.not_found")
         }
@@ -1863,10 +1891,14 @@ private extension TokenmonProviderCardState {
         switch self {
         case .connected:
             return "checkmark.circle.fill"
+        case .degraded:
+            return "exclamationmark.triangle.fill"
         case .repair:
             return "wrench.and.screwdriver.fill"
         case .needsSetup:
             return "exclamationmark.circle.fill"
+        case .notRunning:
+            return "play.slash.fill"
         case .notFound:
             return "magnifyingglass"
         }
@@ -1876,10 +1908,14 @@ private extension TokenmonProviderCardState {
         switch self {
         case .connected:
             return .green
+        case .degraded:
+            return .orange
         case .repair:
             return .orange
         case .needsSetup:
             return .accentColor
+        case .notRunning:
+            return .secondary
         case .notFound:
             return .secondary
         }

@@ -118,6 +118,7 @@ final class TokenmonAppController {
     private var geminiSupervisor: GeminiOtelReceiverSupervisor?
     private var claudeTranscriptLiveObserver: ClaudeTranscriptLiveObserver?
     private var codexSessionStoreObserver: CodexSessionStoreObserver?
+    private var antigravityLocalRPCObserver: AntigravityLocalRPCObserver?
     private var codexSessionsRootPath: String?
     private var startupTask: Task<Void, Never>?
     private var recoveryTask: Task<Void, Never>?
@@ -363,11 +364,41 @@ final class TokenmonAppController {
             observer.startAsync()
             logStartupPhase("codex_session_observer_started", startedAt: phaseStartedAt)
 
+            phaseStartedAt = Date()
+            let antigravityObserver = AntigravityLocalRPCObserver(
+                config: AntigravityLocalRPCObserverConfig(
+                    outputPath: TokenmonDatabaseManager.inboxPath(provider: .antigravity, databasePath: databasePath),
+                    onHealthChange: { [weak self] health in
+                        try? TokenmonDatabaseManager(path: databasePath).upsertProviderHealth(
+                            provider: .antigravity,
+                            sourceMode: health.sourceMode,
+                            healthState: health.healthState,
+                            message: health.message,
+                            lastSuccessAt: health.lastSuccessAt,
+                            lastErrorAt: health.lastErrorAt,
+                            lastErrorCode: health.lastErrorCode,
+                            lastErrorSummary: health.lastErrorSummary
+                        )
+                        Task { @MainActor [weak self] in
+                            self?.menuModel.refresh(reason: .inboxEvent)
+                        }
+                    },
+                    onActivityPulse: { [weak self] in
+                        Task { @MainActor [weak self] in
+                            self?.menuModel.recordLiveActivityPulse()
+                        }
+                    }
+                )
+            )
+            antigravityObserver.startAsync()
+            logStartupPhase("antigravity_rpc_observer_started", startedAt: phaseStartedAt)
+
             await MainActor.run {
                 let mainActorPhaseStartedAt = Date()
                 self.claudeTranscriptLiveObserver = claudeObserver
                 self.codexSessionsRootPath = sessionsRootPath
                 self.codexSessionStoreObserver = observer
+                self.antigravityLocalRPCObserver = antigravityObserver
 
                 let liveMonitoringStartedAt = Date()
                 self.menuModel.activateLiveMonitoring()
@@ -543,6 +574,8 @@ final class TokenmonAppController {
         claudeTranscriptLiveObserver = nil
         codexSessionStoreObserver?.stop()
         codexSessionStoreObserver = nil
+        antigravityLocalRPCObserver?.stop()
+        antigravityLocalRPCObserver = nil
         clearOnboardingWindow(closeWindow: true)
         if let supervisor = geminiSupervisor {
             Task { @MainActor in

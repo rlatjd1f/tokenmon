@@ -1150,6 +1150,8 @@ final class TokenmonMenuModel: ObservableObject {
                 }
             case .gemini:
                 settingsMessage = TokenmonL10n.string("settings.feedback.gemini_backfill_unsupported")
+            case .antigravity:
+                settingsMessage = TokenmonL10n.string("settings.feedback.antigravity_backfill_unsupported")
             case .cursor:
                 settingsMessage = "Cursor transcript backfill is not supported"
             }
@@ -1172,6 +1174,8 @@ final class TokenmonMenuModel: ObservableObject {
             return TokenmonL10n.string("settings.providers.next_step.codex_unsupported")
         case (.gemini, "missing_configuration"):
             return TokenmonL10n.string("settings.providers.next_step.gemini_missing_configuration")
+        case (.antigravity, "missing_configuration"):
+            return TokenmonL10n.string("settings.providers.next_step.antigravity_missing_configuration")
         case (.cursor, "missing_configuration"):
             return TokenmonL10n.string("settings.providers.next_step.cursor_missing_configuration")
         case (_, "experimental"):

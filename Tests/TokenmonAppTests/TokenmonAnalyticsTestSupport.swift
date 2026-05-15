@@ -27,6 +27,7 @@ final class TokenmonAnalyticsTrackerSpy: TokenmonAnalyticsTracking {
         let claude = providerHealthSummaries.first { $0.provider == .claude }
         let codex = providerHealthSummaries.first { $0.provider == .codex }
         let gemini = providerHealthSummaries.first { $0.provider == .gemini }
+        let antigravity = providerHealthSummaries.first { $0.provider == .antigravity }
         append(
             "tokenmon_app_opened",
             [
@@ -37,9 +38,11 @@ final class TokenmonAnalyticsTrackerSpy: TokenmonAnalyticsTracking {
                 "claude_connected": Self.isConnected(claude),
                 "codex_connected": Self.isConnected(codex),
                 "gemini_connected": Self.isConnected(gemini),
+                "antigravity_connected": Self.isConnected(antigravity),
                 "claude_live_gameplay_armed": (claude?.liveGameplayArmed ?? false) ? "true" : "false",
                 "codex_live_gameplay_armed": (codex?.liveGameplayArmed ?? false) ? "true" : "false",
                 "gemini_live_gameplay_armed": (gemini?.liveGameplayArmed ?? false) ? "true" : "false",
+                "antigravity_live_gameplay_armed": (antigravity?.liveGameplayArmed ?? false) ? "true" : "false",
             ]
         )
     }

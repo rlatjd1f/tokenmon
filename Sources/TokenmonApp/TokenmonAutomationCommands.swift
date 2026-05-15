@@ -593,7 +593,7 @@ enum TokenmonAutomationCommand {
 
     private static func runBackfillCommand(providerRawValue: String, arguments: [String]) throws -> String {
         guard let provider = ProviderCode(rawValue: providerRawValue) else {
-            throw AutomationError.invalidUsage("expected `--tokenmon-backfill <claude|codex>`")
+            throw AutomationError.invalidUsage("expected `--tokenmon-backfill <claude|codex|gemini|antigravity|cursor>`")
         }
         guard let transcriptPath = optionValue("--transcript", in: arguments) else {
             throw AutomationError.invalidUsage("missing required --transcript <path>")
@@ -644,6 +644,8 @@ enum TokenmonAutomationCommand {
             ].joined(separator: "\n")
         case .gemini:
             throw AutomationError.invalidUsage("gemini transcript backfill is not yet supported")
+        case .antigravity:
+            throw AutomationError.invalidUsage("antigravity rpc recovery is not yet supported")
         case .cursor:
             throw AutomationError.invalidUsage("cursor transcript backfill is not yet supported")
         }
@@ -1038,6 +1040,8 @@ enum TokenmonAutomationCommand {
             return "Codex is watched automatically; inspect the local session store path if live updates are missing"
         case (.gemini, "missing_configuration"):
             return "Tokenmon should configure Gemini automatically; repair Gemini if telemetry is still unavailable"
+        case (.antigravity, "missing_configuration"):
+            return "open Google Antigravity; Tokenmon observes local RPC metadata only while Antigravity is running"
         case (.cursor, "missing_configuration"):
             return "Sync Cursor usage from Tokenmon to import the latest managed-only accounting data."
         case (_, "experimental"):
