@@ -2057,6 +2057,17 @@ struct TokenmonDataContractTests {
     }
 
     @Test
+    func antigravityProcessCommandRunnerDrainsLargeOutputBeforeWaiting() {
+        let output = AntigravityProcessLocator.runCommand(
+            executable: "/usr/bin/seq",
+            arguments: ["1", "20000"]
+        )
+
+        #expect(output.hasPrefix("1\n2\n3\n"))
+        #expect(output.contains("20000\n"))
+    }
+
+    @Test
     func antigravityMetadataParserFoldsReasoningIntoOutputAndBuildsRunningTotals() {
         let rows: [Any] = [
             [
