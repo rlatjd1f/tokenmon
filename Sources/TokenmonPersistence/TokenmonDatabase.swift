@@ -247,6 +247,54 @@ public final class TokenmonDatabaseManager {
         )
     }
 
+    public func upsertProviderHealth(
+        provider: ProviderCode,
+        sourceMode: String,
+        healthState: String,
+        message: String,
+        lastSuccessAt: String?,
+        lastErrorAt: String?,
+        lastErrorCode: String?,
+        lastErrorSummary: String?,
+        updatedAt: String = ISO8601DateFormatter().string(from: Date())
+    ) throws {
+        let database = try open()
+        try database.execute(
+            """
+            INSERT INTO provider_health (
+                provider_code,
+                source_mode,
+                health_state,
+                message,
+                last_success_at,
+                last_error_at,
+                last_error_code,
+                last_error_summary,
+                updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(provider_code, source_mode) DO UPDATE SET
+                health_state = excluded.health_state,
+                message = excluded.message,
+                last_success_at = COALESCE(excluded.last_success_at, provider_health.last_success_at),
+                last_error_at = excluded.last_error_at,
+                last_error_code = excluded.last_error_code,
+                last_error_summary = excluded.last_error_summary,
+                updated_at = excluded.updated_at;
+            """,
+            bindings: [
+                .text(provider.rawValue),
+                .text(sourceMode),
+                .text(healthState),
+                .text(message),
+                lastSuccessAt.map(SQLiteValue.text) ?? .null,
+                lastErrorAt.map(SQLiteValue.text) ?? .null,
+                lastErrorCode.map(SQLiteValue.text) ?? .null,
+                lastErrorSummary.map(SQLiteValue.text) ?? .null,
+                .text(updatedAt),
+            ]
+        )
+    }
+
     public func resetProgress(startedAt: String = ISO8601DateFormatter().string(from: Date())) throws {
         let database = try open()
         let now = ISO8601DateFormatter().string(from: Date())

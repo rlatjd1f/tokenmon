@@ -758,6 +758,13 @@ public final class UsageSampleIngestionService {
         previousSample: PreviousUsageSampleState?,
         sessionResetBaseline: Int64?
     ) throws -> GameplayEligibilityDecision {
+        if event.sourceMode == "antigravity_rpc_metadata_recovery" {
+            return GameplayEligibilityDecision(
+                eligibility: .recoveryOnly,
+                rawEligibleDeltaTokens: 0
+            )
+        }
+
         if sourceKind != "ndjson_file" {
             return GameplayEligibilityDecision(
                 eligibility: .recoveryOnly,

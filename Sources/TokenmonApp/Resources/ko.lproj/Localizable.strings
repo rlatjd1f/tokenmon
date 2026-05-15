@@ -294,8 +294,10 @@
 "provider.indicator.tooltip" = "%1$@ — %2$.%3$@";
 "provider.indicator.accessibility" = "%1$@ 프로바이더, 상태: %2$@";
 "provider.card_state.connected" = "연결됨";
+"provider.card_state.degraded" = "저하됨";
 "provider.card_state.repair" = "복구";
 "provider.card_state.needs_setup" = "설정 필요";
+"provider.card_state.not_running" = "실행 중 아님";
 "provider.card_state.not_found" = "찾을 수 없음";
 
 "provider.auto_setup.cli_not_found" = "%1$@ CLI를 찾지 못해 자동 설정을 건너뜁니다.";
@@ -306,6 +308,7 @@
 "provider.install.codex.success" = "Codex 관찰은 automatic입니다. Tokenmon이 로컬 Codex 세션 파일을 별도 설치 없이 감시합니다.";
 "provider.install.gemini.success" = "Gemini 텔레메트리가 자동으로 설정되었습니다. Tokenmon이 127.0.0.1:4317에서 라이브 텔레메트리를 받습니다.";
 "provider.install.gemini.already_configured" = "Gemini 텔레메트리가 이미 Tokenmon용으로 설정되어 있습니다.";
+"provider.install.antigravity.no_setup" = "Antigravity 관찰은 로컬 전용이며 설정 변경이 필요 없습니다. Google Antigravity를 평소처럼 실행하세요.";
 "provider.gemini.install.conflict_error" = "Gemini 텔레메트리가 이미 %1$@ 대상으로 설정되어 있습니다. Tokenmon으로 전환하려면 설정에서 엔드포인트를 덮어쓰세요.";
 
 "provider.claude.missing.title" = "Claude 감지 안 됨";
@@ -504,13 +507,13 @@
 "settings.feedback.provider_paths_updated" = "프로바이더 경로를 업데이트했습니다.";
 
 "settings.providers.header.title" = "프로바이더";
-"settings.providers.header.subtitle" = "가능한 경우 Tokenmon이 Claude Code, Codex, Gemini를 자동으로 설정합니다.";
+"settings.providers.header.subtitle" = "가능한 경우 Tokenmon이 Claude Code, Codex, Gemini를 자동으로 설정하고 Antigravity는 실행 중일 때만 관찰합니다.";
 "settings.providers.action.detect_again" = "다시 감지";
 "settings.providers.section.overview" = "개요";
 "settings.providers.overview.providers" = "프로바이더";
 "settings.providers.overview.connected" = "연결됨";
 "settings.providers.overview.needs_attention" = "주의 필요";
-"settings.providers.overview.codex_note" = "Codex 로컬 세션 추적은 best-effort이며, managed codex exec --json이 가장 신뢰도 높은 Codex 경로입니다.";
+"settings.providers.overview.codex_note" = "Codex 로컬 세션 추적과 Antigravity 로컬 RPC 추적은 best-effort이며, managed codex exec --json이 가장 신뢰도 높은 Codex 경로입니다.";
 "settings.providers.metadata.support" = "지원 수준: %1$@";
 "settings.providers.metadata.reliability" = "신뢰도: %1$@";
 "settings.providers.metadata.mode" = "모드: %1$@";
@@ -725,9 +728,24 @@
 "provider.cursor.sync_again.action" = "Cursor 다시 동기화";
 "provider.cursor.connected.title" = "Cursor 동기화됨";
 "provider.cursor.connected.detail" = "최근 Cursor 사용량이 Tokenmon 통계로 가져와졌습니다. Cursor row는 통계 전용이며 encounter, raid, Dex 진행을 만들 수 없습니다.";
+"provider.antigravity.not_running.title" = "Antigravity가 실행 중이 아님";
+"provider.antigravity.not_running.detail" = "Tokenmon은 로컬 Antigravity 앱이 열려 있을 때만 관찰합니다. Antigravity를 평소처럼 실행하면 best-effort 로컬 RPC 메타데이터 추적을 시도합니다.";
+"provider.antigravity.connected.title" = "Antigravity 연결됨";
+"provider.antigravity.connected.detail" = "로컬 RPC 메타데이터 추적이 연결되었습니다. Tokenmon은 토큰 메타데이터만 읽고 prompt, response, tool content는 읽지 않습니다.";
+"provider.antigravity.active.title" = "Antigravity 활성";
+"provider.antigravity.active.detail" = "로컬 RPC 메타데이터 추적이 활성 상태입니다. 라이브 기준선 이후 관찰된 새 토큰 메타데이터가 게임플레이에 반영될 수 있습니다.";
+"provider.antigravity.degraded.title" = "Antigravity 추적 저하";
+"provider.antigravity.degraded.detail" = "Tokenmon이 Antigravity를 찾았지만 로컬 RPC 메타데이터를 안정적으로 읽지 못했습니다.";
+"provider.antigravity.no_setup.detail" = "Google Antigravity 지원은 실험적이고 로컬 전용입니다. Tokenmon은 hooks를 설치하거나 Antigravity 설정을 바꾸지 않습니다.";
 "settings.providers.support.managed_only" = "managed-only";
 "settings.providers.source_mode.cursor_usage_export_api" = "Usage export 동기화";
+"settings.providers.source_mode.antigravity_rpc_metadata_live" = "로컬 RPC 메타데이터 라이브";
+"settings.providers.source_mode.antigravity_rpc_metadata_recovery" = "로컬 RPC 메타데이터 복구";
 "settings.providers.next_step.cursor_missing_configuration" = "Tokenmon에서 Cursor usage sync를 실행해 최신 managed-only accounting 데이터를 가져오세요.";
+"settings.providers.next_step.antigravity_missing_configuration" = "Google Antigravity를 여세요. Tokenmon은 로컬 앱이 실행 중일 때만 관찰합니다.";
+"settings.providers.antigravity.no_setup_note" = "설정 변경은 없습니다. Antigravity를 평소처럼 실행하면 Tokenmon이 best-effort 로컬 RPC 관찰을 시도합니다.";
+"settings.providers.metadata.antigravity_local_only" = "로컬 RPC 메타데이터 전용";
+"settings.feedback.antigravity_backfill_unsupported" = "Antigravity RPC 복구는 아직 지원되지 않습니다.";
 "settings.feedback.cursor_sync_started" = "Cursor 사용량을 Tokenmon으로 동기화하는 중…";
 "popover.tab.raid" = "레이드";
 "raid.hp" = "HP";

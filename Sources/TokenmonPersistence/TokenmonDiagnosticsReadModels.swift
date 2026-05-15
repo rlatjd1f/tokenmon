@@ -412,6 +412,12 @@ public extension TokenmonDatabaseManager {
                 "missing_configuration",
                 "Gemini observation is not configured yet"
             )
+        case .antigravity:
+            return (
+                sourceMode ?? "antigravity_rpc_metadata_live",
+                "missing_configuration",
+                "Google Antigravity is not running; Tokenmon observes local RPC metadata only while Antigravity is open"
+            )
         case .cursor:
             return (
                 sourceMode ?? "cursor_usage_export_api",
@@ -428,6 +434,8 @@ public extension TokenmonDatabaseManager {
         case .codex:
             return "automatic_supported"
         case .gemini:
+            return "unavailable"
+        case .antigravity:
             return "unavailable"
         case .cursor:
             return "api_sync_supported"
@@ -453,6 +461,9 @@ public extension TokenmonDatabaseManager {
                 && sourceMode != "claude_transcript_backfill"
         case .gemini:
             return healthState != "missing_configuration" && healthState != "unsupported"
+        case .antigravity:
+            return sourceMode == "antigravity_rpc_metadata_live"
+                && (healthState == "active" || healthState == "connected")
         case .cursor:
             return false
         }
@@ -472,6 +483,8 @@ public extension TokenmonDatabaseManager {
             return sourceMode == "claude_transcript_live" ? "best_effort" : "first_class"
         case .gemini:
             return "first_class"
+        case .antigravity:
+            return "best_effort"
         case .codex:
             return sourceMode == "codex_exec_json" ? "managed_first_class" : "best_effort"
         case .cursor:
@@ -518,6 +531,27 @@ public extension TokenmonDatabaseManager {
                 "legacy_gameplay_delta_tokens": "\(legacyGameplayDeltaTokens)",
                 "legacy_cursor_encounters": "\(legacyCursorEncounters)",
                 "legacy_cursor_gameplay_history_detected": legacyCursorEncounters > 0 ? "yes" : "no",
+            ]
+        case .antigravity:
+            let usageSamples = try database.fetchOne(
+                "SELECT COUNT(*) FROM usage_samples WHERE provider_code = 'antigravity';"
+            ) { statement in
+                SQLiteDatabase.columnInt64(statement, index: 0)
+            } ?? 0
+            let liveSamples = try database.fetchOne(
+                """
+                SELECT COUNT(*)
+                FROM usage_samples
+                WHERE provider_code = 'antigravity'
+                  AND gameplay_eligibility = 'eligible_live';
+                """
+            ) { statement in
+                SQLiteDatabase.columnInt64(statement, index: 0)
+            } ?? 0
+            return [
+                "usage_samples": "\(usageSamples)",
+                "eligible_live_samples": "\(liveSamples)",
+                "support_level": "best_effort",
             ]
         case .claude, .codex, .gemini:
             return [:]

@@ -554,6 +554,8 @@ private extension ProviderCode {
             return "Codex"
         case .gemini:
             return "Gemini"
+        case .antigravity:
+            return "Antigravity"
         case .cursor:
             return "Cursor"
         }

@@ -175,6 +175,9 @@ final class TokenmonInboxMonitor: @unchecked Sendable {
             case .gemini:
                 ProviderBackfillRequestQueue.removeRequest(at: pendingRequest.filePath)
                 continue
+            case .antigravity:
+                ProviderBackfillRequestQueue.removeRequest(at: pendingRequest.filePath)
+                continue
             case .cursor:
                 ProviderBackfillRequestQueue.removeRequest(at: pendingRequest.filePath)
                 continue

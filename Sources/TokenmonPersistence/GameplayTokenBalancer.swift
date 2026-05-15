@@ -274,6 +274,8 @@ enum GameplayTokenBalancer {
             return 0.15
         case .gemini:
             return 0.35
+        case .antigravity:
+            return 0.35
         case .cursor:
             return 0.50
         }

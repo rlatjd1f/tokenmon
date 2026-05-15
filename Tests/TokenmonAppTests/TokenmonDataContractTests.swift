@@ -2014,6 +2014,198 @@ struct TokenmonDataContractTests {
     }
 
     @Test
+    func providerCodeIncludesAntigravityWithBestEffortMetadata() throws {
+        let manager = try makeManager(prefix: "tokenmon-provider-antigravity")
+        let database = try manager.open()
+
+        #expect(ProviderCode.allCases.contains(.antigravity))
+        #expect(ProviderCode(rawValue: "antigravity") == .antigravity)
+        #expect(ProviderCode.antigravity.displayName == "Google Antigravity")
+        #expect(ProviderCode.antigravity.defaultSupportLevel == "best_effort")
+
+        let displayName = try database.fetchOne(
+            "SELECT display_name FROM providers WHERE provider_code = 'antigravity';"
+        ) { statement in
+            SQLiteDatabase.columnText(statement, index: 0)
+        }
+        let supportLevel = try database.fetchOne(
+            "SELECT default_support_level FROM providers WHERE provider_code = 'antigravity';"
+        ) { statement in
+            SQLiteDatabase.columnText(statement, index: 0)
+        }
+        #expect(displayName == "Google Antigravity")
+        #expect(supportLevel == "best_effort")
+    }
+
+    @Test
+    func antigravityProcessParserExtractsTokenAndPorts() {
+        let output = """
+          PID  PPID ARGS
+          101     1 /Applications/Google Antigravity.app/Contents/Resources/app/bin/language_server_macos_arm --app_data_dir antigravity --csrf_token abc-123 --extension_server_port 54321
+          102     1 /usr/bin/other --csrf_token ignored --extension_server_port 11111
+        """
+
+        let candidates = AntigravityProcessLocator.parseProcessCandidates(psOutput: output)
+        #expect(candidates.count == 1)
+        #expect(candidates.first?.pid == 101)
+        #expect(candidates.first?.ppid == 1)
+        #expect(candidates.first?.csrfToken == "abc-123")
+        #expect(candidates.first?.extensionServerPort == 54321)
+
+        let ports = AntigravityProcessLocator.parseListeningPorts(lsofOutput: "node 101 user TCP 127.0.0.1:54321 (LISTEN)")
+        #expect(ports == [54321])
+    }
+
+    @Test
+    func antigravityMetadataParserFoldsReasoningIntoOutputAndBuildsRunningTotals() {
+        let rows: [Any] = [
+            [
+                "timestamp": "2026-05-15T00:00:01Z",
+                "model": "gemini-3-pro",
+                "retryInfos": [
+                    [
+                        "responseId": "response-1",
+                        "usage": [
+                            "inputTokens": 100,
+                            "outputTokens": 40,
+                            "thinkingOutputTokens": 5,
+                            "cacheReadTokens": 10,
+                            "cacheWriteTokens": 999,
+                        ],
+                    ],
+                    [
+                        "responseId": "response-2",
+                        "usage": [
+                            "inputTokens": 50,
+                            "outputTokens": 20,
+                            "thinkingOutputTokens": 7,
+                            "cacheReadTokens": 5,
+                        ],
+                    ],
+                ],
+            ],
+        ]
+
+        let events = AntigravityRPCMetadataAdapter.usageEvents(
+            fromMetadataRows: rows,
+            sessionID: "ag-session",
+            nowProvider: { "2026-05-15T00:00:00Z" }
+        )
+
+        #expect(events.count == 2)
+        #expect(events[0].provider == .antigravity)
+        #expect(events[0].sourceMode == "antigravity_rpc_metadata_live")
+        #expect(events[0].totalInputTokens == 100)
+        #expect(events[0].totalOutputTokens == 45)
+        #expect(events[0].totalCachedInputTokens == 10)
+        #expect(events[0].normalizedTotalTokens == 155)
+        #expect(events[0].rawReference.kind == "antigravity-rpc")
+        #expect(events[0].rawReference.offset == "response-1")
+        #expect(events[0].rawReference.eventName == "GetCascadeTrajectoryGeneratorMetadata")
+
+        #expect(events[1].totalInputTokens == 150)
+        #expect(events[1].totalOutputTokens == 72)
+        #expect(events[1].totalCachedInputTokens == 15)
+        #expect(events[1].normalizedTotalTokens == 237)
+        #expect(events[1].providerEventFingerprint == "antigravity-rpc:ag-session:response-2")
+    }
+
+    @Test
+    func antigravityMetadataParserDedupesDuplicateResponseIDsAndSkipsUnsafeTokenRows() {
+        let duplicateRows: [Any] = [
+            [
+                "retryInfos": [
+                    [
+                        "responseId": "duplicate-response",
+                        "usage": ["inputTokens": 10, "outputTokens": 5, "cacheReadTokens": 0],
+                    ],
+                    [
+                        "responseId": "duplicate-response",
+                        "usage": ["inputTokens": 100, "outputTokens": 50, "cacheReadTokens": 0],
+                    ],
+                ],
+            ],
+        ]
+        let duplicateEvents = AntigravityRPCMetadataAdapter.usageEvents(
+            fromMetadataRows: duplicateRows,
+            sessionID: "ag-session",
+            nowProvider: { "2026-05-15T00:00:00Z" }
+        )
+        #expect(duplicateEvents.count == 1)
+        #expect(duplicateEvents[0].normalizedTotalTokens == 15)
+
+        let unsafeRows: [Any] = [
+            ["retryInfos": [["usage": ["inputTokens": 0, "outputTokens": 0, "cacheReadTokens": 0]]]],
+            ["retryInfos": [["usage": ["inputTokens": -1, "outputTokens": 10, "cacheReadTokens": 0]]]],
+            ["retryInfos": [["usage": ["inputTokens": "oops", "outputTokens": 10, "cacheReadTokens": 0]]]],
+        ]
+        let unsafeEvents = AntigravityRPCMetadataAdapter.usageEvents(
+            fromMetadataRows: unsafeRows,
+            sessionID: "ag-session",
+            nowProvider: { "2026-05-15T00:00:00Z" }
+        )
+        #expect(unsafeEvents.isEmpty)
+    }
+
+    @Test
+    func antigravityRecoverySourceModeCreatesNoGameplayDeltaEvenFromInboxSourceKind() throws {
+        let manager = try makeManager(prefix: "tokenmon-antigravity-recovery")
+        let database = try manager.open()
+        try upsertStringSetting(
+            database: database,
+            key: "live_gameplay_started_at",
+            value: "2026-05-15T00:00:00Z"
+        )
+        let event = ProviderUsageSampleEvent(
+            eventType: "provider_usage_sample",
+            provider: .antigravity,
+            sourceMode: "antigravity_rpc_metadata_recovery",
+            providerSessionID: "ag-recovery-session",
+            observedAt: "2026-05-15T00:01:00Z",
+            workspaceDir: nil,
+            modelSlug: "gemini-3-pro",
+            transcriptPath: nil,
+            totalInputTokens: 100,
+            totalOutputTokens: 50,
+            totalCachedInputTokens: 10,
+            normalizedTotalTokens: 160,
+            providerEventFingerprint: "antigravity-rpc:ag-recovery-session:response-1",
+            rawReference: ProviderRawReference(
+                kind: "antigravity-rpc",
+                offset: "response-1",
+                eventName: "GetCascadeTrajectoryGeneratorMetadata"
+            ),
+            currentInputTokens: 100,
+            currentOutputTokens: 50,
+            sessionOriginHint: .startedDuringLiveRuntime
+        )
+
+        let result = try UsageSampleIngestionService(databasePath: manager.path).ingestProviderEvents(
+            database: database,
+            events: [event],
+            sourceKey: "test-antigravity-recovery",
+            sourceKind: "ndjson_file"
+        )
+        #expect(result.acceptedEvents == 1)
+
+        let row = try database.fetchOne(
+            """
+            SELECT gameplay_eligibility, gameplay_delta_tokens
+            FROM usage_samples
+            WHERE provider_code = 'antigravity'
+            LIMIT 1;
+            """
+        ) { statement in
+            (
+                SQLiteDatabase.columnText(statement, index: 0),
+                SQLiteDatabase.columnInt64(statement, index: 1)
+            )
+        }
+        #expect(row?.0 == "recovery_only")
+        #expect(row?.1 == 0)
+    }
+
+    @Test
     func migrationVersionSixSeedsGeminiProviderRow() throws {
         let tempDirectory = FileManager.default.temporaryDirectory
             .appendingPathComponent("tokenmon-mig-v6-\(UUID().uuidString)", isDirectory: true)
