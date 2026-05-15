@@ -145,27 +145,26 @@ public enum AntigravityProcessLocator {
         return String(text[captureRange])
     }
 
-    private static func runCommand(executable: String, arguments: [String]) -> String {
+    static func runCommand(executable: String, arguments: [String]) -> String {
         let process = Process()
         process.executableURL = URL(fileURLWithPath: executable)
         process.arguments = arguments
 
         let outputPipe = Pipe()
         process.standardOutput = outputPipe
-        process.standardError = Pipe()
+        process.standardError = FileHandle.nullDevice
 
         do {
             try process.run()
+            let output = outputPipe.fileHandleForReading.readDataToEndOfFile()
             process.waitUntilExit()
+            guard process.terminationStatus == 0 else {
+                return ""
+            }
+            return String(decoding: output, as: UTF8.self)
         } catch {
             return ""
         }
-
-        guard process.terminationStatus == 0 else {
-            return ""
-        }
-
-        return String(decoding: outputPipe.fileHandleForReading.readDataToEndOfFile(), as: UTF8.self)
     }
 }
 
