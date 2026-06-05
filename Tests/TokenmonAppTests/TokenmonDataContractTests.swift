@@ -2122,6 +2122,69 @@ struct TokenmonDataContractTests {
     }
 
     @Test
+    func antigravityMetadataParserAcceptsDailyNestedUsageMetadataResponse() throws {
+        let response = """
+        {
+          "response": {
+            "metadata": {
+              "0": {
+                "timestamp": "2026-06-05T00:00:01Z",
+                "responseId": "daily-response-1",
+                "metadata": {
+                  "responseModel": "gemini-3.1-pro-high",
+                  "usageMetadata": {
+                    "promptTokenCount": 120,
+                    "candidatesTokenCount": 30,
+                    "thoughtsTokenCount": 5,
+                    "cachedContentTokenCount": 10,
+                    "totalTokenCount": 155
+                  }
+                }
+              }
+            }
+          }
+        }
+        """
+
+        let snapshots = try AntigravityRPCMetadataAdapter.usageSnapshots(
+            fromMetadataResponseData: Data(response.utf8),
+            sessionID: "ag-session",
+            nowProvider: { "2026-06-05T00:00:00Z" }
+        )
+
+        #expect(snapshots.count == 1)
+        #expect(snapshots[0].modelSlug == "gemini-3.1-pro-high")
+        #expect(snapshots[0].currentInputTokens == 120)
+        #expect(snapshots[0].currentOutputTokens == 35)
+        #expect(snapshots[0].totals.cachedInputTokens == 10)
+        #expect(snapshots[0].totals.normalizedTotalTokens == 165)
+        #expect(snapshots[0].providerEventFingerprint == "antigravity-rpc:ag-session:daily-response-1")
+    }
+
+    @Test
+    func antigravityTrajectoryParserAcceptsNestedDailyResponseMaps() throws {
+        let response = """
+        {
+          "result": {
+            "cascadeTrajectories": {
+              "ag-session": {
+                "lastModifiedTime": "2026-06-05T00:00:01Z",
+                "totalSteps": "7"
+              }
+            }
+          }
+        }
+        """
+
+        let summaries = try AntigravityRPCResponseAdapter.trajectorySummaries(from: Data(response.utf8))
+
+        #expect(summaries.count == 1)
+        #expect(summaries[0].sessionID == "ag-session")
+        #expect(summaries[0].stepCount == 7)
+        #expect(summaries[0].lastModifiedMilliseconds == 1_780_617_601_000)
+    }
+
+    @Test
     func antigravityMetadataParserDedupesDuplicateResponseIDsAndSkipsUnsafeTokenRows() {
         let duplicateRows: [Any] = [
             [

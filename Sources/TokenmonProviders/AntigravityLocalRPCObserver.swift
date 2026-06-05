@@ -26,11 +26,13 @@ public struct AntigravityProcessCandidate: Equatable, Sendable {
 
 public struct AntigravityRPCConnection: Equatable, Sendable {
     public let pid: Int32
+    public let scheme: String
     public let port: Int
     public let csrfToken: String
 
-    public init(pid: Int32, port: Int, csrfToken: String) {
+    public init(pid: Int32, scheme: String = "https", port: Int, csrfToken: String) {
         self.pid = pid
+        self.scheme = scheme
         self.port = port
         self.csrfToken = csrfToken
     }
@@ -262,9 +264,7 @@ public enum AntigravityRPCMetadataAdapter {
         guard let dictionary = object as? [String: Any] else {
             return []
         }
-        let metadataRows = arrayValue(dictionary["generatorMetadata"])
-            ?? arrayValue(dictionary["metadata"])
-            ?? []
+        let metadataRows = metadataRows(in: dictionary)
         return usageSnapshots(
             fromMetadataRows: metadataRows,
             sessionID: sessionID,
@@ -389,27 +389,79 @@ public enum AntigravityRPCMetadataAdapter {
             return nil
         }
 
-        let input = tokenValue(in: usage, keys: ["inputTokens", "input_tokens", "promptTokens", "prompt_tokens"])
+        let input = tokenValue(in: usage, keys: [
+            "inputTokens",
+            "input_tokens",
+            "inputTokenCount",
+            "input_token_count",
+            "promptTokens",
+            "prompt_tokens",
+            "promptTokenCount",
+            "prompt_token_count",
+        ])
         let output = tokenValue(in: usage, keys: [
             "outputTokens",
             "output_tokens",
+            "outputTokenCount",
+            "output_token_count",
             "responseOutputTokens",
             "response_output_tokens",
             "completionTokens",
             "completion_tokens",
+            "completionTokenCount",
+            "completion_token_count",
+            "candidateTokens",
+            "candidate_tokens",
+            "candidatesTokenCount",
+            "candidates_token_count",
         ])
-        let thinking = tokenValue(in: usage, keys: ["thinkingOutputTokens", "thinking_output_tokens", "reasoningTokens", "reasoning_tokens"])
-        let cacheRead = tokenValue(in: usage, keys: ["cacheReadTokens", "cache_read_tokens", "cachedInputTokens", "cached_input_tokens"])
+        let thinking = tokenValue(in: usage, keys: [
+            "thinkingOutputTokens",
+            "thinking_output_tokens",
+            "thinkingTokens",
+            "thinking_tokens",
+            "thoughtsTokenCount",
+            "thoughts_token_count",
+            "reasoningTokens",
+            "reasoning_tokens",
+            "reasoningTokenCount",
+            "reasoning_token_count",
+        ])
+        let cacheRead = tokenValue(in: usage, keys: [
+            "cacheReadTokens",
+            "cache_read_tokens",
+            "cacheReadTokenCount",
+            "cache_read_token_count",
+            "cachedInputTokens",
+            "cached_input_tokens",
+            "cachedContentTokenCount",
+            "cached_content_token_count",
+        ])
+        let total = tokenValue(in: usage, keys: [
+            "totalTokens",
+            "total_tokens",
+            "totalTokenCount",
+            "total_token_count",
+        ])
 
         guard case .valid(let inputTokens) = input,
               case .valid(let outputTokens) = output,
               case .valid(let thinkingTokens) = thinking,
-              case .valid(let cachedInputTokens) = cacheRead
+              case .valid(let cachedInputTokens) = cacheRead,
+              case .valid(let totalTokens) = total
         else {
             return nil
         }
 
-        let foldedOutputTokens = outputTokens + thinkingTokens
+        let explicitOutputTokens = outputTokens + thinkingTokens
+        let foldedOutputTokens: Int64
+        if explicitOutputTokens > 0 {
+            foldedOutputTokens = explicitOutputTokens
+        } else if totalTokens > inputTokens + cachedInputTokens {
+            foldedOutputTokens = totalTokens - inputTokens - cachedInputTokens
+        } else {
+            foldedOutputTokens = 0
+        }
         guard inputTokens >= 0,
               foldedOutputTokens >= 0,
               cachedInputTokens >= 0,
@@ -445,21 +497,12 @@ public enum AntigravityRPCMetadataAdapter {
     }
 
     private static func usageDictionary(row: [String: Any], retry: [String: Any]) -> [String: Any]? {
-        if let usage = dictionaryValue(retry["usage"]) {
-            return usage
+        for root in [retry, row] {
+            if let usage = firstUsageDictionary(in: root) {
+                return usage
+            }
         }
-        if let chatModel = dictionaryValue(retry["chatModel"]),
-           let usage = dictionaryValue(chatModel["usage"]) {
-            return usage
-        }
-        if let usage = dictionaryValue(row["usage"]) {
-            return usage
-        }
-        if let chatModel = dictionaryValue(row["chatModel"]),
-           let usage = dictionaryValue(chatModel["usage"]) {
-            return usage
-        }
-        return nil
+        return recursiveUsageDictionary(in: retry) ?? recursiveUsageDictionary(in: row)
     }
 
     private static func preferredModel(row: [String: Any], retry: [String: Any], usage: [String: Any]) -> String? {
@@ -486,7 +529,9 @@ public enum AntigravityRPCMetadataAdapter {
             usage["model"],
             usage["modelName"],
             usage["modelId"]
-        )
+        ) ?? recursiveFirstString(in: retry, keys: modelKeys)
+            ?? recursiveFirstString(in: row, keys: modelKeys)
+            ?? recursiveFirstString(in: usage, keys: modelKeys)
     }
 
     private static func fingerprint(
@@ -529,6 +574,129 @@ public enum AntigravityRPCMetadataAdapter {
         return nil
     }
 
+    private static let metadataKeys = Set([
+        "generatorMetadata",
+        "generator_metadata",
+        "metadata",
+        "trajectoryGeneratorMetadata",
+        "trajectory_generator_metadata",
+        "cascadeTrajectoryGeneratorMetadata",
+        "cascade_trajectory_generator_metadata",
+    ])
+
+    private static let envelopeKeys = Set([
+        "response",
+        "result",
+        "data",
+        "payload",
+        "value",
+    ])
+
+    private static let usageKeys = Set([
+        "usage",
+        "usageMetadata",
+        "usage_metadata",
+        "tokenUsage",
+        "token_usage",
+        "tokenCounts",
+        "token_counts",
+        "tokenCount",
+        "token_count",
+    ])
+
+    private static let modelKeys = Set([
+        "responseModel",
+        "model",
+        "modelName",
+        "modelId",
+        "modelSlug",
+    ])
+
+    private static func metadataRows(in dictionary: [String: Any]) -> [Any] {
+        for (key, value) in dictionary where metadataKeys.contains(key) {
+            if let nested = dictionaryValue(value) {
+                let nestedRows = metadataRows(in: nested)
+                if nestedRows.isEmpty == false {
+                    return nestedRows
+                }
+            }
+            if let rows = arrayValue(value) {
+                return rows
+            }
+        }
+
+        for (key, value) in dictionary where envelopeKeys.contains(key) {
+            if let nested = dictionaryValue(value) {
+                let rows = metadataRows(in: nested)
+                if rows.isEmpty == false {
+                    return rows
+                }
+            }
+        }
+
+        return []
+    }
+
+    private static func firstUsageDictionary(in dictionary: [String: Any]) -> [String: Any]? {
+        for (key, value) in dictionary where usageKeys.contains(key) {
+            if let usage = dictionaryValue(value) {
+                return usage
+            }
+        }
+
+        if let chatModel = dictionaryValue(dictionary["chatModel"]) {
+            for (key, value) in chatModel where usageKeys.contains(key) {
+                if let usage = dictionaryValue(value) {
+                    return usage
+                }
+            }
+        }
+
+        return nil
+    }
+
+    private static func recursiveUsageDictionary(in value: Any?) -> [String: Any]? {
+        if let dictionary = dictionaryValue(value) {
+            if let usage = firstUsageDictionary(in: dictionary) {
+                return usage
+            }
+            for nested in dictionary.values {
+                if let usage = recursiveUsageDictionary(in: nested) {
+                    return usage
+                }
+            }
+        } else if let array = value as? [Any] {
+            for nested in array {
+                if let usage = recursiveUsageDictionary(in: nested) {
+                    return usage
+                }
+            }
+        }
+        return nil
+    }
+
+    private static func recursiveFirstString(in value: Any?, keys: Set<String>) -> String? {
+        if let dictionary = dictionaryValue(value) {
+            for (key, rawValue) in dictionary where keys.contains(key) {
+                if let string = firstString(rawValue) {
+                    return string
+                }
+            }
+            for nested in dictionary.values {
+                if let string = recursiveFirstString(in: nested, keys: keys) {
+                    return string
+                }
+            }
+        } else if let array = value as? [Any] {
+            for nested in array {
+                if let string = recursiveFirstString(in: nested, keys: keys) {
+                    return string
+                }
+            }
+        }
+        return nil
+    }
+
     private static func firstString(_ values: Any?...) -> String? {
         for value in values {
             if let string = value as? String {
@@ -565,6 +733,11 @@ public enum AntigravityRPCMetadataAdapter {
             return array
         }
         if let dictionary = value as? [String: Any] {
+            if dictionary["retryInfos"] != nil ||
+                dictionary["retryInfo"] != nil ||
+                firstUsageDictionary(in: dictionary) != nil {
+                return [dictionary]
+            }
             return dictionary
                 .sorted { $0.key < $1.key }
                 .map(\.value)
@@ -613,9 +786,7 @@ public enum AntigravityRPCResponseAdapter {
             return []
         }
 
-        let rawItems = arrayValue(dictionary["trajectorySummaries"])
-            ?? arrayValue(dictionary["cascadeTrajectories"])
-            ?? []
+        let rawItems = trajectoryItems(in: dictionary)
 
         return rawItems.compactMap { rawItem -> AntigravityTrajectorySummary? in
             guard let item = dictionaryValue(rawItem),
@@ -639,6 +810,42 @@ public enum AntigravityRPCResponseAdapter {
                     ?? int64Value(item["totalSteps"])
             )
         }
+    }
+
+    private static let trajectoryKeys = Set([
+        "trajectorySummaries",
+        "trajectory_summaries",
+        "cascadeTrajectories",
+        "cascade_trajectories",
+        "trajectories",
+        "items",
+    ])
+
+    private static let envelopeKeys = Set([
+        "response",
+        "result",
+        "data",
+        "payload",
+        "value",
+    ])
+
+    private static func trajectoryItems(in dictionary: [String: Any]) -> [Any] {
+        for (key, value) in dictionary where trajectoryKeys.contains(key) {
+            if let items = arrayValue(value) {
+                return items
+            }
+        }
+
+        for (key, value) in dictionary where envelopeKeys.contains(key) {
+            if let nested = dictionaryValue(value) {
+                let items = trajectoryItems(in: nested)
+                if items.isEmpty == false {
+                    return items
+                }
+            }
+        }
+
+        return []
     }
 
     private static func arrayValue(_ value: Any?) -> [Any]? {
@@ -983,13 +1190,17 @@ private final class AntigravityRPCClient: @unchecked Sendable {
             ports.formUnion(AntigravityProcessLocator.listeningPorts(for: candidate.pid))
 
             for port in ports.sorted() {
-                let connection = AntigravityRPCConnection(
-                    pid: candidate.pid,
-                    port: port,
-                    csrfToken: candidate.csrfToken
-                )
-                if await heartbeat(connection: connection) {
-                    connections.append(connection)
+                for scheme in ["https", "http"] {
+                    let connection = AntigravityRPCConnection(
+                        pid: candidate.pid,
+                        scheme: scheme,
+                        port: port,
+                        csrfToken: candidate.csrfToken
+                    )
+                    if await heartbeat(connection: connection) {
+                        connections.append(connection)
+                        break
+                    }
                 }
             }
         }
@@ -1012,18 +1223,37 @@ private final class AntigravityRPCClient: @unchecked Sendable {
     private func heartbeat(connection: AntigravityRPCConnection) async -> Bool {
         do {
             _ = try await request(
-                method: "Heartbeat",
-                body: ["uuid": "00000000-0000-0000-0000-000000000000"],
+                method: "GetUnleashData",
+                body: ["metadata": Self.requestMetadata()],
                 connection: connection
             )
             return true
         } catch {
-            return false
+            do {
+                _ = try await request(
+                    method: "Heartbeat",
+                    body: ["uuid": "00000000-0000-0000-0000-000000000000"],
+                    connection: connection
+                )
+                return true
+            } catch {
+                return false
+            }
         }
     }
 
+    private static func requestMetadata() -> [String: String] {
+        [
+            "ideName": "antigravity",
+            "extensionName": "antigravity",
+            "ideVersion": "unknown",
+            "extensionVersion": "unknown",
+            "locale": Locale.current.identifier,
+        ]
+    }
+
     private func request(method: String, body: [String: Any], connection: AntigravityRPCConnection) async throws -> Data {
-        let url = URL(string: "https://127.0.0.1:\(connection.port)/exa.language_server_pb.LanguageServerService/\(method)")!
+        let url = URL(string: "\(connection.scheme)://127.0.0.1:\(connection.port)/exa.language_server_pb.LanguageServerService/\(method)")!
         let requestBody = try JSONSerialization.data(withJSONObject: body)
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
