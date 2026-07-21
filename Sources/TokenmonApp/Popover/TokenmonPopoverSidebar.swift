@@ -8,6 +8,8 @@ struct TokenmonPopoverSidebarActions {
     let openSettings: () -> Void
     let quit: () -> Void
     let openDeveloperTools: (() -> Void)?
+    var toggleFloatingPanelPin: (() -> Void)? = nil
+    var floatingPanelPinned = false
 }
 
 struct TokenmonPopoverSidebar: View {
@@ -22,6 +24,10 @@ struct TokenmonPopoverSidebar: View {
             tabButton(.tokens, systemImage: "bolt.fill", tooltip: TokenmonL10n.string("popover.tab.tokens"))
             tabButton(.stats, systemImage: "chart.bar.fill", tooltip: TokenmonL10n.string("popover.tab.stats"))
             tabButton(.dex, systemImage: "books.vertical.fill", tooltip: TokenmonL10n.string("window.title.dex"))
+
+            if let toggleFloatingPanelPin = actions.toggleFloatingPanelPin {
+                pinButton(isPinned: actions.floatingPanelPinned, action: toggleFloatingPanelPin)
+            }
 
             Spacer(minLength: 0)
 
@@ -41,6 +47,22 @@ struct TokenmonPopoverSidebar: View {
         .padding(.vertical, 10)
         .frame(width: 52)
         .background(Color.secondary.opacity(0.06))
+    }
+
+    private func pinButton(isPinned: Bool, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Image(systemName: isPinned ? "pin.fill" : "pin")
+                .font(.system(size: 15, weight: .semibold))
+                .foregroundStyle(isPinned ? Color.white : Color.secondary)
+                .frame(width: 36, height: 36)
+                .background(
+                    RoundedRectangle(cornerRadius: 8, style: .continuous)
+                        .fill(isPinned ? Color.accentColor : Color.clear)
+                )
+                .contentShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+        }
+        .buttonStyle(.plain)
+        .help(TokenmonL10n.string("floating_panel.pin.tooltip"))
     }
 
     @ViewBuilder

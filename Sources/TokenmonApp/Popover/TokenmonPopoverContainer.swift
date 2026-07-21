@@ -62,6 +62,7 @@ struct TokenmonPopoverContainerActions {
     let openDeveloperTools: (() -> Void)?
     let quit: () -> Void
     let selectSpecies: (DexEntrySummary) -> Void
+    var toggleFloatingPanelPin: (() -> Void)? = nil
 }
 
 struct TokenmonPopoverContainer: View {
@@ -178,7 +179,11 @@ struct TokenmonPopoverContainer: View {
                 actions: TokenmonPopoverSidebarActions(
                     openSettings: { actions.openSettings(.general) },
                     quit: actions.quit,
-                    openDeveloperTools: actions.openDeveloperTools
+                    openDeveloperTools: actions.openDeveloperTools,
+                    toggleFloatingPanelPin: model.appSettings.surfacePresentationMode == .floatingPanel
+                        ? actions.toggleFloatingPanelPin
+                        : nil,
+                    floatingPanelPinned: model.appSettings.floatingPanelAlwaysOnTop
                 )
             )
         }

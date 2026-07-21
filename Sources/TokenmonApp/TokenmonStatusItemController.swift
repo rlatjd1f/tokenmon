@@ -1,4 +1,5 @@
 import AppKit
+import Combine
 import Foundation
 import ScreenCaptureKit
 import SwiftUI
@@ -643,6 +644,7 @@ final class TokenmonAppController {
                 title: TokenmonL10n.string("window.title.settings"),
                 defaultSize: NSSize(width: 760, height: 560),
                 autosaveName: "TokenmonSettingsWindow",
+                closesOnEscape: true,
                 rootView: AnyView(
                     TokenmonSettingsPanel(
                         model: menuModel,
@@ -730,7 +732,7 @@ final class TokenmonAppController {
                 initialActiveTab: initialActiveTab
             )
         )
-        controller.openPopover()
+        controller.openConfiguredSurface()
     }
 
     private func captureNotificationOpened(speciesID: String, encounterID: String) {
@@ -809,20 +811,20 @@ final class TokenmonAppController {
                 model: menuModel,
                 actions: TokenmonPopoverContainerActions(
                     openFullDex: { [weak controller] in
-                        controller?.closePopover()
+                        controller?.closeSurface()
                         TokenmonAppController.shared.showDexWindow()
                     },
                     openRewardArchive: { [weak controller] in
-                        controller?.closePopover()
+                        controller?.closeSurface()
                         TokenmonAppController.shared.showRewardArchiveWindow()
                     },
                     openSettings: { [weak controller] pane in
-                        controller?.closePopover()
+                        controller?.closeSurface()
                         TokenmonAppController.shared.showSettings(pane: pane)
                     },
                     openDeveloperTools: TokenmonBuildInfo.current.developerToolsVisible
                         ? { [weak controller] in
-                            controller?.closePopover()
+                            controller?.closeSurface()
                             TokenmonAppController.shared.showDeveloperWindow()
                         }
                         : nil,
@@ -830,8 +832,14 @@ final class TokenmonAppController {
                         NSApp.terminate(nil)
                     },
                     selectSpecies: { [weak controller] capture in
-                        controller?.closePopover()
+                        controller?.closeSurface()
                         TokenmonAppController.shared.showDexWindow(selecting: capture.speciesID)
+                    },
+                    toggleFloatingPanelPin: { [weak self] in
+                        guard let self else { return }
+                        self.menuModel.updateFloatingPanelAlwaysOnTop(
+                            !self.menuModel.appSettings.floatingPanelAlwaysOnTop
+                        )
                     }
                 ),
                 initialActiveTab: initialActiveTab
@@ -955,10 +963,13 @@ final class TokenmonStatusItemController: NSObject {
     private let debugController: TokenmonSceneDebugController
     private let statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
     private let popover = NSPopover()
+    private var floatingPanel: TokenmonFloatingPanelController?
+    private var popoverRootView = AnyView(EmptyView())
     private let playbackController = TokenmonScenePlaybackController()
     private var timer: Timer?
     private var currentRenderInterval: TimeInterval?
     private var renderUpdateGate = TokenmonStatusItemRenderUpdateGate()
+    private var settingsCancellable: AnyCancellable?
 
     init(model: TokenmonMenuModel, debugController: TokenmonSceneDebugController) {
         self.model = model
@@ -967,6 +978,7 @@ final class TokenmonStatusItemController: NSObject {
     }
 
     func setPopoverRootView(_ rootView: AnyView) {
+        popoverRootView = rootView
         popover.behavior = .transient
         popover.animates = false
         popover.contentSize = NSSize(
@@ -974,6 +986,7 @@ final class TokenmonStatusItemController: NSObject {
             height: TokenmonPopoverContainer.height
         )
         popover.contentViewController = NSHostingController(rootView: rootView)
+        floatingPanel?.updateRootView(rootView)
         TokenmonAppAppearanceController.syncHostWindow(popover.contentViewController?.view.window)
     }
 
@@ -993,6 +1006,28 @@ final class TokenmonStatusItemController: NSObject {
         }
 
         renderStatusItem(force: true)
+        floatingPanel = TokenmonFloatingPanelController(
+            rootView: popoverRootView,
+            alwaysOnTop: model.appSettings.floatingPanelAlwaysOnTop,
+            onMove: { [weak model] origin in
+                model?.updateFloatingPanelOrigin(x: origin.x, y: origin.y)
+            },
+            onResize: { [weak model] size in
+                model?.updateFloatingPanelSize(width: size.width, height: size.height)
+            }
+        )
+        settingsCancellable = model.$diagnosticsSnapshot
+            .map(\.appSettings)
+            .removeDuplicates()
+            .sink { [weak self] settings in
+                self?.applySurfaceSettings(settings)
+            }
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(handleScreenParametersChanged),
+            name: NSApplication.didChangeScreenParametersNotification,
+            object: nil
+        )
         updateTimerIfNeeded(for: model.restingSceneContext.sceneState)
 
         NSWorkspace.shared.notificationCenter.addObserver(
@@ -1005,16 +1040,25 @@ final class TokenmonStatusItemController: NSObject {
 
     func stop() {
         NSWorkspace.shared.notificationCenter.removeObserver(self)
+        NotificationCenter.default.removeObserver(self)
+        settingsCancellable = nil
         timer?.invalidate()
         timer = nil
         currentRenderInterval = nil
         renderUpdateGate.reset()
         popover.performClose(nil)
+        floatingPanel?.close()
+        floatingPanel = nil
         NSStatusBar.system.removeStatusItem(statusItem)
     }
 
     func closePopover() {
         popover.performClose(nil)
+    }
+
+    func closeSurface() {
+        popover.performClose(nil)
+        floatingPanel?.close()
     }
 
     func openPopover() {
@@ -1028,6 +1072,18 @@ final class TokenmonStatusItemController: NSObject {
             popover.contentViewController?.view.window?.becomeKey()
         } else {
             popover.contentViewController?.view.window?.displayIfNeeded()
+        }
+    }
+
+    func openConfiguredSurface() {
+        switch model.appSettings.surfacePresentationMode {
+        case .popover:
+            floatingPanel?.close()
+            openPopover()
+        case .floatingPanel:
+            popover.performClose(nil)
+            floatingPanel?.update(alwaysOnTop: model.appSettings.floatingPanelAlwaysOnTop)
+            floatingPanel?.show(savedOrigin: savedFloatingPanelOrigin, savedSize: savedFloatingPanelSize)
         }
     }
 
@@ -1090,6 +1146,10 @@ final class TokenmonStatusItemController: NSObject {
         renderStatusItem(force: true)
     }
 
+    @objc private func handleScreenParametersChanged() {
+        floatingPanel?.reposition(savedOrigin: savedFloatingPanelOrigin)
+    }
+
     @objc private func handleStatusItemClick(_ sender: Any?) {
         guard let button = statusItem.button else {
             return
@@ -1100,10 +1160,37 @@ final class TokenmonStatusItemController: NSObject {
             return
         }
 
-        if popover.isShown {
-            popover.performClose(sender)
+        let surfaceIsVisible = popover.isShown || (floatingPanel?.isVisible == true)
+        if surfaceIsVisible {
+            closeSurface()
         } else {
-            openPopover()
+            openConfiguredSurface()
+        }
+    }
+
+    private var savedFloatingPanelOrigin: CGPoint? {
+        guard let x = model.appSettings.floatingPanelOriginX,
+              let y = model.appSettings.floatingPanelOriginY else { return nil }
+        return CGPoint(x: x, y: y)
+    }
+
+    private var savedFloatingPanelSize: CGSize? {
+        guard let width = model.appSettings.floatingPanelWidth,
+              let height = model.appSettings.floatingPanelHeight else { return nil }
+        return CGSize(width: width, height: height)
+    }
+
+    private func applySurfaceSettings(_ settings: AppSettings) {
+        guard floatingPanel != nil || settings.surfacePresentationMode == .floatingPanel else { return }
+        floatingPanel?.update(alwaysOnTop: settings.floatingPanelAlwaysOnTop)
+        if settings.floatingPanelOriginX == nil || settings.floatingPanelOriginY == nil {
+            floatingPanel?.reposition(savedOrigin: nil)
+        }
+        if settings.surfacePresentationMode == .popover, floatingPanel?.isVisible == true {
+            floatingPanel?.close()
+        } else if settings.surfacePresentationMode == .floatingPanel, popover.isShown {
+            popover.performClose(nil)
+            floatingPanel?.show(savedOrigin: savedFloatingPanelOrigin, savedSize: savedFloatingPanelSize)
         }
     }
 
@@ -1337,6 +1424,27 @@ final class TokenmonStatusItemController: NSObject {
 }
 
 @MainActor
+final class TokenmonHostingWindow: NSWindow {
+    var closesOnEscape = false
+
+    override func sendEvent(_ event: NSEvent) {
+        if closesOnEscape, event.type == .keyDown, event.keyCode == 53 {
+            close()
+            return
+        }
+        super.sendEvent(event)
+    }
+
+    override func cancelOperation(_ sender: Any?) {
+        guard closesOnEscape else {
+            super.cancelOperation(sender)
+            return
+        }
+        close()
+    }
+}
+
+@MainActor
 final class TokenmonHostingWindowController: NSWindowController {
     private let preferredMinimumSize: NSSize
 
@@ -1345,11 +1453,13 @@ final class TokenmonHostingWindowController: NSWindowController {
         defaultSize: NSSize,
         minSize: NSSize? = nil,
         autosaveName: String,
+        closesOnEscape: Bool = false,
         rootView: AnyView
     ) {
         self.preferredMinimumSize = minSize ?? defaultSize
         let hostingController = NSHostingController(rootView: rootView)
-        let window = NSWindow(contentViewController: hostingController)
+        let window = TokenmonHostingWindow(contentViewController: hostingController)
+        window.closesOnEscape = closesOnEscape
         window.title = title
         window.styleMask = [.titled, .closable, .miniaturizable, .resizable]
         let visibleFrame = NSScreen.main?.visibleFrame

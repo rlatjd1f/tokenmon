@@ -251,6 +251,12 @@
 "settings.general.toggle.show_provider_status" = "Show provider status in menu bar";
 "settings.general.toggle.field_backplate" = "Show field backplate";
 "settings.general.menu_bar.note" = "The menu bar should stay glanceable. Detailed provider recovery status lives in Provider settings.";
+"settings.surface_mode.picker" = "Content display";
+"settings.surface_mode.popover" = "Menu bar popover";
+"settings.surface_mode.floating" = "Movable floating panel";
+"settings.surface_mode.always_on_top" = "Keep floating panel above other windows";
+"settings.surface_mode.reset_position" = "Reset floating panel position";
+"floating_panel.pin.tooltip" = "Keep above other windows";
 "settings.general.section.notifications" = "Notifications";
 "settings.general.toggle.notify_on_capture" = "Notify on capture";
 "settings.general.open_notification_settings" = "Open macOS Notification Settings";
