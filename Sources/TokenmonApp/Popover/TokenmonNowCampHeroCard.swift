@@ -2753,7 +2753,7 @@ struct TokenmonNowCampHeroPresentationCard<HeaderAccessory: View>: View {
                 .padding(.top, 8)
                 .padding(.bottom, 8)
         }
-        .frame(height: 314)
+        .frame(height: 367)
         .background(compactCardBackground)
         .clipShape(clipShape)
         .overlay(
@@ -2964,17 +2964,14 @@ struct TokenmonNowCampHeroPresentationCard<HeaderAccessory: View>: View {
     }
 
     private var compactTrainingRow: some View {
-        GeometryReader { geometry in
-            let rowWidth = geometry.size.width
-            let careWidth = max(104, min(118, rowWidth * 0.32))
+        GeometryReader { _ in
             VStack(spacing: 7) {
                 compactLeadEffectColumn
                     .frame(maxWidth: .infinity, minHeight: 40, maxHeight: 40)
 
-                HStack(spacing: 6) {
+                VStack(spacing: 6) {
                     compactCareColumn
-                        .frame(width: careWidth)
-                        .frame(minHeight: 48, maxHeight: 48)
+                        .frame(maxWidth: .infinity, minHeight: 48, maxHeight: 48)
 
                     compactTrainColumn
                         .frame(maxWidth: .infinity, minHeight: 48, maxHeight: 48)
@@ -2983,7 +2980,7 @@ struct TokenmonNowCampHeroPresentationCard<HeaderAccessory: View>: View {
             .padding(.horizontal, 8)
             .padding(.vertical, 6)
         }
-        .frame(height: 108)
+        .frame(height: 161)
         .background(
             RoundedRectangle(cornerRadius: 9, style: .continuous)
                 .fill(
@@ -3030,10 +3027,10 @@ struct TokenmonNowCampHeroPresentationCard<HeaderAccessory: View>: View {
                     "now.camp.v2.reward.compact.success_line",
                     presentation.v2.rewardPreview.successLine.valueText
                 ))
-                    .font(.system(size: 12, weight: .semibold, design: .rounded))
+                    .font(.system(size: 13, weight: .semibold, design: .rounded))
                     .foregroundStyle(Color.white.opacity(0.62))
                     .lineLimit(1)
-                    .minimumScaleFactor(0.58)
+                    .minimumScaleFactor(0.80)
             }
             .layoutPriority(1)
         }
@@ -3057,7 +3054,7 @@ struct TokenmonNowCampHeroPresentationCard<HeaderAccessory: View>: View {
                     .font(.system(size: 11, weight: .semibold, design: .rounded))
                     .foregroundStyle(compactActionDetailForeground(for: presentation.careAction))
                     .lineLimit(1)
-                    .minimumScaleFactor(0.58)
+                    .minimumScaleFactor(0.80)
             }
             .padding(.horizontal, 8)
             .frame(maxWidth: .infinity, minHeight: 48, maxHeight: 48, alignment: .leading)
@@ -3110,7 +3107,7 @@ struct TokenmonNowCampHeroPresentationCard<HeaderAccessory: View>: View {
                         .font(.system(size: 11, weight: .semibold, design: .rounded))
                         .foregroundStyle(compactActionDetailForeground(for: presentation.trainAction))
                         .lineLimit(1)
-                        .minimumScaleFactor(0.50)
+                        .minimumScaleFactor(0.80)
                 }
                 .layoutPriority(1)
 
