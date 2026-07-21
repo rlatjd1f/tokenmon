@@ -1005,6 +1005,9 @@ final class TokenmonStatusItemController: NSObject {
             alwaysOnTop: model.appSettings.floatingPanelAlwaysOnTop,
             onMove: { [weak model] origin in
                 model?.updateFloatingPanelOrigin(x: origin.x, y: origin.y)
+            },
+            onAlwaysOnTopChange: { [weak model] value in
+                model?.updateFloatingPanelAlwaysOnTop(value)
             }
         )
         settingsCancellable = model.$diagnosticsSnapshot

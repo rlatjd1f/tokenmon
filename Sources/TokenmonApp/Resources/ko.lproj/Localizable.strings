@@ -392,6 +392,7 @@
 "settings.surface_mode.floating" = "이동 가능한 플로팅 패널";
 "settings.surface_mode.always_on_top" = "다른 창 위에 플로팅 패널 표시";
 "settings.surface_mode.reset_position" = "플로팅 패널 위치 초기화";
+"floating_panel.pin.tooltip" = "다른 창 위에 계속 표시";
 "settings.general.section.notifications" = "알림";
 "settings.general.toggle.notify_on_capture" = "포획 시 알림";
 "settings.general.open_notification_settings" = "macOS 알림 설정 열기";

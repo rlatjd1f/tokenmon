@@ -256,6 +256,7 @@
 "settings.surface_mode.floating" = "Movable floating panel";
 "settings.surface_mode.always_on_top" = "Keep floating panel above other windows";
 "settings.surface_mode.reset_position" = "Reset floating panel position";
+"floating_panel.pin.tooltip" = "Keep above other windows";
 "settings.general.section.notifications" = "Notifications";
 "settings.general.toggle.notify_on_capture" = "Notify on capture";
 "settings.general.open_notification_settings" = "Open macOS Notification Settings";
