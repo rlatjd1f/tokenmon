@@ -189,14 +189,14 @@ struct TokenmonNowTab: View {
                         .truncationMode(.tail)
 
                     Text(latestEncounterDetailLine(for: encounter))
-                        .font(.system(size: 10, weight: .semibold, design: .rounded))
+                        .font(.system(size: 12, weight: .semibold, design: .rounded))
                         .foregroundStyle(.secondary)
                         .lineLimit(1)
                         .minimumScaleFactor(0.72)
 
                     if let affinityLine = TokenmonDexPresentation.affinityResultLine(for: encounter) {
                         Text(affinityLine)
-                            .font(.system(size: 9, weight: .semibold, design: .rounded))
+                            .font(.system(size: 11, weight: .semibold, design: .rounded))
                             .foregroundStyle(.secondary)
                             .lineLimit(1)
                             .minimumScaleFactor(0.72)
@@ -288,7 +288,7 @@ struct TokenmonNowTab: View {
     private func metaRow(label: String, value: String) -> some View {
         HStack(spacing: 6) {
             Text(label)
-                .font(.system(size: 9, weight: .bold, design: .rounded))
+                .font(.system(size: 11, weight: .bold, design: .rounded))
                 .tracking(0.6)
                 .foregroundStyle(.secondary)
                 .frame(width: 44, alignment: .leading)
@@ -335,7 +335,7 @@ struct TokenmonNowTab: View {
     private func statRow(label: String, metrics: [StatMetric]) -> some View {
         HStack(alignment: .center, spacing: 10) {
             Text(label)
-                .font(.system(size: 9, weight: .bold, design: .rounded))
+                .font(.system(size: 11, weight: .bold, design: .rounded))
                 .tracking(0.6)
                 .foregroundStyle(.secondary)
                 .frame(width: 56, alignment: .leading)
@@ -350,7 +350,7 @@ struct TokenmonNowTab: View {
                             .lineLimit(1)
                             .minimumScaleFactor(0.8)
                         Text(metric.caption)
-                            .font(.system(size: 8, weight: .semibold, design: .rounded))
+                            .font(.system(size: 10, weight: .semibold, design: .rounded))
                             .tracking(0.4)
                             .foregroundStyle(.secondary)
                     }

@@ -49,7 +49,7 @@ struct TokenProgressBar: View {
                 }
                 Spacer()
                 Text(TokenmonL10n.string("progress.until_next_encounter"))
-                    .font(.caption2)
+                    .font(.system(size: 12, weight: .semibold, design: .rounded))
                     .foregroundStyle(.secondary)
             }
 

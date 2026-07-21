@@ -3013,13 +3013,13 @@ struct TokenmonNowCampHeroPresentationCard<HeaderAccessory: View>: View {
 
             VStack(alignment: .leading, spacing: 1) {
                 Text(TokenmonL10n.string("now.camp.v2.reward.compact.title"))
-                    .font(.system(size: 9.1, weight: .bold, design: .rounded))
+                    .font(.system(size: 11, weight: .bold, design: .rounded))
                     .foregroundStyle(Color.white.opacity(0.72))
                     .lineLimit(1)
                     .minimumScaleFactor(0.86)
 
                 Text(presentation.v2.rewardPreview.currentLine.valueText)
-                    .font(.system(size: 11.4, weight: .heavy, design: .rounded))
+                    .font(.system(size: 13, weight: .heavy, design: .rounded))
                     .monospacedDigit()
                     .foregroundStyle(presentation.v2.rewardPreview.currentLine.isActive ? Color.white.opacity(0.94) : Color.white.opacity(0.76))
                     .lineLimit(1)
@@ -3030,7 +3030,7 @@ struct TokenmonNowCampHeroPresentationCard<HeaderAccessory: View>: View {
                     "now.camp.v2.reward.compact.success_line",
                     presentation.v2.rewardPreview.successLine.valueText
                 ))
-                    .font(.system(size: 8.2, weight: .semibold, design: .rounded))
+                    .font(.system(size: 10, weight: .semibold, design: .rounded))
                     .foregroundStyle(Color.white.opacity(0.62))
                     .lineLimit(1)
                     .minimumScaleFactor(0.58)
