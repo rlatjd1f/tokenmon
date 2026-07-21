@@ -1412,12 +1412,12 @@ final class TokenmonStatusItemController: NSObject {
 final class TokenmonHostingWindow: NSWindow {
     var closesOnEscape = false
 
-    override func performKeyEquivalent(with event: NSEvent) -> Bool {
+    override func sendEvent(_ event: NSEvent) {
         if closesOnEscape, event.type == .keyDown, event.keyCode == 53 {
             close()
-            return true
+            return
         }
-        return super.performKeyEquivalent(with: event)
+        super.sendEvent(event)
     }
 
     override func cancelOperation(_ sender: Any?) {
