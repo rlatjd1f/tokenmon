@@ -1,0 +1,22 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+project_dir="$(cd -- "$script_dir/.." && pwd)"
+
+cd "$project_dir"
+
+printf 'Building TokenmonApp in %s\n' "$project_dir"
+swift build
+
+bin_dir="$(swift build --show-bin-path)"
+app_bin="$bin_dir/TokenmonApp"
+
+if [[ ! -x "$app_bin" ]]; then
+    printf 'Build completed, but TokenmonApp was not found at %s\n' "$app_bin" >&2
+    exit 1
+fi
+
+printf 'Launching %s\n' "$app_bin"
+exec "$app_bin" "$@"
