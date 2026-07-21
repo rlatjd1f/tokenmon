@@ -126,7 +126,7 @@ struct TokenmonPopoverContainer: View {
 
     var body: some View {
         shell
-            .frame(width: layoutStyle.width, height: layoutStyle.height)
+            .frame(minWidth: layoutStyle.width, maxWidth: layoutStyle.width, maxHeight: .infinity)
             .onAppear {
                 prewarmActiveTabIfNeeded()
             }
@@ -170,7 +170,12 @@ struct TokenmonPopoverContainer: View {
     private var compactShell: some View {
         HStack(spacing: 0) {
             content
-                .frame(width: layoutStyle.contentWidth, height: layoutStyle.height, alignment: .topLeading)
+                .frame(
+                    minWidth: layoutStyle.contentWidth,
+                    maxWidth: layoutStyle.contentWidth,
+                    maxHeight: .infinity,
+                    alignment: .topLeading
+                )
 
             Divider()
 

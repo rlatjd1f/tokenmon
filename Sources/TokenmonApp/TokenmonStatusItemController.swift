@@ -1083,7 +1083,7 @@ final class TokenmonStatusItemController: NSObject {
         case .floatingPanel:
             popover.performClose(nil)
             floatingPanel?.update(alwaysOnTop: model.appSettings.floatingPanelAlwaysOnTop)
-            floatingPanel?.show(savedOrigin: savedFloatingPanelOrigin, savedSize: savedFloatingPanelSize)
+            floatingPanel?.show(savedOrigin: savedFloatingPanelOrigin, savedHeight: savedFloatingPanelHeight)
         }
     }
 
@@ -1174,10 +1174,8 @@ final class TokenmonStatusItemController: NSObject {
         return CGPoint(x: x, y: y)
     }
 
-    private var savedFloatingPanelSize: CGSize? {
-        guard let width = model.appSettings.floatingPanelWidth,
-              let height = model.appSettings.floatingPanelHeight else { return nil }
-        return CGSize(width: width, height: height)
+    private var savedFloatingPanelHeight: CGFloat? {
+        model.appSettings.floatingPanelHeight.map { CGFloat($0) }
     }
 
     private func applySurfaceSettings(_ settings: AppSettings) {
@@ -1190,7 +1188,7 @@ final class TokenmonStatusItemController: NSObject {
             floatingPanel?.close()
         } else if settings.surfacePresentationMode == .floatingPanel, popover.isShown {
             popover.performClose(nil)
-            floatingPanel?.show(savedOrigin: savedFloatingPanelOrigin, savedSize: savedFloatingPanelSize)
+            floatingPanel?.show(savedOrigin: savedFloatingPanelOrigin, savedHeight: savedFloatingPanelHeight)
         }
     }
 

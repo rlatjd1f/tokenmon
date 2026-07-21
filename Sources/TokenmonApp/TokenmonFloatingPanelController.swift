@@ -1,24 +1,6 @@
 import AppKit
 import SwiftUI
 
-private struct TokenmonScalableFloatingContent: View {
-    let rootView: AnyView
-    let baseSize: CGSize
-
-    var body: some View {
-        GeometryReader { geometry in
-            let scale = min(
-                geometry.size.width / baseSize.width,
-                geometry.size.height / baseSize.height
-            )
-            rootView
-                .frame(width: baseSize.width, height: baseSize.height)
-                .scaleEffect(scale)
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-        }
-    }
-}
-
 struct TokenmonFloatingPanelFrameResolver {
     static func constrainedOrigin(
         requestedOrigin: CGPoint?,
@@ -78,9 +60,9 @@ final class TokenmonFloatingPanelController: NSObject, NSWindowDelegate {
         panel.hidesOnDeactivate = false
         panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
         panel.level = alwaysOnTop ? .floating : .normal
-        panel.contentViewController = NSHostingController(rootView: scalableRootView(rootView))
-        panel.contentMinSize = NSSize(width: 288, height: 416)
-        panel.contentAspectRatio = defaultPanelSize
+        panel.contentViewController = NSHostingController(rootView: rootView)
+        panel.contentMinSize = NSSize(width: defaultPanelSize.width, height: 320)
+        panel.contentMaxSize = NSSize(width: defaultPanelSize.width, height: .greatestFiniteMagnitude)
         panel.setContentSize(defaultPanelSize)
         TokenmonAppAppearanceController.syncHostWindow(panel)
     }
@@ -88,17 +70,17 @@ final class TokenmonFloatingPanelController: NSObject, NSWindowDelegate {
     var isVisible: Bool { panel.isVisible }
 
     func updateRootView(_ rootView: AnyView) {
-        (panel.contentViewController as? NSHostingController<AnyView>)?.rootView = scalableRootView(rootView)
+        (panel.contentViewController as? NSHostingController<AnyView>)?.rootView = rootView
     }
 
     func update(alwaysOnTop: Bool) {
         panel.level = alwaysOnTop ? .floating : .normal
     }
 
-    func show(savedOrigin: CGPoint?, savedSize: CGSize?) {
-        if let savedSize {
+    func show(savedOrigin: CGPoint?, savedHeight: CGFloat?) {
+        if let savedHeight {
             shouldPersistResizes = false
-            panel.setContentSize(savedSize)
+            panel.setContentSize(NSSize(width: defaultPanelSize.width, height: savedHeight))
             shouldPersistResizes = true
         }
         position(savedOrigin: savedOrigin)
@@ -145,15 +127,6 @@ final class TokenmonFloatingPanelController: NSObject, NSWindowDelegate {
 
     private func persistCurrentSize() {
         onResize(panel.contentView?.bounds.size ?? panel.contentLayoutRect.size)
-    }
-
-    private func scalableRootView(_ rootView: AnyView) -> AnyView {
-        AnyView(
-            TokenmonScalableFloatingContent(
-                rootView: rootView,
-                baseSize: defaultPanelSize
-            )
-        )
     }
 
 }
