@@ -101,7 +101,7 @@ struct DexPreviewGrid: View {
 
         HStack(spacing: 8) {
             Text(group.rarity.displayName.uppercased())
-                .font(.system(size: 10, weight: .bold, design: .rounded))
+                .font(.system(size: 11, weight: .bold, design: .rounded))
                 .tracking(0.8)
                 .foregroundStyle(color)
 
@@ -110,7 +110,7 @@ struct DexPreviewGrid: View {
                 .frame(height: 1)
 
             Text("\(capturedCount)/\(group.entries.count)")
-                .font(.system(size: 9, weight: .semibold, design: .rounded))
+                .font(.system(size: 10, weight: .semibold, design: .rounded))
                 .monospacedDigit()
                 .foregroundStyle(.secondary)
         }
@@ -152,7 +152,7 @@ struct DexPreviewGrid: View {
                 }
 
                 Text(TokenmonDexPresentation.visibleSpeciesName(for: entry))
-                    .font(.caption2)
+                    .font(.caption)
                     .lineLimit(2)
                     .minimumScaleFactor(0.8)
                     .multilineTextAlignment(.center)

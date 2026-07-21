@@ -246,7 +246,7 @@ struct TokenmonNowTab: View {
         let level = TokenmonDexPresentation.affinityLevelNumber(for: encounter)
         HStack(spacing: 6) {
             Text(TokenmonL10n.string("now.meta.affinity"))
-                .font(.system(size: 9, weight: .bold, design: .rounded))
+                .font(.system(size: 11, weight: .bold, design: .rounded))
                 .tracking(0.6)
                 .foregroundStyle(.secondary)
                 .frame(width: 44, alignment: .leading)
@@ -350,7 +350,7 @@ struct TokenmonNowTab: View {
                             .lineLimit(1)
                             .minimumScaleFactor(0.8)
                         Text(metric.caption)
-                            .font(.system(size: 10, weight: .semibold, design: .rounded))
+                            .font(.system(size: 11, weight: .semibold, design: .rounded))
                             .tracking(0.4)
                             .foregroundStyle(.secondary)
                     }

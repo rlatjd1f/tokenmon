@@ -1755,7 +1755,7 @@ private struct NowCampHeroCareActionButtonLabel: View {
                     .lineLimit(1)
                     .minimumScaleFactor(0.58)
                 Text(detailText)
-                    .font(.system(size: 9, weight: .semibold, design: .rounded))
+                    .font(.system(size: 11, weight: .semibold, design: .rounded))
                     .lineLimit(1)
                     .minimumScaleFactor(0.58)
             }
@@ -2140,7 +2140,7 @@ struct TokenmonNowCampHeroV2PresentationCard<HeaderAccessory: View>: View {
                 .minimumScaleFactor(0.56)
 
             Text(detail.isEmpty ? " " : detail)
-                .font(.system(size: 10, weight: .semibold, design: .rounded))
+                .font(.system(size: 11, weight: .semibold, design: .rounded))
                 .foregroundStyle(.secondary)
                 .lineLimit(1)
                 .minimumScaleFactor(0.58)
@@ -2345,7 +2345,7 @@ struct TokenmonNowCampHeroV2PresentationCard<HeaderAccessory: View>: View {
 
     private var campStatusBubble: some View {
         Text(presentation.campStatusLine)
-            .font(.system(size: 10, weight: .heavy, design: .rounded))
+            .font(.system(size: 11, weight: .heavy, design: .rounded))
             .foregroundStyle(Color.white.opacity(0.92))
             .lineLimit(1)
             .minimumScaleFactor(0.68)
@@ -2365,7 +2365,7 @@ struct TokenmonNowCampHeroV2PresentationCard<HeaderAccessory: View>: View {
     private func leadMarker(_ lead: NowCampHeroMemberPresentation) -> some View {
         VStack(spacing: 2) {
             Text(TokenmonL10n.string("now.camp.lead_badge"))
-                .font(.system(size: 8, weight: .black, design: .rounded))
+                .font(.system(size: 10, weight: .black, design: .rounded))
                 .foregroundStyle(presentation.field.nowCampTint)
                 .lineLimit(1)
                 .minimumScaleFactor(0.7)
@@ -2901,7 +2901,7 @@ struct TokenmonNowCampHeroPresentationCard<HeaderAccessory: View>: View {
                 .font(.system(size: 10, weight: .black))
                 .foregroundStyle(feedback.tint)
             Text(feedback.message)
-                .font(.system(size: 10, weight: .heavy, design: .rounded))
+                .font(.system(size: 11, weight: .heavy, design: .rounded))
                 .lineLimit(1)
                 .minimumScaleFactor(0.68)
         }
@@ -3030,7 +3030,7 @@ struct TokenmonNowCampHeroPresentationCard<HeaderAccessory: View>: View {
                     "now.camp.v2.reward.compact.success_line",
                     presentation.v2.rewardPreview.successLine.valueText
                 ))
-                    .font(.system(size: 10, weight: .semibold, design: .rounded))
+                    .font(.system(size: 11, weight: .semibold, design: .rounded))
                     .foregroundStyle(Color.white.opacity(0.62))
                     .lineLimit(1)
                     .minimumScaleFactor(0.58)
@@ -3049,12 +3049,12 @@ struct TokenmonNowCampHeroPresentationCard<HeaderAccessory: View>: View {
                     Image(systemName: careIcon(for: presentation.careAction))
                         .font(.system(size: 10, weight: .black))
                     Text(NowCampHeroPresentation.careDisplayText(for: presentation.careAction))
-                        .font(.system(size: 10.2, weight: .heavy, design: .rounded))
+                        .font(.system(size: 12, weight: .heavy, design: .rounded))
                         .lineLimit(1)
                         .minimumScaleFactor(0.62)
                 }
                 Text(NowCampHeroPresentation.careDetailText(for: presentation.careAction))
-                    .font(.system(size: 8.2, weight: .semibold, design: .rounded))
+                    .font(.system(size: 10, weight: .semibold, design: .rounded))
                     .foregroundStyle(compactActionDetailForeground(for: presentation.careAction))
                     .lineLimit(1)
                     .minimumScaleFactor(0.58)
@@ -3107,7 +3107,7 @@ struct TokenmonNowCampHeroPresentationCard<HeaderAccessory: View>: View {
                         .minimumScaleFactor(0.56)
 
                     Text(compactTrainDetailText)
-                        .font(.system(size: 8.2, weight: .semibold, design: .rounded))
+                        .font(.system(size: 10, weight: .semibold, design: .rounded))
                         .foregroundStyle(compactActionDetailForeground(for: presentation.trainAction))
                         .lineLimit(1)
                         .minimumScaleFactor(0.50)
@@ -3507,7 +3507,7 @@ struct TokenmonNowCampHeaderLeadLabel: View {
             Image(systemName: presentation.lead == nil ? "crown" : "crown.fill")
                 .font(.system(size: 11, weight: .semibold))
             Text(headerText)
-                .font(.system(size: 9, weight: .semibold, design: .rounded))
+                .font(.system(size: 11, weight: .semibold, design: .rounded))
                 .lineLimit(1)
                 .minimumScaleFactor(0.56)
                 .layoutPriority(1)

@@ -365,7 +365,7 @@ private struct DexTeaserEmptyState: View {
                 Text(title)
                     .font(.caption.weight(.semibold))
                 Text(subtitle)
-                    .font(.caption2)
+                    .font(.caption)
                     .foregroundStyle(.secondary)
             }
             Spacer(minLength: 0)

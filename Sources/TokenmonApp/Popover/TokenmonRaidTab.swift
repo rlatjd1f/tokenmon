@@ -126,7 +126,7 @@ struct TokenmonRaidTab: View {
                     Spacer()
                     Text(TokenmonL10n.format("raid.damage.format", raid.totalDamage))
                 }
-                .font(.caption2)
+                .font(.caption)
                 .foregroundStyle(.secondary)
             }
 
@@ -158,7 +158,7 @@ struct TokenmonRaidTab: View {
                         Text(reward.title)
                             .font(.caption.weight(.semibold))
                         Text(rewardStatusText(reward.status))
-                            .font(.caption2)
+                            .font(.caption)
                             .foregroundStyle(rewardTint(for: reward.status))
                     }
                     Spacer()
@@ -268,7 +268,7 @@ struct TokenmonRaidTab: View {
                                 }
                             }
                             Text(TokenmonDexPresentation.formattedTimestamp(attack.occurredAt) ?? attack.occurredAt)
-                                .font(.caption2)
+                                .font(.caption)
                                 .foregroundStyle(.secondary)
                         }
                         Spacer()
@@ -327,7 +327,7 @@ struct TokenmonRaidTab: View {
                                         .font(.caption.weight(.semibold))
                                         .lineLimit(2)
                                     Text(entry.sourceRaidTitle)
-                                        .font(.caption2)
+                                        .font(.caption)
                                         .foregroundStyle(.secondary)
                                         .lineLimit(1)
                                 }
@@ -344,7 +344,7 @@ struct TokenmonRaidTab: View {
 
                 if entries.count > 4 {
                     Text(TokenmonL10n.format("raid.archive.more_format", entries.count - 4))
-                        .font(.caption2)
+                        .font(.caption)
                         .foregroundStyle(.secondary)
                 }
             }
@@ -1150,7 +1150,7 @@ private struct TokenmonRewardArchiveCard: View {
                 HStack(spacing: 6) {
                     TokenmonRaidSourceTargetImage(entry: entry, size: 28)
                     Text(TokenmonRaidSourceTargetDisclosure.displayName(for: entry))
-                        .font(.caption2)
+                        .font(.caption)
                         .foregroundStyle(.secondary)
                         .lineLimit(1)
                 }

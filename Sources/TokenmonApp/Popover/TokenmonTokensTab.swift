@@ -16,7 +16,7 @@ struct TokenmonTokensTab: View {
         VStack(alignment: .leading, spacing: 12) {
             countersBlock
             Text(tokenSourceNote)
-                .font(.caption2)
+                .font(.caption)
                 .foregroundStyle(.secondary)
             providerSplitSection
             hourlySection
@@ -72,7 +72,7 @@ struct TokenmonTokensTab: View {
                 .lineLimit(1)
                 .minimumScaleFactor(0.7)
             Text(TokenmonL10n.format("tokens.counter.label", label))
-                .font(.system(size: 9, weight: .bold, design: .rounded))
+                .font(.system(size: 11, weight: .bold, design: .rounded))
                 .tracking(0.6)
                 .foregroundStyle(.secondary)
         }

@@ -88,7 +88,7 @@ struct TokenmonProviderIndicator: View {
                     .font(.caption.weight(.medium))
                     .foregroundStyle(.primary)
                 Text(state.statusWord)
-                    .font(.system(size: 9, weight: .bold, design: .rounded))
+                    .font(.system(size: 11, weight: .bold, design: .rounded))
                     .foregroundStyle(state.color)
                     .padding(.horizontal, 5)
                     .padding(.vertical, 1)
