@@ -43,6 +43,8 @@ public struct AppSettings: Equatable, Sendable {
     public var floatingPanelAlwaysOnTop: Bool
     public var floatingPanelOriginX: Double?
     public var floatingPanelOriginY: Double?
+    public var floatingPanelWidth: Double?
+    public var floatingPanelHeight: Double?
 
     public init(
         launchAtLogin: Bool = false,
@@ -58,7 +60,9 @@ public struct AppSettings: Equatable, Sendable {
         surfacePresentationMode: AppSurfacePresentationMode = .popover,
         floatingPanelAlwaysOnTop: Bool = true,
         floatingPanelOriginX: Double? = nil,
-        floatingPanelOriginY: Double? = nil
+        floatingPanelOriginY: Double? = nil,
+        floatingPanelWidth: Double? = nil,
+        floatingPanelHeight: Double? = nil
     ) {
         self.launchAtLogin = launchAtLogin
         self.notificationsEnabled = notificationsEnabled
@@ -74,6 +78,8 @@ public struct AppSettings: Equatable, Sendable {
         self.floatingPanelAlwaysOnTop = floatingPanelAlwaysOnTop
         self.floatingPanelOriginX = floatingPanelOriginX
         self.floatingPanelOriginY = floatingPanelOriginY
+        self.floatingPanelWidth = floatingPanelWidth
+        self.floatingPanelHeight = floatingPanelHeight
     }
 }
 
@@ -125,6 +131,10 @@ public extension TokenmonDatabaseManager {
                 settings.floatingPanelOriginX = try decoder.decode(Double.self, from: Data(row.valueJSON.utf8))
             case "floating_panel_origin_y":
                 settings.floatingPanelOriginY = try decoder.decode(Double.self, from: Data(row.valueJSON.utf8))
+            case "floating_panel_width":
+                settings.floatingPanelWidth = try decoder.decode(Double.self, from: Data(row.valueJSON.utf8))
+            case "floating_panel_height":
+                settings.floatingPanelHeight = try decoder.decode(Double.self, from: Data(row.valueJSON.utf8))
             default:
                 continue
             }
@@ -231,6 +241,26 @@ public extension TokenmonDatabaseManager {
                 )
             } else {
                 try deleteSetting(key: "floating_panel_origin_y", database: database)
+            }
+            if let width = settings.floatingPanelWidth {
+                try upsertSetting(
+                    key: "floating_panel_width",
+                    encodedValue: try String(decoding: encoder.encode(width), as: UTF8.self),
+                    updatedAt: updatedAt,
+                    database: database
+                )
+            } else {
+                try deleteSetting(key: "floating_panel_width", database: database)
+            }
+            if let height = settings.floatingPanelHeight {
+                try upsertSetting(
+                    key: "floating_panel_height",
+                    encodedValue: try String(decoding: encoder.encode(height), as: UTF8.self),
+                    updatedAt: updatedAt,
+                    database: database
+                )
+            } else {
+                try deleteSetting(key: "floating_panel_height", database: database)
             }
         }
     }

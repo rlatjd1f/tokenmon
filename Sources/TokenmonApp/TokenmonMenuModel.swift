@@ -544,6 +544,13 @@ final class TokenmonMenuModel: ObservableObject {
         persist(settings: settings)
     }
 
+    func updateFloatingPanelSize(width: Double, height: Double) {
+        var settings = appSettings
+        settings.floatingPanelWidth = width
+        settings.floatingPanelHeight = height
+        persist(settings: settings)
+    }
+
     func resetFloatingPanelPosition() {
         var settings = appSettings
         settings.floatingPanelOriginX = nil

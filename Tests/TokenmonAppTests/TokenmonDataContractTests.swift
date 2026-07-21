@@ -499,6 +499,8 @@ struct TokenmonDataContractTests {
         #expect(defaults.floatingPanelAlwaysOnTop)
         #expect(defaults.floatingPanelOriginX == nil)
         #expect(defaults.floatingPanelOriginY == nil)
+        #expect(defaults.floatingPanelWidth == nil)
+        #expect(defaults.floatingPanelHeight == nil)
 
         var updated = defaults
         updated.notificationsEnabled = false
@@ -513,6 +515,8 @@ struct TokenmonDataContractTests {
         updated.floatingPanelAlwaysOnTop = false
         updated.floatingPanelOriginX = 123
         updated.floatingPanelOriginY = 456
+        updated.floatingPanelWidth = 450
+        updated.floatingPanelHeight = 650
         try manager.saveAppSettings(updated)
 
         let reloaded = try manager.appSettings()
@@ -528,6 +532,8 @@ struct TokenmonDataContractTests {
         #expect(!reloaded.floatingPanelAlwaysOnTop)
         #expect(reloaded.floatingPanelOriginX == 123)
         #expect(reloaded.floatingPanelOriginY == 456)
+        #expect(reloaded.floatingPanelWidth == 450)
+        #expect(reloaded.floatingPanelHeight == 650)
         #expect(reloaded.providerStatusVisibility == defaults.providerStatusVisibility)
         #expect(reloaded.launchAtLogin == defaults.launchAtLogin)
     }

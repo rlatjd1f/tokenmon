@@ -1011,6 +1011,9 @@ final class TokenmonStatusItemController: NSObject {
             alwaysOnTop: model.appSettings.floatingPanelAlwaysOnTop,
             onMove: { [weak model] origin in
                 model?.updateFloatingPanelOrigin(x: origin.x, y: origin.y)
+            },
+            onResize: { [weak model] size in
+                model?.updateFloatingPanelSize(width: size.width, height: size.height)
             }
         )
         settingsCancellable = model.$diagnosticsSnapshot
@@ -1080,7 +1083,7 @@ final class TokenmonStatusItemController: NSObject {
         case .floatingPanel:
             popover.performClose(nil)
             floatingPanel?.update(alwaysOnTop: model.appSettings.floatingPanelAlwaysOnTop)
-            floatingPanel?.show(savedOrigin: savedFloatingPanelOrigin)
+            floatingPanel?.show(savedOrigin: savedFloatingPanelOrigin, savedSize: savedFloatingPanelSize)
         }
     }
 
@@ -1171,6 +1174,12 @@ final class TokenmonStatusItemController: NSObject {
         return CGPoint(x: x, y: y)
     }
 
+    private var savedFloatingPanelSize: CGSize? {
+        guard let width = model.appSettings.floatingPanelWidth,
+              let height = model.appSettings.floatingPanelHeight else { return nil }
+        return CGSize(width: width, height: height)
+    }
+
     private func applySurfaceSettings(_ settings: AppSettings) {
         guard floatingPanel != nil || settings.surfacePresentationMode == .floatingPanel else { return }
         floatingPanel?.update(alwaysOnTop: settings.floatingPanelAlwaysOnTop)
@@ -1181,7 +1190,7 @@ final class TokenmonStatusItemController: NSObject {
             floatingPanel?.close()
         } else if settings.surfacePresentationMode == .floatingPanel, popover.isShown {
             popover.performClose(nil)
-            floatingPanel?.show(savedOrigin: savedFloatingPanelOrigin)
+            floatingPanel?.show(savedOrigin: savedFloatingPanelOrigin, savedSize: savedFloatingPanelSize)
         }
     }
 

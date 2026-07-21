@@ -1,6 +1,24 @@
 import AppKit
 import SwiftUI
 
+private struct TokenmonScalableFloatingContent: View {
+    let rootView: AnyView
+    let baseSize: CGSize
+
+    var body: some View {
+        GeometryReader { geometry in
+            let scale = min(
+                geometry.size.width / baseSize.width,
+                geometry.size.height / baseSize.height
+            )
+            rootView
+                .frame(width: baseSize.width, height: baseSize.height)
+                .scaleEffect(scale)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+        }
+    }
+}
+
 struct TokenmonFloatingPanelFrameResolver {
     static func constrainedOrigin(
         requestedOrigin: CGPoint?,
@@ -26,23 +44,27 @@ struct TokenmonFloatingPanelFrameResolver {
 
 @MainActor
 final class TokenmonFloatingPanelController: NSObject, NSWindowDelegate {
-    private let panelSize = NSSize(
+    private let defaultPanelSize = NSSize(
         width: TokenmonPopoverContainer.width,
         height: TokenmonPopoverContainer.height
     )
     private let onMove: (CGPoint) -> Void
+    private let onResize: (CGSize) -> Void
     private let panel: NSPanel
     private var shouldPersistMoves = true
+    private var shouldPersistResizes = true
 
     init(
         rootView: AnyView,
         alwaysOnTop: Bool,
-        onMove: @escaping (CGPoint) -> Void
+        onMove: @escaping (CGPoint) -> Void,
+        onResize: @escaping (CGSize) -> Void
     ) {
         self.onMove = onMove
+        self.onResize = onResize
         panel = NSPanel(
-            contentRect: NSRect(origin: .zero, size: panelSize),
-            styleMask: [.titled, .closable, .fullSizeContentView],
+            contentRect: NSRect(origin: .zero, size: defaultPanelSize),
+            styleMask: [.titled, .closable, .resizable, .fullSizeContentView],
             backing: .buffered,
             defer: false
         )
@@ -56,24 +78,29 @@ final class TokenmonFloatingPanelController: NSObject, NSWindowDelegate {
         panel.hidesOnDeactivate = false
         panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
         panel.level = alwaysOnTop ? .floating : .normal
-        panel.contentViewController = NSHostingController(rootView: rootView)
-        panel.contentMinSize = panelSize
-        panel.contentMaxSize = panelSize
-        panel.setContentSize(panelSize)
+        panel.contentViewController = NSHostingController(rootView: scalableRootView(rootView))
+        panel.contentMinSize = NSSize(width: 288, height: 416)
+        panel.contentAspectRatio = defaultPanelSize
+        panel.setContentSize(defaultPanelSize)
         TokenmonAppAppearanceController.syncHostWindow(panel)
     }
 
     var isVisible: Bool { panel.isVisible }
 
     func updateRootView(_ rootView: AnyView) {
-        (panel.contentViewController as? NSHostingController<AnyView>)?.rootView = rootView
+        (panel.contentViewController as? NSHostingController<AnyView>)?.rootView = scalableRootView(rootView)
     }
 
     func update(alwaysOnTop: Bool) {
         panel.level = alwaysOnTop ? .floating : .normal
     }
 
-    func show(savedOrigin: CGPoint?) {
+    func show(savedOrigin: CGPoint?, savedSize: CGSize?) {
+        if let savedSize {
+            shouldPersistResizes = false
+            panel.setContentSize(savedSize)
+            shouldPersistResizes = true
+        }
         position(savedOrigin: savedOrigin)
         panel.orderFrontRegardless()
     }
@@ -92,7 +119,7 @@ final class TokenmonFloatingPanelController: NSObject, NSWindowDelegate {
         }
         let origin = TokenmonFloatingPanelFrameResolver.constrainedOrigin(
             requestedOrigin: savedOrigin,
-            panelSize: panelSize,
+            panelSize: panel.frame.size,
             visibleFrames: NSScreen.screens.map(\.visibleFrame),
             fallbackVisibleFrame: fallbackScreen.visibleFrame
         )
@@ -104,6 +131,29 @@ final class TokenmonFloatingPanelController: NSObject, NSWindowDelegate {
     func windowDidMove(_ notification: Notification) {
         guard shouldPersistMoves else { return }
         onMove(panel.frame.origin)
+    }
+
+    func windowDidResize(_ notification: Notification) {
+        guard shouldPersistResizes, panel.inLiveResize == false else { return }
+        persistCurrentSize()
+    }
+
+    func windowDidEndLiveResize(_ notification: Notification) {
+        guard shouldPersistResizes else { return }
+        persistCurrentSize()
+    }
+
+    private func persistCurrentSize() {
+        onResize(panel.contentView?.bounds.size ?? panel.contentLayoutRect.size)
+    }
+
+    private func scalableRootView(_ rootView: AnyView) -> AnyView {
+        AnyView(
+            TokenmonScalableFloatingContent(
+                rootView: rootView,
+                baseSize: defaultPanelSize
+            )
+        )
     }
 
 }
