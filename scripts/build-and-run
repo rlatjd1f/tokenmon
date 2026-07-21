@@ -12,11 +12,39 @@ swift build
 
 bin_dir="$(swift build --show-bin-path)"
 app_bin="$bin_dir/TokenmonApp"
+resource_bundle="$bin_dir/Tokenmon_TokenmonApp.bundle"
+sparkle_framework="$bin_dir/Sparkle.framework"
+app_bundle="$project_dir/.build/TokenmonDev.app"
+app_macos_dir="$app_bundle/Contents/MacOS"
+app_frameworks_dir="$app_bundle/Contents/Frameworks"
+app_resources_dir="$app_bundle/Contents/Resources"
 
 if [[ ! -x "$app_bin" ]]; then
     printf 'Build completed, but TokenmonApp was not found at %s\n' "$app_bin" >&2
     exit 1
 fi
+
+if [[ ! -f "$project_dir/Packaging/Tokenmon-Info.plist" ]]; then
+    printf 'Missing app Info.plist template\n' >&2
+    exit 1
+fi
+
+if [[ ! -d "$sparkle_framework" ]]; then
+    printf 'Missing Sparkle.framework at %s\n' "$sparkle_framework" >&2
+    exit 1
+fi
+
+printf 'Assembling development app bundle at %s\n' "$app_bundle"
+mkdir -p "$app_macos_dir" "$app_frameworks_dir" "$app_resources_dir"
+cp "$app_bin" "$app_macos_dir/TokenmonApp"
+cp "$project_dir/Packaging/Tokenmon-Info.plist" "$app_bundle/Contents/Info.plist"
+ditto "$sparkle_framework" "$app_frameworks_dir/Sparkle.framework"
+
+if [[ -d "$resource_bundle" ]]; then
+    ditto "$resource_bundle" "$app_resources_dir/Tokenmon_TokenmonApp.bundle"
+fi
+
+codesign --force --deep --sign - "$app_bundle" >/dev/null
 
 if pgrep -x TokenmonApp >/dev/null 2>&1; then
     printf 'Stopping the currently running TokenmonApp\n'
@@ -35,5 +63,5 @@ if pgrep -x TokenmonApp >/dev/null 2>&1; then
     fi
 fi
 
-printf 'Launching %s\n' "$app_bin"
-exec "$app_bin" "$@"
+printf 'Launching %s\n' "$app_bundle"
+open -n "$app_bundle" --args "$@"
