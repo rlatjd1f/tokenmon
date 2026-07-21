@@ -675,6 +675,10 @@ struct TokenmonSettingsPanel: View {
         .onAppear {
             model.surfaceOpened(.settings, entrypoint: "window_content", emitAnalytics: false)
         }
+        .onExitCommand {
+            guard pendingPathSelection == nil else { return }
+            NSApp.keyWindow?.performClose(nil)
+        }
         .fileImporter(
             isPresented: Binding(
                 get: { pendingPathSelection != nil },
