@@ -834,6 +834,12 @@ final class TokenmonAppController {
                     selectSpecies: { [weak controller] capture in
                         controller?.closeSurface()
                         TokenmonAppController.shared.showDexWindow(selecting: capture.speciesID)
+                    },
+                    toggleFloatingPanelPin: { [weak self] in
+                        guard let self else { return }
+                        self.menuModel.updateFloatingPanelAlwaysOnTop(
+                            !self.menuModel.appSettings.floatingPanelAlwaysOnTop
+                        )
                     }
                 ),
                 initialActiveTab: initialActiveTab
@@ -1005,9 +1011,6 @@ final class TokenmonStatusItemController: NSObject {
             alwaysOnTop: model.appSettings.floatingPanelAlwaysOnTop,
             onMove: { [weak model] origin in
                 model?.updateFloatingPanelOrigin(x: origin.x, y: origin.y)
-            },
-            onAlwaysOnTopChange: { [weak model] value in
-                model?.updateFloatingPanelAlwaysOnTop(value)
             }
         )
         settingsCancellable = model.$diagnosticsSnapshot

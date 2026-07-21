@@ -31,21 +31,15 @@ final class TokenmonFloatingPanelController: NSObject, NSWindowDelegate {
         height: TokenmonPopoverContainer.height
     )
     private let onMove: (CGPoint) -> Void
-    private let onAlwaysOnTopChange: (Bool) -> Void
     private let panel: NSPanel
-    private let pinButton = NSButton()
-    private var alwaysOnTop: Bool
     private var shouldPersistMoves = true
 
     init(
         rootView: AnyView,
         alwaysOnTop: Bool,
-        onMove: @escaping (CGPoint) -> Void,
-        onAlwaysOnTopChange: @escaping (Bool) -> Void
+        onMove: @escaping (CGPoint) -> Void
     ) {
         self.onMove = onMove
-        self.onAlwaysOnTopChange = onAlwaysOnTopChange
-        self.alwaysOnTop = alwaysOnTop
         panel = NSPanel(
             contentRect: NSRect(origin: .zero, size: panelSize),
             styleMask: [.titled, .closable, .fullSizeContentView],
@@ -66,8 +60,6 @@ final class TokenmonFloatingPanelController: NSObject, NSWindowDelegate {
         panel.contentMinSize = panelSize
         panel.contentMaxSize = panelSize
         panel.setContentSize(panelSize)
-        configurePinButton()
-        updatePinAppearance()
         TokenmonAppAppearanceController.syncHostWindow(panel)
     }
 
@@ -78,9 +70,7 @@ final class TokenmonFloatingPanelController: NSObject, NSWindowDelegate {
     }
 
     func update(alwaysOnTop: Bool) {
-        self.alwaysOnTop = alwaysOnTop
         panel.level = alwaysOnTop ? .floating : .normal
-        updatePinAppearance()
     }
 
     func show(savedOrigin: CGPoint?) {
@@ -116,34 +106,4 @@ final class TokenmonFloatingPanelController: NSObject, NSWindowDelegate {
         onMove(panel.frame.origin)
     }
 
-    private func configurePinButton() {
-        pinButton.target = self
-        pinButton.action = #selector(toggleAlwaysOnTop)
-        pinButton.isBordered = false
-        pinButton.imagePosition = .imageOnly
-        pinButton.toolTip = TokenmonL10n.string("floating_panel.pin.tooltip")
-        pinButton.setAccessibilityLabel(TokenmonL10n.string("floating_panel.pin.tooltip"))
-        pinButton.frame = NSRect(x: 0, y: 0, width: 30, height: 24)
-
-        let accessory = NSTitlebarAccessoryViewController()
-        accessory.layoutAttribute = .right
-        accessory.view = pinButton
-        panel.addTitlebarAccessoryViewController(accessory)
-    }
-
-    private func updatePinAppearance() {
-        let symbolName = alwaysOnTop ? "pin.fill" : "pin"
-        pinButton.image = NSImage(
-            systemSymbolName: symbolName,
-            accessibilityDescription: TokenmonL10n.string("floating_panel.pin.tooltip")
-        )
-        pinButton.contentTintColor = alwaysOnTop ? .controlAccentColor : .secondaryLabelColor
-        pinButton.state = alwaysOnTop ? .on : .off
-    }
-
-    @objc private func toggleAlwaysOnTop() {
-        let newValue = !alwaysOnTop
-        update(alwaysOnTop: newValue)
-        onAlwaysOnTopChange(newValue)
-    }
 }
