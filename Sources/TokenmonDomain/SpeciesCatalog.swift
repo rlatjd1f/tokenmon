@@ -15,11 +15,11 @@ public enum SpeciesCatalog {
     ) -> SpeciesDefinition {
         SpeciesDefinition(
             id: id,
-            name: name,
+            name: SpeciesKoreanLocalization.names[id] ?? name,
             field: field,
             rarity: rarity,
             assetKey: assetKey,
-            flavorText: SpeciesFlavorText.byID[id],
+            flavorText: SpeciesKoreanLocalization.flavorText[id] ?? SpeciesFlavorText.byID[id],
             sortOrder: sortOrder,
             stats: stats,
             trainingTrait: authoredTrainingTrait(id: id, field: field, rarity: rarity)

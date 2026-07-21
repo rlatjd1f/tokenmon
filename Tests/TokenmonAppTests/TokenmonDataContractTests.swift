@@ -77,9 +77,9 @@ struct TokenmonDataContractTests {
 
         #expect(iceSpecies.count == 37)
         #expect(iceSpecies.first?.id == "ICE_001")
-        #expect(iceSpecies.first?.name == "Snowmole")
+        #expect(iceSpecies.first?.name == "눈두더")
         #expect(iceSpecies.last?.id == "ICE_037")
-        #expect(iceSpecies.last?.name == "Whiteout Titan")
+        #expect(iceSpecies.last?.name == "화이트아웃 타이탄")
         #expect(iceSpecies.contains { $0.assetKey == "ice_021_aurora_lynx" })
         #expect(!SpeciesCatalog.all.contains { $0.id.hasPrefix("UND_") })
     }

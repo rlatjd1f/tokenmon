@@ -367,7 +367,7 @@
 "settings.appearance.option.light" = "라이트 모드";
 "settings.appearance.option.dark" = "다크 모드";
 "settings.language.picker" = "앱 언어";
-"settings.language.note" = "앱 크롬은 여기서 선택한 언어를 따르고, 종 이름 같은 고유명사는 번역하지 않습니다.";
+"settings.language.note" = "앱 크롬은 여기서 선택한 언어를 따르고, 종 이름과 필드 노트는 이 포크의 한국어 초월번역을 사용합니다.";
 "settings.language.option.system" = "시스템 설정 따르기";
 "settings.language.option.english" = "English";
 "settings.language.option.korean" = "한국어";

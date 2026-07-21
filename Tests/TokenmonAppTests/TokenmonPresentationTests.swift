@@ -701,7 +701,7 @@ struct TokenmonPresentationTests {
     @Test
     func nowCampHeroPresentationShowsSeedkitCapturePassiveAtRankII() throws {
         let seedkit = try #require(SpeciesCatalog.all.first { $0.id == "GRS_003" })
-        #expect(seedkit.name == "Seedkit")
+        #expect(seedkit.name == "씨앗냥")
         #expect(seedkit.rarity == .common)
         #expect(seedkit.trainingTrait == .capture)
 
