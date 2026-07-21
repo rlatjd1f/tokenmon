@@ -525,6 +525,32 @@ final class TokenmonMenuModel: ObservableObject {
         persist(settings: settings)
     }
 
+    func updateSurfacePresentationMode(_ value: AppSurfacePresentationMode) {
+        var settings = appSettings
+        settings.surfacePresentationMode = value
+        persist(settings: settings)
+    }
+
+    func updateFloatingPanelAlwaysOnTop(_ value: Bool) {
+        var settings = appSettings
+        settings.floatingPanelAlwaysOnTop = value
+        persist(settings: settings)
+    }
+
+    func updateFloatingPanelOrigin(x: Double, y: Double) {
+        var settings = appSettings
+        settings.floatingPanelOriginX = x
+        settings.floatingPanelOriginY = y
+        persist(settings: settings)
+    }
+
+    func resetFloatingPanelPosition() {
+        var settings = appSettings
+        settings.floatingPanelOriginX = nil
+        settings.floatingPanelOriginY = nil
+        persist(settings: settings)
+    }
+
     func updateAppearancePreference(_ value: AppAppearancePreference) {
         var settings = appSettings
         settings.appearancePreference = value

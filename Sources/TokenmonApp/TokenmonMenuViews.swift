@@ -642,6 +642,9 @@ struct TokenmonSettingsPanel: View {
                     onUpdateLanguagePreference: model.updateLanguagePreference,
                     onUpdateProviderStatusVisibility: model.updateProviderStatusVisibility,
                     onUpdateFieldBackplateEnabled: model.updateFieldBackplateEnabled,
+                    onUpdateSurfacePresentationMode: model.updateSurfacePresentationMode,
+                    onUpdateFloatingPanelAlwaysOnTop: model.updateFloatingPanelAlwaysOnTop,
+                    onResetFloatingPanelPosition: model.resetFloatingPanelPosition,
                     onUpdateNotificationsEnabled: model.updateNotificationsEnabled,
                     onRequestNotificationPermission: model.requestCaptureNotificationPermission,
                     onUpdateUpdateNotificationsEnabled: model.updateUpdateNotificationsEnabled,
@@ -833,6 +836,9 @@ struct TokenmonGeneralSettingsPane: View {
     let onUpdateLanguagePreference: (AppLanguagePreference) -> Void
     let onUpdateProviderStatusVisibility: (Bool) -> Void
     let onUpdateFieldBackplateEnabled: (Bool) -> Void
+    let onUpdateSurfacePresentationMode: (AppSurfacePresentationMode) -> Void
+    let onUpdateFloatingPanelAlwaysOnTop: (Bool) -> Void
+    let onResetFloatingPanelPosition: () -> Void
     let onUpdateNotificationsEnabled: (Bool) -> Void
     let onRequestNotificationPermission: () -> Void
     let onUpdateUpdateNotificationsEnabled: (Bool) -> Void
@@ -887,7 +893,6 @@ struct TokenmonGeneralSettingsPane: View {
                                 }
                             )
                         )
-                        .disabled(launchAtLoginState.isSupported == false)
 
                         TokenmonSettingsStatusRow(
                             text: launchAtLoginState.reason,
@@ -960,6 +965,38 @@ struct TokenmonGeneralSettingsPane: View {
                                 }
                             )
                         )
+
+                        Picker(
+                            TokenmonL10n.string("settings.surface_mode.picker"),
+                            selection: Binding(
+                                get: { appSettings.surfacePresentationMode },
+                                set: { newValue in
+                                    onUpdateSurfacePresentationMode(newValue)
+                                }
+                            )
+                        ) {
+                            Text(TokenmonL10n.string("settings.surface_mode.popover"))
+                                .tag(AppSurfacePresentationMode.popover)
+                            Text(TokenmonL10n.string("settings.surface_mode.floating"))
+                                .tag(AppSurfacePresentationMode.floatingPanel)
+                        }
+
+                        if appSettings.surfacePresentationMode == .floatingPanel {
+                            Toggle(
+                                TokenmonL10n.string("settings.surface_mode.always_on_top"),
+                                isOn: Binding(
+                                    get: { appSettings.floatingPanelAlwaysOnTop },
+                                    set: { newValue in
+                                        onUpdateFloatingPanelAlwaysOnTop(newValue)
+                                    }
+                                )
+                            )
+
+                            Button(TokenmonL10n.string("settings.surface_mode.reset_position")) {
+                                onResetFloatingPanelPosition()
+                            }
+                            .tokenmonAdaptiveButtonStyle()
+                        }
 
                         Text(TokenmonL10n.string("settings.general.menu_bar.note"))
                             .font(.caption)

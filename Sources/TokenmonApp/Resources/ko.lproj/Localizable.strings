@@ -387,6 +387,11 @@
 "settings.general.toggle.show_provider_status" = "메뉴에 프로바이더 상태 표시";
 "settings.general.toggle.field_backplate" = "필드 대비 백플레이트";
 "settings.general.menu_bar.note" = "메뉴 막대는 한눈에 읽혀야 합니다. 자세한 프로바이더 복구 상태는 프로바이더 설정에서 확인하세요.";
+"settings.surface_mode.picker" = "콘텐츠 표시 방식";
+"settings.surface_mode.popover" = "메뉴 막대 팝오버";
+"settings.surface_mode.floating" = "이동 가능한 플로팅 패널";
+"settings.surface_mode.always_on_top" = "다른 창 위에 플로팅 패널 표시";
+"settings.surface_mode.reset_position" = "플로팅 패널 위치 초기화";
 "settings.general.section.notifications" = "알림";
 "settings.general.toggle.notify_on_capture" = "포획 시 알림";
 "settings.general.open_notification_settings" = "macOS 알림 설정 열기";

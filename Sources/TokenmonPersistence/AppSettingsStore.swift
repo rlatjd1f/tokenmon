@@ -23,6 +23,11 @@ public enum AppLanguagePreference: String, CaseIterable, Codable, Sendable {
     }
 }
 
+public enum AppSurfacePresentationMode: String, CaseIterable, Codable, Sendable {
+    case popover
+    case floatingPanel
+}
+
 public struct AppSettings: Equatable, Sendable {
     public var launchAtLogin: Bool
     public var notificationsEnabled: Bool
@@ -34,6 +39,10 @@ public struct AppSettings: Equatable, Sendable {
     public var usageAnalyticsPromptDismissed: Bool
     public var appearancePreference: AppAppearancePreference
     public var languagePreference: AppLanguagePreference
+    public var surfacePresentationMode: AppSurfacePresentationMode
+    public var floatingPanelAlwaysOnTop: Bool
+    public var floatingPanelOriginX: Double?
+    public var floatingPanelOriginY: Double?
 
     public init(
         launchAtLogin: Bool = false,
@@ -45,7 +54,11 @@ public struct AppSettings: Equatable, Sendable {
         usageAnalyticsEnabled: Bool = false,
         usageAnalyticsPromptDismissed: Bool = false,
         appearancePreference: AppAppearancePreference = .system,
-        languagePreference: AppLanguagePreference = .system
+        languagePreference: AppLanguagePreference = .system,
+        surfacePresentationMode: AppSurfacePresentationMode = .popover,
+        floatingPanelAlwaysOnTop: Bool = true,
+        floatingPanelOriginX: Double? = nil,
+        floatingPanelOriginY: Double? = nil
     ) {
         self.launchAtLogin = launchAtLogin
         self.notificationsEnabled = notificationsEnabled
@@ -57,6 +70,10 @@ public struct AppSettings: Equatable, Sendable {
         self.usageAnalyticsPromptDismissed = usageAnalyticsPromptDismissed
         self.appearancePreference = appearancePreference
         self.languagePreference = languagePreference
+        self.surfacePresentationMode = surfacePresentationMode
+        self.floatingPanelAlwaysOnTop = floatingPanelAlwaysOnTop
+        self.floatingPanelOriginX = floatingPanelOriginX
+        self.floatingPanelOriginY = floatingPanelOriginY
     }
 }
 
@@ -100,6 +117,14 @@ public extension TokenmonDatabaseManager {
                 settings.appearancePreference = try decoder.decode(AppAppearancePreference.self, from: Data(row.valueJSON.utf8))
             case "language_preference":
                 settings.languagePreference = try decoder.decode(AppLanguagePreference.self, from: Data(row.valueJSON.utf8))
+            case "surface_presentation_mode":
+                settings.surfacePresentationMode = try decoder.decode(AppSurfacePresentationMode.self, from: Data(row.valueJSON.utf8))
+            case "floating_panel_always_on_top":
+                settings.floatingPanelAlwaysOnTop = try decodeBool(from: row.valueJSON, decoder: decoder)
+            case "floating_panel_origin_x":
+                settings.floatingPanelOriginX = try decoder.decode(Double.self, from: Data(row.valueJSON.utf8))
+            case "floating_panel_origin_y":
+                settings.floatingPanelOriginY = try decoder.decode(Double.self, from: Data(row.valueJSON.utf8))
             default:
                 continue
             }
@@ -175,7 +200,43 @@ public extension TokenmonDatabaseManager {
                 updatedAt: updatedAt,
                 database: database
             )
+            try upsertSetting(
+                key: "surface_presentation_mode",
+                encodedValue: try String(decoding: encoder.encode(settings.surfacePresentationMode), as: UTF8.self),
+                updatedAt: updatedAt,
+                database: database
+            )
+            try upsertSetting(
+                key: "floating_panel_always_on_top",
+                encodedValue: try String(decoding: encoder.encode(settings.floatingPanelAlwaysOnTop), as: UTF8.self),
+                updatedAt: updatedAt,
+                database: database
+            )
+            if let originX = settings.floatingPanelOriginX {
+                try upsertSetting(
+                    key: "floating_panel_origin_x",
+                    encodedValue: try String(decoding: encoder.encode(originX), as: UTF8.self),
+                    updatedAt: updatedAt,
+                    database: database
+                )
+            } else {
+                try deleteSetting(key: "floating_panel_origin_x", database: database)
+            }
+            if let originY = settings.floatingPanelOriginY {
+                try upsertSetting(
+                    key: "floating_panel_origin_y",
+                    encodedValue: try String(decoding: encoder.encode(originY), as: UTF8.self),
+                    updatedAt: updatedAt,
+                    database: database
+                )
+            } else {
+                try deleteSetting(key: "floating_panel_origin_y", database: database)
+            }
         }
+    }
+
+    private func deleteSetting(key: String, database: SQLiteDatabase) throws {
+        try database.execute("DELETE FROM settings WHERE setting_key = ?;", bindings: [.text(key)])
     }
 
     private func upsertSetting(
