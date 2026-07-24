@@ -18,7 +18,7 @@ public struct ExplorationAccumulatorConfig: Equatable, Sendable {
     /// Lower bound for the completion threshold range.
     public let completionEncounterThresholdMinTokens: Int64
 
-    /// Keep threshold generation on a 200-token grid so migrated saves preserve
+    /// Keep threshold generation on a 20-token grid so migrated saves preserve
     /// the same replay-safe cadence as the legacy implementation.
     let encounterThresholdQuantumTokens: Int64
 
@@ -26,11 +26,11 @@ public struct ExplorationAccumulatorConfig: Equatable, Sendable {
     public let totalSpeciesCount: Int
 
     public init(
-        minimumEncounterThresholdTokens: Int64 = 180_000,
-        startingEncounterThresholdMaxTokens: Int64 = 260_000,
-        completionEncounterThresholdMinTokens: Int64 = 700_000,
-        maximumEncounterThresholdTokens: Int64 = 900_000,
-        encounterThresholdQuantumTokens: Int64 = 200,
+        minimumEncounterThresholdTokens: Int64 = 18_000,
+        startingEncounterThresholdMaxTokens: Int64 = 26_000,
+        completionEncounterThresholdMinTokens: Int64 = 70_000,
+        maximumEncounterThresholdTokens: Int64 = 90_000,
+        encounterThresholdQuantumTokens: Int64 = 20,
         totalSpeciesCount: Int = 151
     ) {
         self.minimumEncounterThresholdTokens = minimumEncounterThresholdTokens
@@ -74,10 +74,10 @@ public struct ExplorationAccumulatorConfig: Equatable, Sendable {
     /// species the player has captured. Uses a quadratic curve so the threshold
     /// stays low through mid-game and ramps steeply near completion.
     ///
-    /// - 0 captured:   ~180K – 260K (fast encounters, early game)
-    /// - ~75 captured:  ~310K – 420K (mid game)
-    /// - ~120 captured: ~510K – 660K (approaching completion)
-    /// - 151 captured: ~700K – 900K (slow encounters, late game)
+    /// - 0 captured:   ~18K – 26K (fast encounters, early game)
+    /// - ~75 captured:  ~31K – 42K (mid game)
+    /// - ~120 captured: ~51K – 66K (approaching completion)
+    /// - 151 captured: ~70K – 90K (slow encounters, late game)
     public func scaledThresholdRange(capturedSpeciesCount: Int) -> (min: Int64, max: Int64) {
         let total = max(1, totalSpeciesCount)
         let clamped = min(max(0, capturedSpeciesCount), total)

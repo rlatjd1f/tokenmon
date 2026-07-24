@@ -100,7 +100,7 @@ public final class TokenmonDatabaseManager {
 
     private static let bootstrapState = BootstrapState()
     private static let encounterThresholdPolicySettingKey = "encounter_threshold_policy_version"
-    private static let encounterThresholdPolicyVersion = "encounter_threshold_v3_midpoint_rebase"
+    private static let encounterThresholdPolicyVersion = "encounter_threshold_v4_fast_personal_pacing"
     private static let encounterThresholdRebaseProgressFraction = 0.50
 
     public let path: String

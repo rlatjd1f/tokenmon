@@ -466,14 +466,14 @@ struct TokenmonDataContractTests {
         let earlyRange = config.scaledThresholdRange(capturedSpeciesCount: 0)
         let lateRange = config.scaledThresholdRange(capturedSpeciesCount: SpeciesCatalog.expectedCount)
 
-        #expect(config.minimumEncounterThresholdTokens == 180_000)
-        #expect(config.startingEncounterThresholdMaxTokens == 260_000)
-        #expect(config.completionEncounterThresholdMinTokens == 700_000)
-        #expect(config.maximumEncounterThresholdTokens == 900_000)
-        #expect(earlyRange.min == 180_000)
-        #expect(earlyRange.max == 260_000)
-        #expect(lateRange.min == 700_000)
-        #expect(lateRange.max == 900_000)
+        #expect(config.minimumEncounterThresholdTokens == 18_000)
+        #expect(config.startingEncounterThresholdMaxTokens == 26_000)
+        #expect(config.completionEncounterThresholdMinTokens == 70_000)
+        #expect(config.maximumEncounterThresholdTokens == 90_000)
+        #expect(earlyRange.min == 18_000)
+        #expect(earlyRange.max == 26_000)
+        #expect(lateRange.min == 70_000)
+        #expect(lateRange.max == 90_000)
     }
 
     @Test
@@ -5663,7 +5663,7 @@ struct TokenmonDataContractTests {
             asOf: ISO8601DateFormatter().date(from: "2026-04-23T00:00:00Z")!
         )
         #expect(dashboard.currentRaid?.raidID == "raid_2026_04_april_vault")
-        #expect(dashboard.currentRaid?.maxHP == 12_000)
+        #expect(dashboard.currentRaid?.maxHP == 1_200)
         #expect(dashboard.archiveEntries.contains { $0.rewardID == "reward_first_spark_trophy" })
         #expect(dashboard.archiveEntries.contains { $0.rewardID == "reward_2026_04_april_relic" })
         #expect(dashboard.archiveEntries.contains { $0.rewardID == "reward_2026_12_december_relic" })
@@ -5683,7 +5683,7 @@ struct TokenmonDataContractTests {
         ) { statement in
             SQLiteDatabase.columnInt64(statement, index: 0)
         }
-        #expect(decemberHP == 120_000)
+        #expect(decemberHP == 12_000)
     }
 
     @Test
@@ -5910,8 +5910,8 @@ struct TokenmonDataContractTests {
         )
 
         #expect(dashboard.currentRaid?.raidID == "raid_2026_04_april_vault")
-        #expect(dashboard.currentRaid?.maxHP == 12_000)
-        #expect(dashboard.currentRaid?.currentHP == 11_000)
+        #expect(dashboard.currentRaid?.maxHP == 1_200)
+        #expect(dashboard.currentRaid?.currentHP == 200)
     }
 
     @Test
