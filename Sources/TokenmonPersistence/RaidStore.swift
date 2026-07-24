@@ -456,10 +456,7 @@ private extension TokenmonDatabaseManager {
             }
         }
 
-        return raids
-            .filter { $0.availabilityKind == .scheduled }
-            .sorted(by: raidPrioritySort)
-            .first
+        return nil
     }
 
     func currentAttackableRaid(database: SQLiteDatabase, at observedDate: Date) throws -> RaidDefinition? {

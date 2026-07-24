@@ -6058,6 +6058,62 @@ struct TokenmonDataContractTests {
     }
 
     @Test
+    func raidDashboardDoesNotDisplayFutureRaidWhenNoRaidIsAttackable() throws {
+        let manager = try makeManager(prefix: "raid-no-future-display")
+        let database = try manager.open()
+
+        _ = try manager.raidDashboardSummary(
+            asOf: ISO8601DateFormatter().date(from: "2026-07-24T00:00:00Z")!
+        )
+        try database.execute(
+            """
+            UPDATE raid_instances
+            SET status = 'cleared',
+                current_hp = 0,
+                cleared_at = '2026-07-24T00:01:00Z',
+                updated_at = '2026-07-24T00:01:00Z'
+            WHERE raid_id = 'raid_2026_07_july_vault';
+            """
+        )
+
+        _ = try manager.raidDashboardSummary(
+            asOf: ISO8601DateFormatter().date(from: "2026-07-24T00:01:15Z")!
+        )
+
+        try database.execute(
+            """
+            UPDATE raid_instances
+            SET status = 'cleared',
+                current_hp = 0,
+                cleared_at = '2026-07-24T00:01:20Z',
+                updated_at = '2026-07-24T00:01:20Z'
+            WHERE raid_id = 'raid_tutorial_first_spark';
+            """
+        )
+
+        _ = try manager.raidDashboardSummary(
+            asOf: ISO8601DateFormatter().date(from: "2026-07-24T00:01:30Z")!
+        )
+
+        try database.execute(
+            """
+            UPDATE raid_instances
+            SET status = 'cleared',
+                current_hp = 0,
+                cleared_at = '2026-07-24T00:01:45Z',
+                updated_at = '2026-07-24T00:01:45Z'
+            WHERE raid_id = 'raid_practice_token_vault';
+            """
+        )
+
+        let dashboard = try manager.raidDashboardSummary(
+            asOf: ISO8601DateFormatter().date(from: "2026-07-24T00:02:00Z")!
+        )
+
+        #expect(dashboard.currentRaid == nil)
+    }
+
+    @Test
     func raidFallsBackToPracticeAfterTutorialClear() throws {
         let manager = try makeManager(prefix: "raid-practice-fallback")
         let database = try manager.open()
