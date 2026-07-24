@@ -1540,12 +1540,12 @@ struct TokenmonNowCampHeroCard: View {
             presentation: presentation,
             partyMembers: partyMembers,
             isPresented: $isLeadPickerPresented,
-            labelWidth: 158,
-            labelHeight: 24,
+            labelWidth: 174,
+            labelHeight: 26,
             labelSpacing: 6,
-            labelHorizontalPadding: 6,
-            titleFontSize: 9,
-            crownFontSize: 11,
+            labelHorizontalPadding: 7,
+            titleFontSize: 11,
+            crownFontSize: 12,
             onSelectLead: { speciesID in
                 model.setNowCampLead(speciesID)
             }
