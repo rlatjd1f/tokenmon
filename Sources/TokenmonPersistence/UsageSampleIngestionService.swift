@@ -31,6 +31,9 @@ private struct GameplayEligibilityDecision {
 }
 
 public final class UsageSampleIngestionService {
+    private static let raidAttackTokenThreshold: Int64 = 1_800
+    private static let raidAttackTokenRemainderSettingKey = "raid_attack_token_remainder_v1"
+
     private let databaseManager: TokenmonDatabaseManager
     private let explorationAccumulator: ExplorationAccumulator
     private let encounterGenerator: EncounterGenerator
@@ -495,12 +498,17 @@ public final class UsageSampleIngestionService {
                     observedAt: event.observedAt,
                     correlationID: event.providerEventFingerprint
                 )
-                _ = try databaseManager.processRaidAttackForUsageSample(
+                if try shouldTriggerRaidAttack(
                     database: database,
-                    usageSampleID: usageSampleID,
-                    observedAt: event.observedAt,
-                    correlationID: event.providerEventFingerprint
-                )
+                    gameplayDeltaTokens: balanceDecision.gameplayDeltaTokens
+                ) {
+                    _ = try databaseManager.processRaidAttackForUsageSample(
+                        database: database,
+                        usageSampleID: usageSampleID,
+                        observedAt: event.observedAt,
+                        correlationID: event.providerEventFingerprint
+                    )
+                }
             }
 
             if balanceDecision.gameplayDeltaTokens > 0 {
@@ -749,6 +757,65 @@ public final class UsageSampleIngestionService {
         }
 
         return try decoder.decode(String.self, from: Data(rawJSON.utf8))
+    }
+
+    private func shouldTriggerRaidAttack(
+        database: SQLiteDatabase,
+        gameplayDeltaTokens: Int64
+    ) throws -> Bool {
+        let previousRemainder = try raidAttackTokenRemainder(database: database)
+        let total = max(0, previousRemainder) + max(0, gameplayDeltaTokens)
+        let shouldAttack = total >= Self.raidAttackTokenThreshold
+        let nextRemainder = shouldAttack
+            ? total % Self.raidAttackTokenThreshold
+            : total
+        try upsertRaidAttackTokenRemainder(nextRemainder, database: database)
+        return shouldAttack
+    }
+
+    private func raidAttackTokenRemainder(database: SQLiteDatabase) throws -> Int64 {
+        let decoder = JSONDecoder()
+        guard let rawJSON = try database.fetchOne(
+            """
+            SELECT setting_value_json
+            FROM settings
+            WHERE setting_key = ?
+            LIMIT 1;
+            """,
+            bindings: [.text(Self.raidAttackTokenRemainderSettingKey)],
+            map: { statement in
+                SQLiteDatabase.columnText(statement, index: 0)
+            }
+        ) else {
+            return 0
+        }
+
+        return (try? decoder.decode(Int64.self, from: Data(rawJSON.utf8))) ?? 0
+    }
+
+    private func upsertRaidAttackTokenRemainder(
+        _ remainder: Int64,
+        database: SQLiteDatabase
+    ) throws {
+        let encoded = String(decoding: try JSONEncoder().encode(remainder), as: UTF8.self)
+        let now = ISO8601DateFormatter().string(from: Date())
+        try database.execute(
+            """
+            INSERT INTO settings (
+                setting_key,
+                setting_value_json,
+                updated_at
+            ) VALUES (?, ?, ?)
+            ON CONFLICT(setting_key) DO UPDATE SET
+                setting_value_json = excluded.setting_value_json,
+                updated_at = excluded.updated_at;
+            """,
+            bindings: [
+                .text(Self.raidAttackTokenRemainderSettingKey),
+                .text(encoded),
+                .text(now),
+            ]
+        )
     }
 
     private func gameplayEligibilityDecision(

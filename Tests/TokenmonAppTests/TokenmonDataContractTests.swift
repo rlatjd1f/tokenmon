@@ -5465,10 +5465,10 @@ struct TokenmonDataContractTests {
         #expect(hit.fieldFitBonus == 1)
         #expect(hit.traitFitBonus == 1)
         #expect(hit.captureBondBonus == 1)
-        #expect(hit.baseHitPower == 9)
+        #expect(hit.baseHitPower == 90)
         #expect(hit.rollOutcome == .normal)
         #expect(hit.rollMultiplier == 1.0)
-        #expect(hit.hitPower == 9)
+        #expect(hit.hitPower == 90)
     }
 
     @Test
@@ -5498,12 +5498,12 @@ struct TokenmonDataContractTests {
 
         let resolution = RaidDamageCalculator.resolveAttack(raid: raid, partyMembers: members)
 
-        #expect(resolution.rawPartyDamage == 27)
+        #expect(resolution.rawPartyDamage == 270)
         #expect(resolution.formationMultiplier == 1.05)
         #expect(resolution.fieldMatchCount == 3)
         #expect(resolution.fieldSynergyMultiplier == 1.12)
-        #expect(resolution.unmodifiedTotalDamage == 31)
-        #expect(resolution.totalDamage == 31)
+        #expect(resolution.unmodifiedTotalDamage == 317)
+        #expect(resolution.totalDamage == 317)
     }
 
     @Test
@@ -5546,8 +5546,8 @@ struct TokenmonDataContractTests {
         )
 
         #expect(first == replay)
-        #expect(first.memberHits.first?.baseHitPower == 9)
-        #expect(nextSample.memberHits.first?.baseHitPower == 9)
+        #expect(first.memberHits.first?.baseHitPower == 90)
+        #expect(nextSample.memberHits.first?.baseHitPower == 90)
         #expect(first.memberHits.first?.rollOutcome != nil)
         #expect(nextSample.memberHits.first?.rollOutcome != nil)
     }
@@ -5578,7 +5578,7 @@ struct TokenmonDataContractTests {
         let hit = RaidDamageCalculator.memberHit(raid: raid, member: member)
 
         #expect(hit.captureBondBonus == 0)
-        #expect(hit.baseHitPower == 8)
+        #expect(hit.baseHitPower == 80)
     }
 
     @Test
@@ -5617,8 +5617,8 @@ struct TokenmonDataContractTests {
                 codexUsageEvent(
                     sessionID: "raid-affinity-session",
                     observedAt: "2026-04-23T00:01:00Z",
-                    totalInputTokens: 1_000,
-                    totalOutputTokens: 500,
+                    totalInputTokens: 10_000,
+                    totalOutputTokens: 5_000,
                     fingerprint: "codex:raid-affinity-session:001"
                 ),
             ],
@@ -5663,7 +5663,7 @@ struct TokenmonDataContractTests {
             asOf: ISO8601DateFormatter().date(from: "2026-04-23T00:00:00Z")!
         )
         #expect(dashboard.currentRaid?.raidID == "raid_2026_04_april_vault")
-        #expect(dashboard.currentRaid?.maxHP == 240)
+        #expect(dashboard.currentRaid?.maxHP == 12_000)
         #expect(dashboard.archiveEntries.contains { $0.rewardID == "reward_first_spark_trophy" })
         #expect(dashboard.archiveEntries.contains { $0.rewardID == "reward_2026_04_april_relic" })
         #expect(dashboard.archiveEntries.contains { $0.rewardID == "reward_2026_12_december_relic" })
@@ -5683,7 +5683,7 @@ struct TokenmonDataContractTests {
         ) { statement in
             SQLiteDatabase.columnInt64(statement, index: 0)
         }
-        #expect(decemberHP == 2_400)
+        #expect(decemberHP == 120_000)
     }
 
     @Test
@@ -5910,8 +5910,8 @@ struct TokenmonDataContractTests {
         )
 
         #expect(dashboard.currentRaid?.raidID == "raid_2026_04_april_vault")
-        #expect(dashboard.currentRaid?.maxHP == 1_200)
-        #expect(dashboard.currentRaid?.currentHP == 200)
+        #expect(dashboard.currentRaid?.maxHP == 12_000)
+        #expect(dashboard.currentRaid?.currentHP == 11_000)
     }
 
     @Test
@@ -5927,7 +5927,7 @@ struct TokenmonDataContractTests {
             UPDATE raid_instances
             SET status = 'active',
                 current_hp = 9000,
-                total_damage = 1400,
+                total_damage = 14_000,
                 cleared_at = NULL
             WHERE raid_id = 'raid_2026_04_april_vault';
             """
@@ -6099,8 +6099,8 @@ struct TokenmonDataContractTests {
                 codexUsageEvent(
                     sessionID: "raid-practice-session",
                     observedAt: "2027-01-02T00:02:00Z",
-                    totalInputTokens: 1_000,
-                    totalOutputTokens: 500,
+                    totalInputTokens: 10_000,
+                    totalOutputTokens: 5_000,
                     fingerprint: "codex:raid-practice-session:001"
                 ),
             ],
@@ -6128,7 +6128,7 @@ struct TokenmonDataContractTests {
     }
 
     @Test
-    func raidAttackCountFollowsUsageSamplesNotTokenVolume() throws {
+    func raidAttackCountFollowsAccumulatedTokenThreshold() throws {
         let manager = try makeManager(prefix: "raid-usage-samples")
         let database = try manager.open()
         try upsertStringSetting(
@@ -6181,7 +6181,7 @@ struct TokenmonDataContractTests {
             SQLiteDatabase.columnInt64(statement, index: 0)
         }
 
-        #expect(damages.count == 2)
+        #expect(damages.count == 1)
         #expect(damages.allSatisfy { $0 >= 0 })
         #expect(damages.reduce(0, +) > 0)
     }

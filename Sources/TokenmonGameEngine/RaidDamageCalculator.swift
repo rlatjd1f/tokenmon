@@ -49,6 +49,8 @@ public struct RaidDamageBlessing: Equatable, Sendable {
 }
 
 public enum RaidDamageCalculator {
+    public static let personalDamageMultiplier = 10
+
     public static func resolveAttack(
         raid: RaidDefinition,
         partyMembers: [RaidPartyMember],
@@ -128,7 +130,7 @@ public enum RaidDamageCalculator {
             member.stats.traits.filter { raid.preferredTraitTags.contains($0) }.count
         )
         let captureBondBonus = captureBondBonus(affinityLevel: member.affinityLevel)
-        let hitPower = max(
+        let baseHitPower = max(
             1,
             roundedAxisScore
                 + roleFitBonus
@@ -137,6 +139,7 @@ public enum RaidDamageCalculator {
                 + captureBondBonus
                 + max(0, trainingRaidBonus)
         )
+        let hitPower = baseHitPower * Self.personalDamageMultiplier
 
         return RaidMemberHitResult(
             member: member,
