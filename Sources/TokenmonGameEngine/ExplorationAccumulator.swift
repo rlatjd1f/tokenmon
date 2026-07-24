@@ -26,10 +26,10 @@ public struct ExplorationAccumulatorConfig: Equatable, Sendable {
     public let totalSpeciesCount: Int
 
     public init(
-        minimumEncounterThresholdTokens: Int64 = 3_600,
-        startingEncounterThresholdMaxTokens: Int64 = 5_200,
-        completionEncounterThresholdMinTokens: Int64 = 14_000,
-        maximumEncounterThresholdTokens: Int64 = 18_000,
+        minimumEncounterThresholdTokens: Int64 = 360,
+        startingEncounterThresholdMaxTokens: Int64 = 520,
+        completionEncounterThresholdMinTokens: Int64 = 1_400,
+        maximumEncounterThresholdTokens: Int64 = 1_800,
         encounterThresholdQuantumTokens: Int64 = 20,
         totalSpeciesCount: Int = 151
     ) {
@@ -74,10 +74,10 @@ public struct ExplorationAccumulatorConfig: Equatable, Sendable {
     /// species the player has captured. Uses a quadratic curve so the threshold
     /// stays low through mid-game and ramps steeply near completion.
     ///
-    /// - 0 captured:   ~3.6K – 5.2K (fast encounters, early game)
-    /// - ~75 captured:  ~6.2K – 8.5K (mid game)
-    /// - ~120 captured: ~10.1K – 13.2K (approaching completion)
-    /// - 151 captured: ~14K – 18K (slow encounters, late game)
+    /// - 0 captured:   ~360 – 520 (fast encounters, early game)
+    /// - ~75 captured:  ~620 – 850 (mid game)
+    /// - ~120 captured: ~1,010 – 1,320 (approaching completion)
+    /// - 151 captured: ~1,400 – 1,800 (slow encounters, late game)
     public func scaledThresholdRange(capturedSpeciesCount: Int) -> (min: Int64, max: Int64) {
         let total = max(1, totalSpeciesCount)
         let clamped = min(max(0, capturedSpeciesCount), total)

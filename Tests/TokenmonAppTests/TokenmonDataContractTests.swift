@@ -466,14 +466,14 @@ struct TokenmonDataContractTests {
         let earlyRange = config.scaledThresholdRange(capturedSpeciesCount: 0)
         let lateRange = config.scaledThresholdRange(capturedSpeciesCount: SpeciesCatalog.expectedCount)
 
-        #expect(config.minimumEncounterThresholdTokens == 3_600)
-        #expect(config.startingEncounterThresholdMaxTokens == 5_200)
-        #expect(config.completionEncounterThresholdMinTokens == 14_000)
-        #expect(config.maximumEncounterThresholdTokens == 18_000)
-        #expect(earlyRange.min == 3_600)
-        #expect(earlyRange.max == 5_200)
-        #expect(lateRange.min == 14_000)
-        #expect(lateRange.max == 18_000)
+        #expect(config.minimumEncounterThresholdTokens == 360)
+        #expect(config.startingEncounterThresholdMaxTokens == 520)
+        #expect(config.completionEncounterThresholdMinTokens == 1_400)
+        #expect(config.maximumEncounterThresholdTokens == 1_800)
+        #expect(earlyRange.min == 360)
+        #expect(earlyRange.max == 520)
+        #expect(lateRange.min == 1_400)
+        #expect(lateRange.max == 1_800)
     }
 
     @Test
@@ -692,8 +692,8 @@ struct TokenmonDataContractTests {
         let database = try manager.open()
 
         try manager.applyExplorationOverride(
-            totalNormalizedTokens: 50_000,
-            tokensSinceLastEncounter: 50_000,
+            totalNormalizedTokens: 50,
+            tokensSinceLastEncounter: 50,
             nextEncounterThresholdTokens: 6_000_000
         )
         try upsertStringSetting(
@@ -706,10 +706,10 @@ struct TokenmonDataContractTests {
         let summary = try manager.summary()
         let range = ExplorationAccumulatorConfig().scaledThresholdRange(capturedSpeciesCount: 0)
 
-        #expect(summary.tokensSinceLastEncounter == 50_000)
+        #expect(summary.tokensSinceLastEncounter == 50)
         #expect(summary.nextEncounterThresholdTokens >= range.min)
         #expect(summary.nextEncounterThresholdTokens <= range.max)
-        #expect(summary.tokensUntilNextEncounter == summary.nextEncounterThresholdTokens - 50_000)
+        #expect(summary.tokensUntilNextEncounter == summary.nextEncounterThresholdTokens - 50)
     }
 
     @Test
