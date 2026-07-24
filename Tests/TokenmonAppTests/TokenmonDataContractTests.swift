@@ -5915,6 +5915,47 @@ struct TokenmonDataContractTests {
     }
 
     @Test
+    func activeRaidInstanceClearsWhenReconciledDamageExceedsSeededHP() throws {
+        let manager = try makeManager(prefix: "raid-overkill-reconcile")
+        let database = try manager.open()
+
+        _ = try manager.raidDashboardSummary(
+            asOf: ISO8601DateFormatter().date(from: "2026-04-23T00:00:00Z")!
+        )
+        try database.execute(
+            """
+            UPDATE raid_instances
+            SET status = 'active',
+                current_hp = 9000,
+                total_damage = 1400,
+                cleared_at = NULL
+            WHERE raid_id = 'raid_2026_04_april_vault';
+            """
+        )
+
+        _ = try manager.raidDashboardSummary(
+            asOf: ISO8601DateFormatter().date(from: "2026-04-23T00:05:00Z")!
+        )
+
+        let instance = try database.fetchOne(
+            """
+            SELECT status, current_hp, cleared_at
+            FROM raid_instances
+            WHERE raid_id = 'raid_2026_04_april_vault';
+            """
+        ) { statement in
+            (
+                SQLiteDatabase.columnText(statement, index: 0),
+                SQLiteDatabase.columnInt64(statement, index: 1),
+                SQLiteDatabase.columnOptionalText(statement, index: 2)
+            )
+        }
+        #expect(instance?.0 == RaidInstanceStatus.cleared.rawValue)
+        #expect(instance?.1 == 0)
+        #expect(instance?.2 != nil)
+    }
+
+    @Test
     func newPlayerBlessingBoostsMonthlyRaidDamageForSmallParty() throws {
         let manager = try makeManager(prefix: "raid-new-player-blessing")
         let database = try manager.open()

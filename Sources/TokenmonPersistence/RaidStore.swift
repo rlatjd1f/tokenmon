@@ -646,22 +646,54 @@ private extension TokenmonDatabaseManager {
         at date: Date
     ) throws {
         let now = Self.raidString(from: date)
+        let instanceBefore = try raidInstance(database: database, raidID: raid.raidID)
+        let shouldClear = instanceBefore.map {
+            ($0.status == .active || $0.status == .upcoming)
+                && $0.totalDamage >= raid.maxHP
+                && raid.maxHP > 0
+        } ?? false
         try database.execute(
             """
             UPDATE raid_instances
-            SET current_hp = max(0, ? - total_damage),
+            SET status = CASE
+                    WHEN total_damage >= ? THEN 'cleared'
+                    ELSE status
+                END,
+                current_hp = max(0, ? - total_damage),
+                cleared_at = CASE
+                    WHEN total_damage >= ? THEN COALESCE(cleared_at, ?)
+                    ELSE cleared_at
+                END,
                 updated_at = ?
             WHERE raid_id = ?
               AND status IN ('upcoming', 'active')
-              AND current_hp != max(0, ? - total_damage);
+              AND (
+                  current_hp != max(0, ? - total_damage)
+                  OR (total_damage >= ? AND status != 'cleared')
+              );
             """,
             bindings: [
                 .integer(raid.maxHP),
+                .integer(raid.maxHP),
+                .integer(raid.maxHP),
+                .text(now),
                 .text(now),
                 .text(raid.raidID),
                 .integer(raid.maxHP),
+                .integer(raid.maxHP),
             ]
         )
+        if shouldClear, let instanceBefore {
+            try acquireClearRewards(
+                database: database,
+                raid: raid,
+                instanceID: instanceBefore.rowID,
+                usageSampleID: 0,
+                occurredAt: now,
+                correlationID: nil
+            )
+            try evaluateAchievementBadges(database: database, occurredAt: now)
+        }
     }
 
     func raidInstance(database: SQLiteDatabase, raidID: String) throws -> RaidInstanceRecord? {
