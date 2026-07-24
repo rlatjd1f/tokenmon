@@ -37,7 +37,7 @@ public enum RaidCatalog {
         activeStartAt: nil,
         activeEndAt: nil,
         settlementGraceSeconds: 600,
-        maxHP: 30,
+        maxHP: 6,
         axisWeights: RaidAxisWeights(
             planning: 20,
             design: 20,
@@ -65,7 +65,7 @@ public enum RaidCatalog {
         activeStartAt: nil,
         activeEndAt: nil,
         settlementGraceSeconds: 600,
-        maxHP: 25_000,
+        maxHP: 5_000,
         axisWeights: RaidAxisWeights(
             planning: 15,
             design: 20,
@@ -92,7 +92,7 @@ public enum RaidCatalog {
             targetArtKey: "raid_target_2026_04_clovercore_sentinel",
             rewardTitle: "April Spark Relic",
             field: .grassland,
-            maxHP: 1_200,
+            maxHP: 240,
             axisWeights: RaidAxisWeights(planning: 24, design: 16, frontend: 18, backend: 18, pm: 14, infra: 10),
             preferredTraitTags: ["Deep Focus", "Clean Coder", "Early Bird"]
         ),
@@ -104,7 +104,7 @@ public enum RaidCatalog {
             targetArtKey: "raid_target_2026_05_petalwarden_sentinel",
             rewardTitle: "May Bloom Relic",
             field: .grassland,
-            maxHP: 7_800,
+            maxHP: 1_560,
             axisWeights: RaidAxisWeights(planning: 18, design: 24, frontend: 22, backend: 12, pm: 14, infra: 10),
             preferredTraitTags: ["Pixel Perfect", "Quick Prototyper", "Icon Artist"]
         ),
@@ -118,7 +118,7 @@ public enum RaidCatalog {
             targetArtKey: "raid_target_2026_06_glyphvault_sentinel",
             rewardTitle: "June Token Relic",
             field: .coast,
-            maxHP: 8_400,
+            maxHP: 1_680,
             axisWeights: RaidAxisWeights(planning: 15, design: 30, frontend: 25, backend: 10, pm: 10, infra: 10),
             preferredTraitTags: ["Pixel Perfect", "Quick Prototyper", "Icon Artist"]
         ),
@@ -130,7 +130,7 @@ public enum RaidCatalog {
             targetArtKey: "raid_target_2026_07_starcall_sentinel",
             rewardTitle: "July Signal Relic",
             field: .sky,
-            maxHP: 9_000,
+            maxHP: 1_800,
             axisWeights: RaidAxisWeights(planning: 16, design: 16, frontend: 24, backend: 18, pm: 10, infra: 16),
             preferredTraitTags: ["Quick Prototyper", "Night Owl", "Clean Coder"]
         ),
@@ -142,7 +142,7 @@ public enum RaidCatalog {
             targetArtKey: "raid_target_2026_08_emberforge_sentinel",
             rewardTitle: "August Ember Relic",
             field: .coast,
-            maxHP: 9_600,
+            maxHP: 1_920,
             axisWeights: RaidAxisWeights(planning: 14, design: 18, frontend: 20, backend: 24, pm: 8, infra: 16),
             preferredTraitTags: ["Clean Coder", "Deep Focus", "Bug Hunter"]
         ),
@@ -154,7 +154,7 @@ public enum RaidCatalog {
             targetArtKey: "raid_target_2026_09_archivist_sentinel",
             rewardTitle: "September Archive Relic",
             field: .ice,
-            maxHP: 10_200,
+            maxHP: 2_040,
             axisWeights: RaidAxisWeights(planning: 24, design: 12, frontend: 14, backend: 24, pm: 10, infra: 16),
             preferredTraitTags: ["Deep Focus", "Bug Hunter", "Clean Coder"]
         ),
@@ -166,7 +166,7 @@ public enum RaidCatalog {
             targetArtKey: "raid_target_2026_10_moonmask_sentinel",
             rewardTitle: "October Shadow Relic",
             field: .sky,
-            maxHP: 10_800,
+            maxHP: 2_160,
             axisWeights: RaidAxisWeights(planning: 18, design: 18, frontend: 16, backend: 18, pm: 12, infra: 18),
             preferredTraitTags: ["Night Owl", "Deep Focus", "Quick Prototyper"]
         ),
@@ -178,7 +178,7 @@ public enum RaidCatalog {
             targetArtKey: "raid_target_2026_11_kernelgear_sentinel",
             rewardTitle: "November Kernel Relic",
             field: .ice,
-            maxHP: 11_400,
+            maxHP: 2_280,
             axisWeights: RaidAxisWeights(planning: 14, design: 12, frontend: 16, backend: 28, pm: 8, infra: 22),
             preferredTraitTags: ["Bug Hunter", "Clean Coder", "Deep Focus"]
         ),
@@ -190,7 +190,7 @@ public enum RaidCatalog {
             targetArtKey: "raid_target_2026_12_auroracrown_sentinel",
             rewardTitle: "December Aurora Relic",
             field: .ice,
-            maxHP: 12_000,
+            maxHP: 2_400,
             axisWeights: RaidAxisWeights(planning: 20, design: 20, frontend: 18, backend: 14, pm: 12, infra: 16),
             preferredTraitTags: ["Deep Focus", "Pixel Perfect", "Clean Coder"]
         ),
