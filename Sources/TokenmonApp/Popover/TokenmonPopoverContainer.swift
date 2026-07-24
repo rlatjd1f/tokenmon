@@ -168,29 +168,60 @@ struct TokenmonPopoverContainer: View {
     }
 
     private var compactShell: some View {
-        HStack(spacing: 0) {
-            content
-                .frame(
-                    minWidth: layoutStyle.contentWidth,
-                    maxWidth: layoutStyle.contentWidth,
-                    maxHeight: .infinity,
-                    alignment: .topLeading
+        VStack(spacing: 0) {
+            if reservesFloatingTitlebar {
+                compactFloatingTitlebarSpacer
+            }
+
+            HStack(spacing: 0) {
+                content
+                    .frame(
+                        minWidth: layoutStyle.contentWidth,
+                        maxWidth: layoutStyle.contentWidth,
+                        maxHeight: .infinity,
+                        alignment: .topLeading
+                    )
+
+                Divider()
+
+                TokenmonPopoverSidebar(
+                    activeTab: $activeTab,
+                    actions: TokenmonPopoverSidebarActions(
+                        openSettings: { actions.openSettings(.general) },
+                        quit: actions.quit,
+                        openDeveloperTools: actions.openDeveloperTools,
+                        toggleFloatingPanelPin: model.appSettings.surfacePresentationMode == .floatingPanel
+                            ? actions.toggleFloatingPanelPin
+                            : nil,
+                        floatingPanelPinned: model.appSettings.floatingPanelAlwaysOnTop
+                    )
                 )
+            }
+        }
+    }
+
+    private var reservesFloatingTitlebar: Bool {
+        model.appSettings.surfacePresentationMode == .floatingPanel
+    }
+
+    private var compactFloatingTitlebarSpacer: some View {
+        VStack(spacing: 0) {
+            Color(nsColor: .windowBackgroundColor)
+                .opacity(0.94)
+                .frame(height: 31)
+                .overlay(alignment: .bottom) {
+                    LinearGradient(
+                        colors: [
+                            Color.black.opacity(0.18),
+                            Color.black.opacity(0.03)
+                        ],
+                        startPoint: .top,
+                        endPoint: .bottom
+                    )
+                    .frame(height: 8)
+                }
 
             Divider()
-
-            TokenmonPopoverSidebar(
-                activeTab: $activeTab,
-                actions: TokenmonPopoverSidebarActions(
-                    openSettings: { actions.openSettings(.general) },
-                    quit: actions.quit,
-                    openDeveloperTools: actions.openDeveloperTools,
-                    toggleFloatingPanelPin: model.appSettings.surfacePresentationMode == .floatingPanel
-                        ? actions.toggleFloatingPanelPin
-                        : nil,
-                    floatingPanelPinned: model.appSettings.floatingPanelAlwaysOnTop
-                )
-            )
         }
     }
 
