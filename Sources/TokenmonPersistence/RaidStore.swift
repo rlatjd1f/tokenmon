@@ -439,14 +439,8 @@ private extension TokenmonDatabaseManager {
 
     func currentDisplayRaid(database: SQLiteDatabase, asOf reference: Date) throws -> RaidDefinition? {
         let raids = try raidDefinitions(database: database)
-        for scheduled in raids
-            .filter({ $0.availabilityKind == .scheduled && isActive($0, at: reference) })
-            .sorted(by: raidPrioritySort)
-        {
-            let instance = try ensureRaidInstance(database: database, raid: scheduled, status: .active, at: reference)
-            if instance.status == .active || instance.status == .upcoming {
-                return scheduled
-            }
+        if let raid = try currentRepeatableRaid(database: database, raids: raids, at: reference) {
+            return raid
         }
 
         for tutorial in raids.filter({ $0.availabilityKind == .tutorialAlways }).sorted(by: tutorialRaidPrioritySort) {
@@ -461,15 +455,8 @@ private extension TokenmonDatabaseManager {
 
     func currentAttackableRaid(database: SQLiteDatabase, at observedDate: Date) throws -> RaidDefinition? {
         let raids = try raidDefinitions(database: database)
-
-        for raid in raids
-            .filter({ $0.availabilityKind == .scheduled && isActive($0, at: observedDate) })
-            .sorted(by: raidPrioritySort)
-        {
-            let instance = try ensureRaidInstance(database: database, raid: raid, status: .active, at: observedDate)
-            if instance.status == .active || instance.status == .upcoming {
-                return raid
-            }
+        if let raid = try currentRepeatableRaid(database: database, raids: raids, at: observedDate) {
+            return raid
         }
 
         for tutorial in raids.filter({ $0.availabilityKind == .tutorialAlways }).sorted(by: tutorialRaidPrioritySort) {
@@ -482,8 +469,45 @@ private extension TokenmonDatabaseManager {
         return nil
     }
 
+    func currentRepeatableRaid(
+        database: SQLiteDatabase,
+        raids: [RaidDefinition],
+        at reference: Date
+    ) throws -> RaidDefinition? {
+        let scheduledRaids = raids
+            .filter { $0.availabilityKind == .scheduled }
+            .sorted(by: raidCycleSort)
+        guard scheduledRaids.isEmpty == false else {
+            return nil
+        }
+
+        for raid in scheduledRaids {
+            let instance = try ensureRaidInstance(database: database, raid: raid, status: .active, at: reference)
+            switch instance.status {
+            case .active, .upcoming:
+                return raid
+            case .expired, .missed:
+                try resetRaidInstance(database: database, raid: raid, instanceID: instance.rowID, at: reference)
+                return raid
+            case .cleared:
+                continue
+            }
+        }
+
+        let firstRaid = scheduledRaids[0]
+        let instance = try ensureRaidInstance(database: database, raid: firstRaid, status: .active, at: reference)
+        try resetRaidInstance(database: database, raid: firstRaid, instanceID: instance.rowID, at: reference)
+        return firstRaid
+    }
+
     func raidPrioritySort(_ lhs: RaidDefinition, _ rhs: RaidDefinition) -> Bool {
         (lhs.activeStartAt ?? "") > (rhs.activeStartAt ?? "")
+    }
+
+    func raidCycleSort(_ lhs: RaidDefinition, _ rhs: RaidDefinition) -> Bool {
+        let left = lhs.activeStartAt ?? lhs.raidID
+        let right = rhs.activeStartAt ?? rhs.raidID
+        return left == right ? lhs.raidID < rhs.raidID : left < right
     }
 
     func tutorialRaidPrioritySort(_ lhs: RaidDefinition, _ rhs: RaidDefinition) -> Bool {
@@ -691,6 +715,40 @@ private extension TokenmonDatabaseManager {
             )
             try evaluateAchievementBadges(database: database, occurredAt: now)
         }
+    }
+
+    func resetRaidInstance(
+        database: SQLiteDatabase,
+        raid: RaidDefinition,
+        instanceID: Int64,
+        at date: Date
+    ) throws {
+        let now = Self.raidString(from: date)
+        try database.execute(
+            "DELETE FROM raid_attacks WHERE raid_instance_id = ?;",
+            bindings: [.integer(instanceID)]
+        )
+        try database.execute(
+            """
+            UPDATE raid_instances
+            SET status = ?,
+                current_hp = ?,
+                total_attacks = 0,
+                total_damage = 0,
+                started_at = ?,
+                cleared_at = NULL,
+                expired_at = NULL,
+                updated_at = ?
+            WHERE raid_instance_id = ?;
+            """,
+            bindings: [
+                .text(RaidInstanceStatus.active.rawValue),
+                .integer(raid.maxHP),
+                .text(now),
+                .text(now),
+                .integer(instanceID),
+            ]
+        )
     }
 
     func raidInstance(database: SQLiteDatabase, raidID: String) throws -> RaidInstanceRecord? {
@@ -1061,79 +1119,8 @@ private extension TokenmonDatabaseManager {
     }
 
     func settleExpiredRaids(database: SQLiteDatabase, asOf reference: Date) throws {
-        let raids = try raidDefinitions(database: database)
-        for raid in raids where isExpired(raid, asOf: reference) {
-            let instance = try ensureRaidInstance(database: database, raid: raid, status: .expired, at: reference)
-            guard instance.status != .cleared else {
-                continue
-            }
-            let now = Self.raidString(from: reference)
-            if instance.status != .expired && instance.status != .missed {
-                try database.execute(
-                    """
-                    UPDATE raid_instances
-                    SET status = ?,
-                        expired_at = COALESCE(expired_at, ?),
-                        updated_at = ?
-                    WHERE raid_instance_id = ?;
-                    """,
-                    bindings: [
-                        .text(RaidInstanceStatus.expired.rawValue),
-                        .text(now),
-                        .text(now),
-                        .integer(instance.rowID),
-                    ]
-                )
-            }
-
-            let expiredEventID = "\(TokenmonDomainEventType.raidExpired.rawValue):\(raid.raidID)"
-            if try domainEventExists(database: database, eventID: expiredEventID) == false {
-                try DomainEventStore.persist(
-                    database: database,
-                    envelope: DomainEventEnvelope(
-                        eventID: expiredEventID,
-                        eventType: TokenmonDomainEventType.raidExpired.rawValue,
-                        occurredAt: now,
-                        producer: "TokenmonPersistence.RaidStore",
-                        aggregateType: "raid_instance",
-                        aggregateID: String(instance.rowID),
-                        payload: RaidExpiredEventPayload(
-                            raidID: raid.raidID,
-                            raidInstanceID: instance.rowID,
-                            totalAttacks: instance.totalAttacks,
-                            totalDamage: instance.totalDamage
-                        )
-                    )
-                )
-            }
-
-            for reward in try rewardDefinitions(database: database, raidID: raid.raidID) where reward.grantRule == .clear {
-                let existingStatus = try rewardArchiveStatus(database: database, rewardID: reward.rewardID)?.status
-                guard existingStatus != .acquired, existingStatus != .missed else {
-                    continue
-                }
-                try upsertRewardArchiveEntry(
-                    database: database,
-                    reward: reward,
-                    status: .missed,
-                    occurredAt: now
-                )
-                try persistRewardArchiveEvent(
-                    database: database,
-                    reward: reward,
-                    status: .missed,
-                    occurredAt: now,
-                    correlationID: nil
-                )
-                try persistRewardArchiveRecordedEvent(
-                    database: database,
-                    reward: reward,
-                    status: .missed,
-                    occurredAt: now,
-                    correlationID: nil
-                )
-            }
-        }
+        _ = database
+        _ = reference
     }
 
     func acquireClearRewards(

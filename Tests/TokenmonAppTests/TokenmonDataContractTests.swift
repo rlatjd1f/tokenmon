@@ -6027,7 +6027,7 @@ struct TokenmonDataContractTests {
     }
 
     @Test
-    func clearedMonthlyRaidFallsBackToPracticeDisplayDuringActiveMonth() throws {
+    func clearedRepeatableRaidAdvancesToNextRaid() throws {
         let manager = try makeManager(prefix: "raid-cleared-month-display")
         let database = try manager.open()
 
@@ -6053,12 +6053,12 @@ struct TokenmonDataContractTests {
             asOf: ISO8601DateFormatter().date(from: "2026-04-23T00:02:00Z")!
         )
 
-        #expect(dashboard.currentRaid?.raidID == "raid_practice_token_vault")
+        #expect(dashboard.currentRaid?.raidID == "raid_2026_05_may_vault")
         #expect(dashboard.currentRaid?.currentHP ?? 0 > 0)
     }
 
     @Test
-    func raidDashboardDoesNotDisplayFutureRaidWhenNoRaidIsAttackable() throws {
+    func repeatableRaidCycleRestartsAfterEveryRaidIsCleared() throws {
         let manager = try makeManager(prefix: "raid-no-future-display")
         let database = try manager.open()
 
@@ -6067,42 +6067,44 @@ struct TokenmonDataContractTests {
         )
         try database.execute(
             """
+            INSERT OR IGNORE INTO raid_instances (
+                raid_id,
+                status,
+                current_hp,
+                total_attacks,
+                total_damage,
+                first_seen_at,
+                started_at,
+                cleared_at,
+                updated_at
+            )
+            SELECT raid_id,
+                   'cleared',
+                   0,
+                   1,
+                   max_hp,
+                   '2026-07-24T00:00:00Z',
+                   '2026-07-24T00:00:00Z',
+                   '2026-07-24T00:01:00Z',
+                   '2026-07-24T00:01:00Z'
+            FROM raid_definitions
+            WHERE availability_kind = 'scheduled';
+            """
+        )
+        try database.execute(
+            """
             UPDATE raid_instances
             SET status = 'cleared',
                 current_hp = 0,
+                total_attacks = max(1, total_attacks),
+                total_damage = max(1, total_damage),
                 cleared_at = '2026-07-24T00:01:00Z',
                 updated_at = '2026-07-24T00:01:00Z'
-            WHERE raid_id = 'raid_2026_07_july_vault';
-            """
-        )
-
-        _ = try manager.raidDashboardSummary(
-            asOf: ISO8601DateFormatter().date(from: "2026-07-24T00:01:15Z")!
-        )
-
-        try database.execute(
-            """
-            UPDATE raid_instances
-            SET status = 'cleared',
-                current_hp = 0,
-                cleared_at = '2026-07-24T00:01:20Z',
-                updated_at = '2026-07-24T00:01:20Z'
-            WHERE raid_id = 'raid_tutorial_first_spark';
-            """
-        )
-
-        _ = try manager.raidDashboardSummary(
-            asOf: ISO8601DateFormatter().date(from: "2026-07-24T00:01:30Z")!
-        )
-
-        try database.execute(
-            """
-            UPDATE raid_instances
-            SET status = 'cleared',
-                current_hp = 0,
-                cleared_at = '2026-07-24T00:01:45Z',
-                updated_at = '2026-07-24T00:01:45Z'
-            WHERE raid_id = 'raid_practice_token_vault';
+            WHERE raid_id IN (
+                SELECT raid_id
+                FROM raid_definitions
+                WHERE availability_kind = 'scheduled'
+            );
             """
         )
 
@@ -6110,7 +6112,11 @@ struct TokenmonDataContractTests {
             asOf: ISO8601DateFormatter().date(from: "2026-07-24T00:02:00Z")!
         )
 
-        #expect(dashboard.currentRaid == nil)
+        #expect(dashboard.currentRaid?.raidID == "raid_2026_04_april_vault")
+        #expect(dashboard.currentRaid?.status == .active)
+        #expect(dashboard.currentRaid?.currentHP == 12_000)
+        #expect(dashboard.currentRaid?.totalAttacks == 0)
+        #expect(dashboard.currentRaid?.totalDamage == 0)
     }
 
     @Test
@@ -6178,8 +6184,8 @@ struct TokenmonDataContractTests {
             asOf: ISO8601DateFormatter().date(from: "2027-01-02T00:03:00Z")!
         )
 
-        #expect(attackRaidID == "raid_practice_token_vault")
-        #expect(dashboard.currentRaid?.raidID == "raid_practice_token_vault")
+        #expect(attackRaidID == "raid_2026_04_april_vault")
+        #expect(dashboard.currentRaid?.raidID == "raid_2026_04_april_vault")
         #expect((dashboard.currentRaid?.totalAttacks ?? 0) == 1)
     }
 
@@ -6265,6 +6271,17 @@ struct TokenmonDataContractTests {
             )
             try manager.addToParty(speciesID: speciesID)
         }
+        _ = try manager.raidDashboardSummary(
+            asOf: ISO8601DateFormatter().date(from: "2026-03-02T00:00:30Z")!
+        )
+        try database.execute(
+            """
+            UPDATE raid_instances
+            SET current_hp = 50,
+                total_damage = 11950
+            WHERE raid_id = 'raid_2026_04_april_vault';
+            """
+        )
 
         let service = UsageSampleIngestionService(databasePath: manager.path)
         var events: [ProviderUsageSampleEvent] = []
@@ -6291,7 +6308,7 @@ struct TokenmonDataContractTests {
             """
             SELECT status, acquired_at
             FROM reward_archive_entries
-            WHERE reward_id = 'reward_first_spark_trophy'
+            WHERE reward_id = 'reward_2026_04_april_relic'
             LIMIT 1;
             """
         ) { statement in
