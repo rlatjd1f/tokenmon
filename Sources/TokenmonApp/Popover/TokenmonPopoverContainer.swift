@@ -208,17 +208,17 @@ struct TokenmonPopoverContainer: View {
         VStack(spacing: 0) {
             Color(nsColor: .windowBackgroundColor)
                 .opacity(0.94)
-                .frame(height: 31)
+                .frame(height: 22)
                 .overlay(alignment: .bottom) {
                     LinearGradient(
                         colors: [
-                            Color.black.opacity(0.18),
+                            Color.black.opacity(0.12),
                             Color.black.opacity(0.03)
                         ],
                         startPoint: .top,
                         endPoint: .bottom
                     )
-                    .frame(height: 8)
+                    .frame(height: 4)
                 }
 
             Divider()
